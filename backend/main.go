@@ -274,7 +274,11 @@ func main() {
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
-	srv := &http.Server{Addr: addr, Handler: r}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 
 	go func() {
 		log.Printf("quipthread listening on %s", addr)
@@ -316,14 +320,6 @@ func openStore(cfg *config.Config) (db.Store, error) {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	return db.NewSQLiteStore(url)
-}
-
-// dbFromReq returns the tenant store from context if available, falling back to the global store.
-func dbFromReq(r *http.Request, fallback db.Store) db.Store {
-	if s, ok := db.StoreFromContext(r.Context()); ok {
-		return s
-	}
-	return fallback
 }
 
 func buildRateLimiter(spec string, defaultCount int, defaultPeriod time.Duration) middleware.RateLimiter {
@@ -415,4 +411,3 @@ const devTestPage = `<!DOCTYPE html>
   <script src="/embed.js"></script>
 </body>
 </html>`
-

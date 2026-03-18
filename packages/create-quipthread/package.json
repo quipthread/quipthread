@@ -1,7 +1,7 @@
 {
-  "name": "create-quipthread",
+  "name": "@quipthread/create-quipthread",
   "version": "0.1.0",
-  "description": "Scaffold Quipthread comment widget into your project",
+  "description": "Set up Quipthread: add comments to your site, scaffold a self-hosted project, or deploy to a platform",
   "type": "module",
   "bin": {
     "create-quipthread": "./dist/index.js"
@@ -13,7 +13,16 @@
   "files": [
     "dist"
   ],
-  "keywords": ["quipthread", "comments", "scaffold"],
+  "keywords": ["quipthread", "comments", "scaffold", "self-hosted"],
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quipthread/quipthread"
+  },
+  "homepage": "https://quipthread.com",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@clack/prompts": "^0.9.0"
   },

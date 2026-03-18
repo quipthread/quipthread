@@ -102,7 +102,12 @@ func (h *ModRulesHandler) Import(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(body.URL)
+	fetchReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, body.URL, nil)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid URL")
+		return
+	}
+	resp, err := client.Do(fetchReq)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "failed to fetch URL")
 		return

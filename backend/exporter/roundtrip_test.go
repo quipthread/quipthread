@@ -2,7 +2,6 @@ package exporter
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 	"time"
 
@@ -175,30 +174,4 @@ func commentIDs(comments []*models.Comment) map[string]bool {
 		m[c.ID] = true
 	}
 	return m
-}
-
-// seed inserts n approved comments for the given site/user into store.
-func seedComments(t *testing.T, store db.Store, siteID, userID string, n int) {
-	t.Helper()
-	now := time.Now().UTC()
-	batch := make([]*models.Comment, n)
-	for i := range batch {
-		batch[i] = &models.Comment{
-			ID:        fmt.Sprintf("seed-%d", i),
-			SiteID:    siteID,
-			PageID:    "/",
-			UserID:    userID,
-			Content:   "x",
-			Status:    "approved",
-			Imported:  true,
-			CreatedAt: now,
-		}
-	}
-	inserted, err := store.ImportComments(siteID, batch)
-	if err != nil {
-		t.Fatalf("seedComments: %v", err)
-	}
-	if inserted != n {
-		t.Fatalf("seedComments: expected %d inserted, got %d", n, inserted)
-	}
 }

@@ -5,21 +5,29 @@ run:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
-    - ineffassign
     - staticcheck
-    - unused
+    - ineffassign
     - gofmt
     - goimports
     - misspell
     - unconvert
     - unparam
     - noctx
+    - revive
+    - gosec
+    - bodyclose
 
 linters-settings:
   goimports:
     local-prefixes: github.com/quipthread/quipthread
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: error-return
+      - name: error-strings
+      - name: exported
 
 issues:
   exclude-rules:
@@ -27,3 +35,4 @@ issues:
       linters:
         - errcheck
         - unparam
+        - gosec

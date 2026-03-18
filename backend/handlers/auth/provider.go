@@ -13,15 +13,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/quipthread/quipthread/config"
+
 	cloudpkg "github.com/quipthread/quipthread/cloud"
+	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/models"
 	"github.com/quipthread/quipthread/session"
 )
 
-// AuthProvider abstracts OAuth and OAuth-like login flows.
-type AuthProvider interface {
+// Provider abstracts OAuth and OAuth-like login flows.
+type Provider interface {
 	Name() string
 	LoginURL(state string) string
 	ExchangeUser(ctx context.Context, r *http.Request) (*UserInfo, error)
@@ -39,12 +40,12 @@ type UserInfo struct {
 
 // Handler holds shared dependencies for all auth sub-handlers.
 type Handler struct {
-	store       db.Store
-	config      *config.Config
-	cloudStore  cloudpkg.Store
-	github      *GithubProvider
-	google      *GoogleProvider
-	email       *EmailProvider
+	store      db.Store
+	config     *config.Config
+	cloudStore cloudpkg.Store
+	github     *GithubProvider
+	google     *GoogleProvider
+	email      *EmailProvider
 }
 
 func NewHandler(store db.Store, cfg *config.Config) *Handler {
@@ -97,7 +98,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session.ClearCookie(w)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"})
+	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck // error response; connection may already be broken
 }
 
 // --- state cookie helpers ---------------------------------------------------
@@ -419,7 +420,7 @@ func (h *Handler) cloudUpsertAndIssueToken(
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	json.NewEncoder(w).Encode(v) //nolint:errcheck // error response; connection may already be broken
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

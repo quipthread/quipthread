@@ -50,15 +50,15 @@ func (s *SlackNotifier) NotifyBatch(ctx context.Context, b Batch) error {
 				"type": "actions",
 				"elements": []map[string]interface{}{
 					{
-						"type": "button",
-						"text": map[string]interface{}{"type": "plain_text", "text": "Approve"},
-						"url":  approveURL,
+						"type":  "button",
+						"text":  map[string]interface{}{"type": "plain_text", "text": "Approve"},
+						"url":   approveURL,
 						"style": "primary",
 					},
 					{
-						"type": "button",
-						"text": map[string]interface{}{"type": "plain_text", "text": "Reject"},
-						"url":  rejectURL,
+						"type":  "button",
+						"text":  map[string]interface{}{"type": "plain_text", "text": "Reject"},
+						"url":   rejectURL,
 						"style": "danger",
 					},
 				},

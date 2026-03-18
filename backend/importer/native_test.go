@@ -29,12 +29,12 @@ func TestParseNative_Basic(t *testing.T) {
 
 	byID := make(map[string]struct {
 		pageID, pageURL, pageTitle, parentID, content, status string
-		createdAt                                              time.Time
+		createdAt                                             time.Time
 	})
 	for _, c := range result.Comments {
 		byID[c.ID] = struct {
 			pageID, pageURL, pageTitle, parentID, content, status string
-			createdAt                                              time.Time
+			createdAt                                             time.Time
 		}{c.PageID, c.PageURL, c.PageTitle, c.ParentID, c.Content, c.Status, c.CreatedAt}
 	}
 

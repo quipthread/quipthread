@@ -24,12 +24,12 @@ type StatusStat struct {
 }
 
 type PeakHourStat struct {
-	Hour  int `json:"hour"`  // 0–23
+	Hour  int `json:"hour"` // 0–23
 	Count int `json:"count"`
 }
 
 type PeakDayStat struct {
-	Day   int `json:"day"`   // 0=Sunday … 6=Saturday
+	Day   int `json:"day"` // 0=Sunday … 6=Saturday
 	Count int `json:"count"`
 }
 

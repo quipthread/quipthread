@@ -55,10 +55,10 @@ type Config struct {
 	TursoAuthToken string // TURSO_AUTH_TOKEN — appended to libsql:// DSN when set
 
 	// Cloud / billing
-	CloudMode             bool   // CLOUD_MODE — enables Stripe, plan enforcement, Turso provisioning
-	StripeSecretKey       string // STRIPE_SECRET_KEY
-	StripeWebhookSecret   string // STRIPE_WEBHOOK_SECRET
-	StripePrices          StripePrices
+	CloudMode           bool   // CLOUD_MODE — enables Stripe, plan enforcement, Turso provisioning
+	StripeSecretKey     string // STRIPE_SECRET_KEY
+	StripeWebhookSecret string // STRIPE_WEBHOOK_SECRET
+	StripePrices        StripePrices
 
 	// Cloud multi-tenant
 	MasterDatabaseURL string // MASTER_DATABASE_URL — Turso URL for cloud master DB; empty = local SQLite

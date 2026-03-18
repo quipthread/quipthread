@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/quipthread/quipthread/models"
 )
 
@@ -93,24 +94,25 @@ func (s *sqlStore) migrate() error {
 		return err
 	}
 	// Idempotent additive migrations — ignore "duplicate column name" errors.
-	s.db.Exec(`ALTER TABLE sites ADD COLUMN last_notified_at DATETIME`)
-	s.db.Exec(`ALTER TABLE sites ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'`)
-	s.db.Exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`)
+	s.db.Exec(`ALTER TABLE sites ADD COLUMN last_notified_at DATETIME`)                 //nolint:errcheck // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
+	s.db.Exec(`ALTER TABLE sites ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'`)        //nolint:errcheck // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
+	s.db.Exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`) //nolint:errcheck // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
 
 	// Seed the default subscription row if it doesn't exist.
-	s.db.Exec(`INSERT OR IGNORE INTO subscriptions (id) VALUES ('account')`)
+	s.db.Exec(`INSERT OR IGNORE INTO subscriptions (id) VALUES ('account')`) //nolint:errcheck // INSERT OR IGNORE; intentionally idempotent
 
 	// M26: global keyword blocklist table.
-	s.db.Exec(`CREATE TABLE IF NOT EXISTS blocked_terms (
+	const blockedTermsSchema = `CREATE TABLE IF NOT EXISTS blocked_terms (
 		id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
 		term       TEXT NOT NULL UNIQUE,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`)
+	)`
+	s.db.Exec(blockedTermsSchema) //nolint:errcheck // idempotent CREATE TABLE IF NOT EXISTS
 
 	// M33: account-level Turnstile keys
-	s.db.Exec(`ALTER TABLE subscriptions ADD COLUMN turnstile_site_key TEXT NOT NULL DEFAULT ''`)
-	s.db.Exec(`ALTER TABLE subscriptions ADD COLUMN turnstile_secret_key TEXT NOT NULL DEFAULT ''`)
-	s.db.Exec(`ALTER TABLE user_identities ADD COLUMN username TEXT NOT NULL DEFAULT ''`)
+	s.db.Exec(`ALTER TABLE subscriptions ADD COLUMN turnstile_site_key TEXT NOT NULL DEFAULT ''`)   //nolint:errcheck // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
+	s.db.Exec(`ALTER TABLE subscriptions ADD COLUMN turnstile_secret_key TEXT NOT NULL DEFAULT ''`) //nolint:errcheck // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
+	s.db.Exec(`ALTER TABLE user_identities ADD COLUMN username TEXT NOT NULL DEFAULT ''`)           //nolint:errcheck // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
 
 	return nil
 }
@@ -264,7 +266,7 @@ func (s *sqlStore) ImportComments(siteID string, comments []*models.Comment) (in
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // deferred rollback; error is expected when tx already committed
 
 	stmt, err := tx.Prepare(`
 		INSERT OR IGNORE INTO comments
@@ -859,8 +861,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 	// ("2006-01-02 15:04:05.999999999 +0000 UTC"), which SQLite's strftime
 	// cannot parse. substr(created_at, 1, 10) reliably extracts YYYY-MM-DD.
 	sf, sfArgs := siteFilter("")
-	volQuery := `SELECT substr(created_at, 1, 10) AS date, COUNT(*) AS count
-		FROM comments WHERE status = 'approved' ` + sf + ` GROUP BY date ORDER BY date ASC`
+	volQuery := "SELECT substr(created_at, 1, 10) AS date, COUNT(*) AS count FROM comments WHERE status = 'approved' " + sf + " GROUP BY date ORDER BY date ASC" //nolint:gosec // sf built by siteFilter() from validated params, not user input
 	rows, err := s.db.Query(volQuery, sfArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("analytics volume: %w", err)
@@ -895,8 +896,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 
 	// --- Top pages ----------------------------------------------------------
 	sf, sfArgs = siteFilter("")
-	pageQuery := `SELECT page_id, COALESCE(NULLIF(MAX(page_title), ''), page_id) AS page_title, COUNT(*) AS count
-		FROM comments WHERE status = 'approved' ` + sf + ` GROUP BY page_id ORDER BY count DESC LIMIT ?`
+	pageQuery := "SELECT page_id, COALESCE(NULLIF(MAX(page_title), ''), page_id) AS page_title, COUNT(*) AS count FROM comments WHERE status = 'approved' " + sf + " GROUP BY page_id ORDER BY count DESC LIMIT ?" //nolint:gosec // sf built by siteFilter() from validated params, not user input
 	pageRows, err := s.db.Query(pageQuery, append(sfArgs, limit)...)
 	if err != nil {
 		return nil, fmt.Errorf("analytics pages: %w", err)
@@ -912,9 +912,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 
 	// --- Top commenters -----------------------------------------------------
 	sf, sfArgs = siteFilter("c")
-	cQuery := `SELECT COALESCE(NULLIF(u.display_name, ''), c.disqus_author, 'Anonymous') AS display_name, COUNT(*) AS count
-		FROM comments c LEFT JOIN users u ON c.user_id = u.id
-		WHERE c.status = 'approved' ` + sf + ` GROUP BY c.user_id ORDER BY count DESC LIMIT ?`
+	cQuery := "SELECT COALESCE(NULLIF(u.display_name, ''), c.disqus_author, 'Anonymous') AS display_name, COUNT(*) AS count FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.status = 'approved' " + sf + " GROUP BY c.user_id ORDER BY count DESC LIMIT ?" //nolint:gosec // sf built by siteFilter() from validated params, not user input
 	cRows, err := s.db.Query(cQuery, append(sfArgs, limit)...)
 	if err != nil {
 		return nil, fmt.Errorf("analytics commenters: %w", err)
@@ -934,10 +932,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 
 	// --- Pro+: Status breakdown ---------------------------------------------
 	sf, sfArgs = siteFilter("")
-	sbRows, err := s.db.Query(
-		`SELECT status, COUNT(*) AS count FROM comments WHERE 1=1 `+sf+` GROUP BY status`,
-		sfArgs...,
-	)
+	sbRows, err := s.db.Query("SELECT status, COUNT(*) AS count FROM comments WHERE 1=1 "+sf+" GROUP BY status", sfArgs...) //nolint:gosec // sf built by siteFilter() from validated params, not user input
 	if err != nil {
 		return nil, fmt.Errorf("analytics status: %w", err)
 	}
@@ -953,11 +948,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 
 	// --- Pro+: Peak activity by hour ----------------------------------------
 	sf, sfArgs = siteFilter("")
-	hourRows, err := s.db.Query(
-		`SELECT CAST(substr(created_at, 12, 2) AS INTEGER) AS hour, COUNT(*) AS count
-		 FROM comments WHERE status = 'approved' `+sf+` GROUP BY hour ORDER BY hour ASC`,
-		sfArgs...,
-	)
+	hourRows, err := s.db.Query("SELECT CAST(substr(created_at, 12, 2) AS INTEGER) AS hour, COUNT(*) AS count FROM comments WHERE status = 'approved' "+sf+" GROUP BY hour ORDER BY hour ASC", sfArgs...) //nolint:gosec // sf built by siteFilter() from validated params, not user input
 	if err != nil {
 		return nil, fmt.Errorf("analytics peak hours: %w", err)
 	}
@@ -977,11 +968,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 	// --- Pro+: Peak activity by day of week ---------------------------------
 	// strftime('%w', ...) works once we pass a clean YYYY-MM-DD string.
 	sf, sfArgs = siteFilter("")
-	dayRows, err := s.db.Query(
-		`SELECT CAST(strftime('%w', substr(created_at, 1, 10)) AS INTEGER) AS dow, COUNT(*) AS count
-		 FROM comments WHERE status = 'approved' `+sf+` GROUP BY dow ORDER BY dow ASC`,
-		sfArgs...,
-	)
+	dayRows, err := s.db.Query("SELECT CAST(strftime('%w', substr(created_at, 1, 10)) AS INTEGER) AS dow, COUNT(*) AS count FROM comments WHERE status = 'approved' "+sf+" GROUP BY dow ORDER BY dow ASC", sfArgs...) //nolint:gosec // sf built by siteFilter() from validated params, not user input
 	if err != nil {
 		return nil, fmt.Errorf("analytics peak days: %w", err)
 	}
@@ -1075,7 +1062,7 @@ func (s *sqlStore) BulkAddBlockedTerms(terms []string) (added int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // deferred rollback; error is expected when tx already committed
 	stmt, err := tx.Prepare(`INSERT INTO blocked_terms (term) VALUES (?) ON CONFLICT(term) DO NOTHING`)
 	if err != nil {
 		return 0, err

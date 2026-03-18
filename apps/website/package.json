@@ -1,9 +1,9 @@
 {
   "name": "@quipthread/website",
   "dependencies": {
-    "@astrojs/starlight": "^0.37.6",
+    "@astrojs/starlight": "^0.38.1",
     "@knadh/oat": "latest",
-    "astro": "^5.18.0"
+    "astro": "^6.0.6"
   },
   "private": true,
   "scripts": {

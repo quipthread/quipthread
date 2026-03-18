@@ -219,7 +219,7 @@ func claimsFromContext(r *http.Request) *session.Claims {
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	json.NewEncoder(w).Encode(v) //nolint:errcheck // error response; connection may already be broken
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/quipthread/quipthread/db"
 )
 
@@ -119,7 +120,7 @@ func HandleApprovalAction(store db.Store) http.HandlerFunc {
 		_ = store.DeleteApprovalToken(token)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck // error response; connection may already be broken
 			"ok":     true,
 			"status": comment.Status,
 		})
@@ -129,7 +130,7 @@ func HandleApprovalAction(store db.Store) http.HandlerFunc {
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	json.NewEncoder(w).Encode(map[string]string{"error": msg}) //nolint:errcheck // error response; connection may already be broken
 }
 
 // approvalPageHTML is a self-contained server-rendered page styled with

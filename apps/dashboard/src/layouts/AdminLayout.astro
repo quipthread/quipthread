@@ -1,4 +1,5 @@
 ---
+import { ClientRouter, fade } from 'astro:transitions'
 import NavPlanSync from '../components/NavPlanSync'
 
 interface Props {
@@ -26,6 +27,7 @@ const { title, page } = Astro.props
       const p = localStorage.getItem('qt-plan')
       if (p) document.documentElement.dataset.plan = p
     </script>
+    <ClientRouter />
   </head>
   <body>
     <div class="shell">
@@ -75,15 +77,18 @@ const { title, page } = Astro.props
           <button class="nav-logout" id="nav-logout">Sign out</button>
         </div>
       </aside>
-      <main class="main">
+      <main class="main" transition:animate={fade({ duration: '0.15s' })}>
         <slot />
       </main>
     </div>
     <NavPlanSync client:load />
-    <script is:inline>
-      document.getElementById('nav-logout').addEventListener('click', async function() {
-        await fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(function(){})
-        window.location.href = '/login'
+    <script>
+      document.addEventListener('astro:page-load', () => {
+        const btn = document.getElementById('nav-logout')
+        if (btn) btn.addEventListener('click', async () => {
+          await fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
+          window.location.href = '/login'
+        })
       })
     </script>
   </body>

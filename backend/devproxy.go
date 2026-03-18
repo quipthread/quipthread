@@ -65,7 +65,7 @@ func proxyWebSocket(target *url.URL, w http.ResponseWriter, r *http.Request) {
 
 	done := make(chan struct{}, 2)
 	cp := func(a, b net.Conn) {
-		io.Copy(a, b)
+		io.Copy(a, b) //nolint:errcheck // dev proxy; bidirectional copy errors are not actionable
 		done <- struct{}{}
 	}
 	go cp(dst, src)

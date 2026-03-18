@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
+	_ "modernc.org/sqlite" // register modernc/sqlite driver
+
 	"github.com/quipthread/quipthread/models"
-	_ "modernc.org/sqlite"
 )
 
 // ColumnInfo describes a single column in an inspected table.
@@ -27,10 +28,10 @@ type TableInfo struct {
 // comment fields. All values are column names from the source table.
 // At least one of PageID / PageURL and Content must be set.
 type ColumnMapping struct {
-	Table        string            `json:"table"`
-	Columns      map[string]string `json:"columns"`      // quipthread_field → source_column
-	StripDomain  bool              `json:"strip_domain"` // derive page_id from page_url
-	WrapInP      bool              `json:"wrap_in_p"`    // wrap plain-text content in <p>
+	Table       string            `json:"table"`
+	Columns     map[string]string `json:"columns"`      // quipthread_field → source_column
+	StripDomain bool              `json:"strip_domain"` // derive page_id from page_url
+	WrapInP     bool              `json:"wrap_in_p"`    // wrap plain-text content in <p>
 }
 
 // openReadOnly opens a SQLite file read-only. The caller is responsible for
@@ -210,7 +211,7 @@ func ImportMappedSQLite(path string, m ColumnMapping, allowedCols map[string]boo
 		return nil, fmt.Errorf("no column mappings provided")
 	}
 
-	query := fmt.Sprintf(`SELECT %s FROM %q`, strings.Join(selects, ", "), m.Table)
+	query := fmt.Sprintf(`SELECT %s FROM %q`, strings.Join(selects, ", "), m.Table) //nolint:gosec // table name from validated config mapping, not user input
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)

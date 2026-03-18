@@ -14,7 +14,7 @@ import (
 
 // SMTPNotifier sends HTML email digests via a standard SMTP server.
 type SMTPNotifier struct {
-	cfg       *config.Config
+	cfg        *config.Config
 	ownerEmail func(ownerID string) string // resolves site owner email; may return ""
 }
 

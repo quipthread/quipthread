@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/google/uuid"
 	cloudpkg "github.com/quipthread/quipthread/cloud"
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
@@ -673,7 +673,7 @@ func (h *Handler) CloudResetPage(w http.ResponseWriter, r *http.Request) {
 func writeErrorCode(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": code})
+	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": code}) //nolint:errcheck // error response; connection may already be broken
 }
 
 // renderEmailPage renders a minimal branded result page (success or error).

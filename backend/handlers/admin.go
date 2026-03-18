@@ -288,4 +288,3 @@ func (h *AdminHandler) CreateSite(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, site)
 }
-

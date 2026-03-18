@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/models"
@@ -70,7 +71,7 @@ func runDispatch(ctx context.Context, store db.Store, notifier Notifier, cfg *co
 			continue
 		}
 
-		approveURLs, rejectURLs, err := generateTokenURLs(ctx, store, comments, cfg.BaseURL)
+		approveURLs, rejectURLs, err := generateTokenURLs(store, comments, cfg.BaseURL)
 		if err != nil {
 			log.Printf("notifications dispatcher: generate tokens for site %s: %v", site.ID, err)
 			continue
@@ -105,7 +106,6 @@ func shouldNotify(site *models.Site, count, batchSize int, cooldown time.Duratio
 }
 
 func generateTokenURLs(
-	ctx context.Context,
 	store db.Store,
 	comments []*models.Comment,
 	baseURL string,

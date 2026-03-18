@@ -15,8 +15,8 @@ import (
 // This makes the parser version-agnostic.
 
 type wpRSS struct {
-	XMLName xml.Name    `xml:"rss"`
-	Items   []wpItem    `xml:"channel>item"`
+	XMLName xml.Name `xml:"rss"`
+	Items   []wpItem `xml:"channel>item"`
 }
 
 type wpItem struct {

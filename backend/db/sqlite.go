@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // register modernc/sqlite driver
 )
 
 type SQLiteStore struct{ sqlStore }

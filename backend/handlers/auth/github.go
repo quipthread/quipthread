@@ -47,7 +47,11 @@ func (p *GithubProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	}
 
 	client := p.oauth2Config.Client(ctx, token)
-	resp, err := client.Get("https://api.github.com/user")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create github user request: %w", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch github user: %w", err)
 	}
@@ -65,7 +69,7 @@ func (p *GithubProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	}
 
 	if ghUser.Email == "" {
-		if email, err := fetchGithubPrimaryEmail(token.AccessToken); err == nil {
+		if email, err := fetchGithubPrimaryEmail(ctx, token.AccessToken); err == nil {
 			ghUser.Email = email
 		}
 	}
@@ -85,8 +89,8 @@ func (p *GithubProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	}, nil
 }
 
-func fetchGithubPrimaryEmail(accessToken string) (string, error) {
-	req, err := http.NewRequest("GET", "https://api.github.com/user/emails", nil)
+func fetchGithubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", nil)
 	if err != nil {
 		return "", err
 	}

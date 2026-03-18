@@ -9,10 +9,10 @@ import (
 )
 
 type remark42Comment struct {
-	ID      string `json:"id"`
-	PID     string `json:"pid"` // parent ID; "" = top-level
-	Text    string `json:"text"`
-	User    struct {
+	ID   string `json:"id"`
+	PID  string `json:"pid"` // parent ID; "" = top-level
+	Text string `json:"text"`
+	User struct {
 		Name    string `json:"name"`
 		ID      string `json:"id"`
 		Picture string `json:"picture"`

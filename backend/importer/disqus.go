@@ -8,12 +8,6 @@ import (
 	"github.com/quipthread/quipthread/models"
 )
 
-// Disqus uses two XML namespaces. Element names use the default namespace
-// (http://disqus.com) and the dsq: prefix maps to the internals namespace.
-// Go's encoding/xml matches unqualified element tags against any namespace,
-// so only the attribute namespace needs to be explicit.
-const disqusInternalNS = "http://disqus.com/disqus-internals"
-
 type disqusThread struct {
 	ID    string `xml:"http://disqus.com/disqus-internals id,attr"`
 	Link  string `xml:"link"`
