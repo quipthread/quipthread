@@ -1,0 +1,306 @@
+---
+import SignupForm from '../components/SignupForm'
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign up — Quipthread</title>
+    <link rel="icon" href="/dashboard/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Lora:wght@600&family=Syne:wght@700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="auth-shell">
+      <main class="auth-main">
+        <SignupForm client:load />
+      </main>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --ink:          #0F0F0F;
+    --ink-mid:      #1A1A1A;
+    --paper:        #F7F4EF;
+    --surface:      #EEEBE4;
+    --border:       #D9D4CB;
+    --muted:        #7A7570;
+    --text:         #1A1714;
+    --card-bg:      #FFFFFF;
+
+    --amber:        #C06020;
+    --amber-hi:     #E07F32;
+    --amber-bg:     #F5E0CE;
+    --amber-border: #DDB08C;
+
+    --red-text:     #991B1B;
+    --red-bg:       #FEE2E2;
+    --red-border:   #FCA5A5;
+
+    --f-display: 'Lora', Georgia, serif;
+    --f-ui:      'DM Sans', system-ui, sans-serif;
+    --f-mono:    'ui-monospace', 'SF Mono', 'Fira Code', monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink:          #F0EDE7;
+      --ink-mid:      #E8E3DC;
+      --paper:        #111110;
+      --surface:      #1C1B19;
+      --border:       #2E2C29;
+      --muted:        #8A8480;
+      --text:         #E8E3DC;
+      --card-bg:      #1A1918;
+
+      --amber:        #E07F32;
+      --amber-hi:     #F09550;
+      --amber-bg:     rgba(224, 127, 50, 0.15);
+      --amber-border: rgba(224, 127, 50, 0.35);
+
+      --red-text:     #FCA5A5;
+      --red-bg:       rgba(127, 29, 29, 0.4);
+      --red-border:   rgba(252, 165, 165, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #D8D4CE;
+      border-color: #D8D4CE;
+    }
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--text);
+    font-family: var(--f-ui);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .auth-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+  }
+
+  /* Auth card */
+  .auth-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .auth-card-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .auth-brand {
+    font-family: 'Syne', system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+
+  .auth-card-body {
+    padding: 1.75rem 1.5rem 1.5rem;
+  }
+
+  .auth-title {
+    margin: 0 0 0.25rem;
+    font-family: var(--f-display);
+    font-size: 1.375rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .auth-subtitle {
+    margin: 0 0 1.5rem;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+
+  /* OAuth buttons */
+  .oauth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    padding: 0.625rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text);
+    font-family: var(--f-ui);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  .oauth-btn:hover {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  /* Divider */
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  .auth-divider::before,
+  .auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Form fields */
+  .field {
+    margin-bottom: 0.875rem;
+  }
+
+  .field label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .field input {
+    width: 100%;
+    font-family: var(--f-ui);
+    font-size: 0.9375rem;
+    color: var(--text);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .field input:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px var(--amber-bg);
+  }
+
+  .field input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Shared button styles */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-family: var(--f-ui);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--surface);
+  }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #2D2D2D;
+    border-color: #2D2D2D;
+  }
+
+  /* Error message */
+  .error-msg {
+    color: var(--red-text);
+    background: var(--red-bg);
+    border: 1px solid var(--red-border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  /* Footer link */
+  .auth-footer {
+    margin: 1.25rem 0 0;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .auth-footer a {
+    color: var(--amber);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .auth-footer a:hover {
+    text-decoration: underline;
+  }
+
+  .forgot-link {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .forgot-link:hover {
+    color: var(--amber);
+    text-decoration: underline;
+  }
+</style>

@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../layouts/AdminLayout.astro'
+import AuthGuard from '../components/AuthGuard'
+import SitesPanel from '../components/SitesPanel'
+---
+
+<AdminLayout title="Sites" page="sites">
+  <AuthGuard client:load>
+    <SitesPanel client:load />
+  </AuthGuard>
+</AdminLayout>

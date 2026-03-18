@@ -1,0 +1,8 @@
+# Replace example.com with your domain.
+# Caddy automatically obtains and renews TLS certificates via Let's Encrypt.
+
+example.com {
+    reverse_proxy app:8080
+
+    encode zstd gzip
+}

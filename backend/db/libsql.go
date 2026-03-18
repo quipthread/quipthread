@@ -1,0 +1,26 @@
+package db
+
+import (
+	"database/sql"
+	"fmt"
+
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
+)
+
+type LibSQLStore struct{ sqlStore }
+
+func NewLibSQLStore(dsn string) (*LibSQLStore, error) {
+	db, err := sql.Open("libsql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open libsql: %w", err)
+	}
+
+	store := &LibSQLStore{sqlStore{db: db}}
+	if err := store.migrate(); err != nil {
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+
+	return store, nil
+}
+
+func (s *LibSQLStore) Close() error { return s.db.Close() }

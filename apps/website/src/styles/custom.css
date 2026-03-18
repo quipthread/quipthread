@@ -1,0 +1,128 @@
+/* Quipthread brand overrides for Starlight */
+
+/* ── Dark mode (default) ────────────────────────────────
+   Scoped to :not([data-theme="light"]) so that Starlight's own
+   [data-theme="light"] rules are not overridden by cascade order.
+   Starlight sets data-theme="dark" by default, so this selector
+   always matches in dark mode. */
+:root:not([data-theme="light"]) {
+  --sl-color-accent:        #E07F32;
+  --sl-color-accent-high:   #F0A06A;
+  --sl-color-accent-low:    #2a1508;
+
+  --sl-color-bg:            #0F0F0F;
+  --sl-color-bg-sidebar:    #1A1A1A;
+  --sl-color-bg-inline-code:#1A1A1A;
+
+  --sl-color-text:          #E8E3DC;
+  --sl-color-text-accent:   #E07F32;
+
+  /* Gray scale: 1 = lightest (most readable on dark), 6 = darkest */
+  --sl-color-gray-1:        #E8E3DC;
+  --sl-color-gray-2:        #B0A89E;
+  --sl-color-gray-3:        #2A2A2A;
+  --sl-color-gray-4:        #1A1A1A;
+  --sl-color-gray-5:        #141414;
+  --sl-color-gray-6:        #0F0F0F;
+  --sl-color-hairline:      #2A2A2A;
+
+  --sl-font: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Light mode ─────────────────────────────────────────
+   Quipthread Paper palette — warm off-white with amber accent. */
+[data-theme="light"] {
+  --sl-color-accent:        #C06020;
+  --sl-color-accent-high:   #9A4A15;
+  --sl-color-accent-low:    #F5E0CE;
+
+  --sl-color-bg:            #F7F4EF;
+  --sl-color-bg-sidebar:    #EEEBE4;
+  --sl-color-bg-inline-code:#E6E1D8;
+
+  --sl-color-text:          #1A1714;
+  --sl-color-text-accent:   #C06020;
+
+  /* Gray scale: 1 = darkest (most readable on light), 6 = lightest */
+  --sl-color-gray-1:        #1A1714;
+  --sl-color-gray-2:        #3D3833;
+  --sl-color-gray-3:        #D9D4CB;
+  --sl-color-gray-4:        #EEEBE4;
+  --sl-color-gray-5:        #F3F0EA;
+  --sl-color-gray-6:        #F7F4EF;
+  --sl-color-hairline:      #D9D4CB;
+
+  --sl-font: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Site title — match homepage wordmark ───────────────── */
+.site-title {
+  font-family: 'Syne', system-ui, sans-serif !important;
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--sl-color-text) !important;
+}
+/* Pierce Astro's scoped [astro-*] styles on the inner <span> */
+.site-title span {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--sl-color-text) !important;
+}
+
+/* ── Heading sizes ─────────────────────────────────────── */
+.sl-markdown-content h1 { font-size: 1.75rem !important; line-height: 1.2; }
+.sl-markdown-content h2 { font-size: 1.375rem !important; line-height: 1.25; }
+.sl-markdown-content h3 { font-size: 1.125rem !important; }
+.sl-markdown-content h4 { font-size: 1rem !important; }
+
+/* ── Social icons — use text color, gold only on hover ─── */
+.social-icons a {
+  color: var(--sl-color-gray-1) !important;
+}
+.social-icons a:hover {
+  color: var(--sl-color-accent) !important;
+}
+
+/* ── TOC "On this page" links — explicit theming ──────── */
+/* Override Starlight's use of --sl-color-white on hover,
+   which becomes invisible in light mode. */
+starlight-toc a,
+mobile-starlight-toc a {
+  color: var(--sl-color-gray-2) !important;
+}
+starlight-toc a:hover,
+starlight-toc a:focus,
+mobile-starlight-toc a:hover,
+mobile-starlight-toc a:focus {
+  color: var(--sl-color-text) !important;
+}
+starlight-toc a[aria-current="true"],
+mobile-starlight-toc a[aria-current="true"] {
+  color: var(--sl-color-text-accent) !important;
+}
+
+/* ── Active sidebar link ───────────────────────────────── */
+[aria-current="page"] {
+  color: var(--sl-color-accent) !important;
+  background-color: var(--sl-color-accent-low) !important;
+}
+
+/* ── Headings ──────────────────────────────────────────── */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3 {
+  letter-spacing: -0.02em;
+}
+
+/* ── Code blocks ───────────────────────────────────────── */
+.sl-markdown-content pre {
+  border: 1px solid var(--sl-color-hairline);
+}
+
+/* ── Inline code ───────────────────────────────────────── */
+.sl-markdown-content code {
+  color: var(--sl-color-text-accent);
+  background-color: var(--sl-color-bg-inline-code);
+}

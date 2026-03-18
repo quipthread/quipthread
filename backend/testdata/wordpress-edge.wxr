@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:wp="http://wordpress.org/export/1.2/">
+  <channel>
+    <item>
+      <title>Edge Cases</title>
+      <link>https://example.com/edge-cases/</link>
+
+      <!-- Pingback — excluded -->
+      <wp:comment>
+        <wp:comment_id>10</wp:comment_id>
+        <wp:comment_author>Some Site</wp:comment_author>
+        <wp:comment_author_email></wp:comment_author_email>
+        <wp:comment_date>2024-02-01 10:00:00</wp:comment_date>
+        <wp:comment_content><![CDATA[Pingback from some-site.com]]></wp:comment_content>
+        <wp:comment_approved>1</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type>pingback</wp:comment_type>
+      </wp:comment>
+
+      <!-- Trackback — excluded -->
+      <wp:comment>
+        <wp:comment_id>11</wp:comment_id>
+        <wp:comment_author>Another Site</wp:comment_author>
+        <wp:comment_author_email></wp:comment_author_email>
+        <wp:comment_date>2024-02-01 10:05:00</wp:comment_date>
+        <wp:comment_content><![CDATA[Trackback from another-site.com]]></wp:comment_content>
+        <wp:comment_approved>1</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type>trackback</wp:comment_type>
+      </wp:comment>
+
+      <!-- Spam — excluded -->
+      <wp:comment>
+        <wp:comment_id>12</wp:comment_id>
+        <wp:comment_author>Spammer</wp:comment_author>
+        <wp:comment_author_email>spam@example.com</wp:comment_author_email>
+        <wp:comment_date>2024-02-01 10:10:00</wp:comment_date>
+        <wp:comment_content><![CDATA[Buy cheap meds!]]></wp:comment_content>
+        <wp:comment_approved>spam</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type></wp:comment_type>
+      </wp:comment>
+
+      <!-- Trash — excluded -->
+      <wp:comment>
+        <wp:comment_id>13</wp:comment_id>
+        <wp:comment_author>Someone</wp:comment_author>
+        <wp:comment_author_email>someone@example.com</wp:comment_author_email>
+        <wp:comment_date>2024-02-01 10:15:00</wp:comment_date>
+        <wp:comment_content><![CDATA[Trashed comment.]]></wp:comment_content>
+        <wp:comment_approved>trash</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type></wp:comment_type>
+      </wp:comment>
+
+      <!-- Plain text content — should be wrapped in <p> -->
+      <wp:comment>
+        <wp:comment_id>14</wp:comment_id>
+        <wp:comment_author>Carol White</wp:comment_author>
+        <wp:comment_author_email>carol@example.com</wp:comment_author_email>
+        <wp:comment_date>2024-02-01 11:00:00</wp:comment_date>
+        <wp:comment_content><![CDATA[Just plain text, no HTML tags.]]></wp:comment_content>
+        <wp:comment_approved>1</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type></wp:comment_type>
+      </wp:comment>
+
+      <!-- HTML content — should pass through unchanged -->
+      <wp:comment>
+        <wp:comment_id>15</wp:comment_id>
+        <wp:comment_author>Carol White</wp:comment_author>
+        <wp:comment_author_email>carol@example.com</wp:comment_author_email>
+        <wp:comment_date>2024-02-01 12:00:00</wp:comment_date>
+        <wp:comment_content><![CDATA[<p>Already <strong>HTML</strong> content.</p>]]></wp:comment_content>
+        <wp:comment_approved>1</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type></wp:comment_type>
+      </wp:comment>
+
+      <!-- HTML entities in author name — XML decoder unescapes automatically -->
+      <wp:comment>
+        <wp:comment_id>16</wp:comment_id>
+        <wp:comment_author>J&amp;J Smith</wp:comment_author>
+        <wp:comment_author_email>jj@example.com</wp:comment_author_email>
+        <wp:comment_date>2024-02-01 13:00:00</wp:comment_date>
+        <wp:comment_content><![CDATA[<p>Author name has an ampersand.</p>]]></wp:comment_content>
+        <wp:comment_approved>1</wp:comment_approved>
+        <wp:comment_parent>0</wp:comment_parent>
+        <wp:comment_type></wp:comment_type>
+      </wp:comment>
+
+    </item>
+  </channel>
+</rss>

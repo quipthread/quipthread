@@ -1,0 +1,138 @@
+---
+title: Docker Deployment
+description: Deploy Quipthread using Docker Compose with automatic TLS via Caddy.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The repository includes a production-ready Docker Compose setup with:
+
+- **Multi-stage Dockerfile** — builds the dashboard, embed widget, and Go binary in a single `docker compose up --build`
+- **Caddy** — automatic HTTPS via Let's Encrypt
+- **Litestream** — optional continuous SQLite backup to S3 or any S3-compatible bucket (Cloudflare R2, MinIO, etc.)
+
+## Quick start
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/quipthread/quipthread
+cd quipthread
+```
+
+### 2. Create your `.env`
+
+```bash
+cp .env.docker.example .env
+```
+
+Open `.env` and fill in at minimum:
+
+```bash
+JWT_SECRET=<output of: openssl rand -hex 32>
+BASE_URL=https://comments.example.com
+ALLOWED_ORIGINS=https://comments.example.com
+
+# At least one auth provider
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+```
+
+See [Environment Variables](/docs/reference/environment-variables/) for the full list. For OAuth setup, see [OAuth Setup](/docs/guides/oauth-setup/).
+
+### 3. Update the Caddyfile
+
+Edit `deploy/Caddyfile` and replace `example.com` with your domain:
+
+```
+comments.example.com {
+    reverse_proxy app:8080
+    encode zstd gzip
+}
+```
+
+Caddy automatically obtains and renews a TLS certificate from Let's Encrypt. Your server needs ports 80 and 443 open.
+
+### 4. Deploy
+
+```bash
+docker compose up -d --build
+```
+
+The first build takes a few minutes (installs npm deps, compiles the dashboard and embed widget, builds the Go binary). Subsequent builds are fast thanks to layer caching.
+
+Navigate to `https://comments.example.com/login`. The first user to sign in is promoted to admin automatically.
+
+---
+
+## Local testing (no domain required)
+
+To test the full Docker build locally without a domain or TLS:
+
+1. Start only the app service and expose port 8080 directly:
+
+```bash
+docker compose run --service-ports -e DATABASE_URL=/data/db.sqlite app
+```
+
+2. Or add a `docker-compose.override.yml` (gitignored) to expose the port:
+
+```yaml
+services:
+  app:
+    ports:
+      - "8080:8080"
+```
+
+Then `docker compose up --build app` and access `http://localhost:8080`.
+
+---
+
+## Litestream backup (optional)
+
+Litestream replicates your SQLite database to an S3-compatible bucket in near real-time. If your server loses its volume, you restore from the replica with no data loss beyond the last few seconds.
+
+Add to your `.env`:
+
+```bash
+LITESTREAM_REPLICA_URL=s3://your-bucket/quipthread/db.sqlite
+LITESTREAM_ACCESS_KEY_ID=...
+LITESTREAM_SECRET_ACCESS_KEY=...
+```
+
+The entrypoint script automatically detects these variables and starts Litestream replication. Leave them unset to run without backup.
+
+**Using Cloudflare R2:**
+
+Add to `deploy/litestream.yml`:
+
+```yaml
+access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+
+dbs:
+  - path: /data/db.sqlite
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        endpoint: https://<account-id>.r2.cloudflarestorage.com
+        force-path-style: true
+```
+
+**Local dev with MinIO:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+This overlay starts a MinIO container so you can test Litestream replication locally without a real S3 bucket.
+
+---
+
+## Upgrading
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+The Go binary runs database migrations automatically on startup — no manual schema changes needed.

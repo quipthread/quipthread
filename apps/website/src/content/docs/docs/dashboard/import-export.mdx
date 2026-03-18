@@ -1,0 +1,62 @@
+---
+title: Import & Export
+description: Import comments from other platforms and export your data.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Import
+
+The **Import** tab in the dashboard lets you migrate comment data from other systems into Quipthread.
+
+### Supported import formats
+
+| Format | Description |
+|---|---|
+| Disqus XML | Export file from Disqus (`disqus-export.xml`) |
+| WordPress WXR | WordPress export file containing comments |
+| Remark42 JSON | Remark42 backup JSON |
+| Native JSON | Quipthread's own export format (round-trips cleanly) |
+| SQLite file | Attach a Quipthread SQLite database file directly |
+
+### How to import
+
+1. Open the **Import** tab in the dashboard.
+2. Select the source format.
+3. Upload the export file.
+4. Comments are inserted into the selected site.
+
+<Aside>
+  Imported comments do not count toward monthly comment limits.
+</Aside>
+
+## Export
+
+Export your comment data from the **Sites** tab. Click the expand arrow on a site row to reveal the export controls.
+
+### Supported export formats
+
+| Format | Availability |
+|---|---|
+| Native JSON | All plans |
+| CSV | Starter plan and above (cloud only) |
+
+The native JSON format is the recommended format for backups — it round-trips cleanly through the importer.
+
+### Filter options
+
+Before exporting you can narrow the data:
+
+| Filter | Options |
+|---|---|
+| Status | Approved only, or all comments (including pending and rejected) |
+| Date range | From and to dates |
+| Page ID | Restrict to a single page |
+
+### How to export
+
+1. Open the **Sites** tab and expand the export accordion for your site.
+2. Choose the format and set any filters.
+3. Click **Export** — the browser will download the file directly.
+
+Exports stream from the server, so large datasets do not require the entire result set to be held in memory.

@@ -1,0 +1,33 @@
+# Environment
+.env
+.env.local
+.env.example
+
+# Scripts (local tooling only, not pushed to either repo)
+scripts/
+
+# Database
+backend/data/
+
+# Go build output
+backend/quipthread
+backend/*.exe
+
+# Node
+node_modules/
+
+# Build output
+embed/dist/
+apps/*/dist/
+apps/*/.astro/
+
+# macOS
+.DS_Store
+
+# Claude
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp

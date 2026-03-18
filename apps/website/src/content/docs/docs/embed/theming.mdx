@@ -1,0 +1,70 @@
+---
+title: Theming
+description: Theme presets and dynamic theming for the Quipthread embed widget.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The widget ships with a set of built-in theme presets. The active theme can be set via the dashboard, via a `data-theme` attribute on the container element, or driven dynamically from your page.
+
+## Setting a theme
+
+**Via the container element** — set `data-theme` on the `<div id="comments">` element:
+
+```html
+<div
+  id="comments"
+  data-site-id="YOUR_SITE_ID"
+  data-page-id="YOUR_PAGE_ID"
+  data-theme="dark"
+></div>
+```
+
+**Via the dashboard** — open the Sites tab, find your site, and choose a theme from the theme picker. This value is fetched by the widget on load.
+
+**Priority order:**
+1. `data-theme` on the container element (non-`auto` value)
+2. Theme set in the dashboard for the site
+3. `auto` (system preference)
+
+## The `auto` theme
+
+When the theme is `auto` (or not specified), the widget uses a CSS `prefers-color-scheme` media query to switch between a light and dark appearance automatically. This is the default.
+
+## Dynamic theme switching
+
+The widget watches the container element for `data-theme` attribute changes using a `MutationObserver`. When the attribute changes, the widget updates its appearance immediately — no reload required.
+
+```js
+// Toggle theme from your own page code
+const container = document.getElementById('comments')
+container.dataset.theme = 'dark'
+```
+
+Setting `data-theme` back to `auto` (or removing it) causes the widget to fall back to the dashboard-configured theme.
+
+## Available presets
+
+| Name | Description |
+|---|---|
+| `auto` | Follows system `prefers-color-scheme`; light by default, dark when the system is in dark mode |
+| `light` | Default light appearance (warm off-white background, amber accent) |
+| `dark` | Default dark appearance (near-black background, amber accent) |
+| `catppuccin-latte` | Catppuccin Latte — light pastel theme with blue accent |
+| `catppuccin-frappe` | Catppuccin Frappé — cool medium-dark theme with lavender accent |
+| `catppuccin-macchiato` | Catppuccin Macchiato — darker cool theme with blue accent |
+| `catppuccin-mocha` | Catppuccin Mocha — darkest Catppuccin variant with blue accent |
+| `dracula` | Dracula — dark purple/grey theme with purple accent |
+| `nord` | Nord — cool arctic dark theme with teal accent |
+| `gruvbox-light` | Gruvbox Light — warm retro light theme with orange accent |
+| `gruvbox-dark` | Gruvbox Dark — warm retro dark theme with yellow accent |
+| `tokyo-night` | Tokyo Night — deep blue-dark theme with blue accent |
+| `rose-pine` | Rosé Pine — dark purple-tinted theme with mauve accent |
+| `rose-pine-dawn` | Rosé Pine Dawn — soft warm light theme with purple accent |
+| `solarized-light` | Solarized Light — classic cream light theme with blue accent |
+| `solarized-dark` | Solarized Dark — classic teal-dark theme with blue accent |
+| `one-dark` | One Dark — Atom-style dark grey theme with blue accent |
+
+<Aside>
+  All themes are bundled in the widget CSS — no additional requests are made when switching presets.
+</Aside>

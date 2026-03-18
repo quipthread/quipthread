@@ -1,0 +1,33 @@
+---
+title: Overview
+description: Quipthread is an open source comment system — use the managed cloud or self-host on your own infrastructure.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Quipthread is an open source comment system for any website. You can use the managed cloud (no server required) or run the single Go binary on your own infrastructure.
+
+## What you get
+
+- **Threaded comments** — two-level reply threads with a rich text editor (bold, italic, code, links, lists)
+- **Moderation queue** — approve, reject, or delete comments from the dashboard; bulk actions supported
+- **Multi-provider auth** — GitHub OAuth, Google OAuth, and email+password
+- **Analytics** — comment and user activity charts with 7-day, 30-day, and all-time views
+- **Moderation rules** — blocked terms list with optional URL import; matched comments are auto-rejected
+- **Notifications** — email (SMTP or API), Telegram, Slack, Discord, and generic webhook
+- **Import and export** — migrate from Disqus, WordPress, Remark42, or import native JSON/SQLite; export as JSON or CSV
+- **No external database required** — ships with SQLite; Turso/libSQL supported for cloud deployments
+
+## Two paths
+
+### Use the managed cloud
+
+Sign up at [quipthread.com/signup](https://quipthread.com/signup) and get started in minutes. No server, no binary, no configuration required.
+
+[Get started with Quipthread Cloud](/docs/cloud/getting-started/)
+
+### Self-host
+
+Run the backend on any Linux server. One binary, one `.env` file, no external dependencies.
+
+[Self-Hosting Guide](/docs/guides/self-hosting/)

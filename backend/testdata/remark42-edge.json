@@ -1,0 +1,41 @@
+[
+  {
+    "id": "e1",
+    "pid": "",
+    "text": "<p>This comment was deleted.</p>",
+    "user": {
+      "name": "Carol White",
+      "id": "user:carol",
+      "picture": ""
+    },
+    "locator": { "url": "https://example.com/post" },
+    "timestamp": "2024-02-01T10:00:00Z",
+    "deleted": true
+  },
+  {
+    "id": "e2",
+    "pid": "",
+    "text": "<p>Comment with no locator URL.</p>",
+    "user": {
+      "name": "Dave Brown",
+      "id": "user:dave",
+      "picture": ""
+    },
+    "locator": { "url": "" },
+    "timestamp": "2024-02-01T11:00:00Z",
+    "deleted": false
+  },
+  {
+    "id": "e3",
+    "pid": "",
+    "text": "<p>User has no ID field, falls back to name.</p>",
+    "user": {
+      "name": "Eve Green",
+      "id": "",
+      "picture": ""
+    },
+    "locator": { "url": "https://example.com/post" },
+    "timestamp": "2024-02-01T12:00:00Z",
+    "deleted": false
+  }
+]

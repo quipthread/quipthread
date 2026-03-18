@@ -1,0 +1,124 @@
+---
+title: Environment Variables
+description: Complete reference for all Quipthread backend environment variables.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+All configuration is loaded from environment variables (or a `.env` file in the working directory). Variables without a default are optional unless otherwise noted.
+
+## Required
+
+| Variable | Default | Description |
+|---|---|---|
+| `JWT_SECRET` | — | **Required.** Secret key used to sign session tokens. Generate with `openssl rand -hex 32`. |
+
+## Server
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8080` | TCP port the HTTP server listens on. |
+| `BASE_URL` | `http://localhost:8080` | Public base URL of the backend. Must match the OAuth redirect URI registered with your provider. |
+
+## Database
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `./data/comments.db` | Path to the SQLite database file, or a `libsql://` URL for a Turso database. |
+
+## Auth — OAuth
+
+| Variable | Default | Description |
+|---|---|---|
+| `GITHUB_CLIENT_ID` | — | GitHub OAuth app client ID. |
+| `GITHUB_CLIENT_SECRET` | — | GitHub OAuth app client secret. |
+| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID. |
+| `GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret. |
+
+See [OAuth Setup](/docs/guides/oauth-setup/) for how to create these credentials.
+
+## Auth — Email
+
+| Variable | Default | Description |
+|---|---|---|
+| `EMAIL_AUTH_ENABLED` | `false` | Set to `true` to enable email+password registration and login. |
+| `SMTP_HOST` | — | SMTP server hostname. |
+| `SMTP_PORT` | `587` | SMTP server port. |
+| `SMTP_USER` | — | SMTP authentication username. |
+| `SMTP_PASS` | — | SMTP authentication password. |
+| `SMTP_FROM` | — | Sender address for all outgoing email. |
+| `EMAIL_PROVIDER` | — | Transactional email API provider. Accepted values: `resend`, `postmark`, `sendgrid`. |
+| `EMAIL_API_KEY` | — | API key for the configured `EMAIL_PROVIDER`. |
+
+See [Email Authentication](/docs/guides/email-auth/) for details.
+
+## CORS
+
+| Variable | Default | Description |
+|---|---|---|
+| `ALLOWED_ORIGINS` | — | Comma-separated list of allowed CORS origins (e.g. `https://example.com,https://www.example.com`). Leave unset to allow all origins. |
+
+## Rate limiting
+
+| Variable | Default | Description |
+|---|---|---|
+| `RATE_LIMIT_COMMENTS` | `5/10m` | Rate limit for comment submissions. Format: `count/duration` where duration uses Go time syntax (e.g. `10m`, `1h`). `5/10m` means 5 requests per 10 minutes per IP. |
+| `RATE_LIMIT_AUTH` | `10/5m` | Rate limit for auth endpoints. Same format as above. |
+
+## Spam filtering
+
+| Variable | Default | Description |
+|---|---|---|
+| `SPAM_MAX_LINKS` | `3` | Maximum number of links (hrefs or bare URLs) allowed in a comment before it is auto-rejected as spam. |
+
+## Notifications
+
+| Variable | Default | Description |
+|---|---|---|
+| `NOTIFY_BATCH_SIZE` | `5` | Number of pending comments to accumulate before sending a notification. |
+| `NOTIFY_COOLDOWN_HOURS` | `24` | Minimum hours between notification sends. |
+| `NOTIFY_EMAIL_TO` | — | Fallback notification recipient email address, used when the site owner has no email address on their account. |
+| `TELEGRAM_BOT_TOKEN` | — | Telegram bot token. |
+| `TELEGRAM_CHAT_ID` | — | Telegram chat, group, or channel ID to post notifications to. |
+| `SLACK_WEBHOOK_URL` | — | Slack incoming webhook URL. |
+| `DISCORD_WEBHOOK_URL` | — | Discord channel webhook URL. |
+| `WEBHOOK_URL` | — | Generic HTTP endpoint to POST notification payloads to. |
+
+See [Notifications](/docs/guides/notifications/) for details on each channel.
+
+## Bot protection
+
+| Variable | Default | Description |
+|---|---|---|
+| `TURNSTILE_SITE_KEY` | — | Cloudflare Turnstile site key. Served to the embed widget to render the challenge. |
+| `TURNSTILE_SECRET_KEY` | — | Cloudflare Turnstile secret key. Used for server-side token verification. |
+
+Both variables must be set to enable Turnstile bot protection. Leave both unset to disable it.
+
+## Turso / libSQL
+
+| Variable | Default | Description |
+|---|---|---|
+| `TURSO_AUTH_TOKEN` | — | Auth token appended to `libsql://` database connections. Required when `DATABASE_URL` is a Turso URL. |
+
+## Cloud / billing
+
+<Aside>
+  These variables are only relevant when running in cloud mode (`CLOUD_MODE=true`). Self-hosted deployments do not need them.
+</Aside>
+
+| Variable | Default | Description |
+|---|---|---|
+| `CLOUD_MODE` | `false` | Set to `true` to enable plan enforcement, Stripe billing, and multi-tenant provisioning. |
+| `STRIPE_SECRET_KEY` | — | Stripe secret API key. |
+| `STRIPE_WEBHOOK_SECRET` | — | Stripe webhook signing secret for verifying incoming events. |
+| `STRIPE_PRICE_STARTER_MONTHLY` | — | Stripe price ID for the Starter monthly plan. |
+| `STRIPE_PRICE_STARTER_YEARLY` | — | Stripe price ID for the Starter yearly plan. |
+| `STRIPE_PRICE_PRO_MONTHLY` | — | Stripe price ID for the Pro monthly plan. |
+| `STRIPE_PRICE_PRO_YEARLY` | — | Stripe price ID for the Pro yearly plan. |
+| `STRIPE_PRICE_BUSINESS_MONTHLY` | — | Stripe price ID for the Business monthly plan. |
+| `STRIPE_PRICE_BUSINESS_YEARLY` | — | Stripe price ID for the Business yearly plan. |
+| `MASTER_DATABASE_URL` | — | Turso URL for the cloud master database. When unset, a local SQLite file is used. |
+| `TENANT_DATA_DIR` | `data/tenants` | Directory for per-tenant SQLite database files. |
+| `TURSO_API_TOKEN` | — | Turso Platform API management token for provisioning per-tenant databases. |
+| `TURSO_ORGANIZATION` | — | Turso organization slug used for database provisioning. |

@@ -1,0 +1,59 @@
+---
+title: Email Authentication
+description: Enable email and password auth in Quipthread.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Email authentication is disabled by default. When enabled, users can register with an email address and password, verify their address via a link, and reset their password through email.
+
+## Enable email auth
+
+```bash
+EMAIL_AUTH_ENABLED=true
+```
+
+You must also configure at least one email delivery method (SMTP or an email API provider) for verification and password reset emails to be sent.
+
+## Delivery options
+
+<Tabs>
+  <TabItem label="SMTP">
+
+Configure a standard SMTP server:
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587          # default: 587
+SMTP_USER=user@example.com
+SMTP_PASS=your-password
+SMTP_FROM=noreply@example.com
+```
+
+`SMTP_PORT` defaults to `587`. Most providers use port 587 with STARTTLS or port 465 with TLS.
+
+  </TabItem>
+  <TabItem label="Email API">
+
+Use a transactional email API provider instead of SMTP:
+
+```bash
+EMAIL_PROVIDER=resend   # resend | postmark | sendgrid
+EMAIL_API_KEY=your-api-key
+SMTP_FROM=noreply@example.com
+```
+
+`SMTP_FROM` is used as the sender address regardless of which delivery method you choose.
+
+  </TabItem>
+</Tabs>
+
+## What email auth enables
+
+- **Registration**: Users can create an account with name, email, and password (minimum 8 characters).
+- **Email verification**: A verification link is sent on registration. Users cannot log in until their email is verified.
+- **Password reset**: A reset link is sent to the user's email address, valid for one hour.
+
+<Aside>
+  In cloud mode, email authentication is the primary signup method and is always enabled for new accounts regardless of the `EMAIL_AUTH_ENABLED` setting.
+</Aside>

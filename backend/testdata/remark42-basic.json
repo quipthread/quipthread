@@ -1,0 +1,54 @@
+[
+  {
+    "id": "r1",
+    "pid": "",
+    "text": "<p>First comment on the post.</p>",
+    "user": {
+      "name": "Alice Smith",
+      "id": "user:alice",
+      "picture": "https://example.com/alice.jpg"
+    },
+    "locator": { "url": "https://example.com/post" },
+    "timestamp": "2024-01-15T10:00:00Z",
+    "deleted": false
+  },
+  {
+    "id": "r2",
+    "pid": "",
+    "text": "<p>Second top-level comment.</p>",
+    "user": {
+      "name": "Bob Jones",
+      "id": "user:bob",
+      "picture": ""
+    },
+    "locator": { "url": "https://example.com/post" },
+    "timestamp": "2024-01-15T11:00:00Z",
+    "deleted": false
+  },
+  {
+    "id": "r3",
+    "pid": "r1",
+    "text": "<p>Reply to Alice.</p>",
+    "user": {
+      "name": "Bob Jones",
+      "id": "user:bob",
+      "picture": ""
+    },
+    "locator": { "url": "https://example.com/post" },
+    "timestamp": "2024-01-15T11:30:00Z",
+    "deleted": false
+  },
+  {
+    "id": "r4",
+    "pid": "",
+    "text": "<p>Comment on a different page.</p>",
+    "user": {
+      "name": "Alice Smith",
+      "id": "user:alice",
+      "picture": "https://example.com/alice.jpg"
+    },
+    "locator": { "url": "https://example.com/other-page" },
+    "timestamp": "2024-01-16T09:00:00Z",
+    "deleted": false
+  }
+]

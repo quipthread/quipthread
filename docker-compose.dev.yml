@@ -1,0 +1,30 @@
+# Development override: replaces S3 replication with a local MinIO instance.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# MinIO console: http://localhost:9001  (minioadmin / minioadmin)
+services:
+  app:
+    volumes:
+      - data:/data
+      - ./deploy/litestream.minio.yml:/etc/litestream.yml:ro
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  minio-data:

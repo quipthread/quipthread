@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../layouts/AdminLayout.astro'
+import AuthGuard from '../components/AuthGuard'
+import HelpPanel from '../components/HelpPanel'
+---
+
+<AdminLayout title="Help" page="help">
+  <AuthGuard client:load>
+    <HelpPanel client:load />
+  </AuthGuard>
+</AdminLayout>

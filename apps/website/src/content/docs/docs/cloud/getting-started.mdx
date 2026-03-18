@@ -1,0 +1,53 @@
+---
+title: Getting Started with Quipthread Cloud
+description: Sign up for a free Quipthread Cloud account and embed comments on your site in minutes.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Quipthread Cloud is the managed version of Quipthread. You get a fully hosted backend — no server to run, no binary to build.
+
+## 1. Sign up
+
+Go to [quipthread.com/signup](https://quipthread.com/signup). The Hobby plan is free and requires no credit card.
+
+## 2. Create your first site
+
+After signing in you'll be taken through the onboarding wizard. Enter a name and the URL of your website, then click **Create site**. You'll receive a **Site ID** — keep this, you need it for the embed snippet.
+
+## 3. Add the embed snippet
+
+Copy the snippet from the dashboard (Sites tab) and paste it into any page where you want comments. Place the `<div>` where the widget should appear, then add the `<script>` tag:
+
+```html
+<div
+  id="comments"
+  data-site-id="YOUR_SITE_ID"
+  data-page-id="YOUR_PAGE_ID"
+></div>
+<script
+  src="https://YOUR_CLOUD_DOMAIN/embed.js"
+  async
+></script>
+```
+
+Replace `YOUR_SITE_ID` with the ID from the dashboard, and set `data-page-id` to a unique string per page (e.g. the post slug or URL path). The script tag `src` points to your Quipthread Cloud instance.
+
+## 4. Moderate comments
+
+Comments from new users land in the moderation queue. Open the **Moderation** tab in the dashboard to approve, reject, or reply.
+
+<Aside>
+  To upgrade your plan, open the **Billing** tab in the dashboard.
+</Aside>
+
+## Plan limits
+
+| Plan | Comments / month | Sites |
+|---|---|---|
+| Hobby | 1,000 | 1 |
+| Starter | 10,000 | 5 |
+| Pro | 50,000 | 20 |
+| Business | 250,000 | Unlimited |
+
+Hobby and Starter plans are hard-blocked when the monthly limit is reached. Pro and Business plans log an overage but are never blocked.

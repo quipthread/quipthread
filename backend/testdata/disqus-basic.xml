@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<disqus xmlns="http://disqus.com"
+        xmlns:dsq="http://disqus.com/disqus-internals">
+
+  <thread dsq:id="1001">
+    <link>https://example.com/hello-world</link>
+    <title>Hello World</title>
+  </thread>
+
+  <thread dsq:id="1002">
+    <link>https://example.com/another-post</link>
+    <title>Another Post</title>
+  </thread>
+
+  <!-- Top-level comment by alice on thread 1001 -->
+  <post dsq:id="2001">
+    <message>First comment here.</message>
+    <createdAt>2024-01-15T10:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name>Alice Smith</name>
+      <username>alice</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="1001"/>
+    <parent dsq:id=""/>
+  </post>
+
+  <!-- Reply by bob to post 2001 -->
+  <post dsq:id="2002">
+    <message>A reply to Alice.</message>
+    <createdAt>2024-01-15T11:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name>Bob Jones</name>
+      <username>bob</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="1001"/>
+    <parent dsq:id="2001"/>
+  </post>
+
+  <!-- alice again on thread 1002 — same author, different thread, no dedup -->
+  <post dsq:id="2003">
+    <message>Comment on another post.</message>
+    <createdAt>2024-01-16T09:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name>Alice Smith</name>
+      <username>alice</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="1002"/>
+    <parent dsq:id=""/>
+  </post>
+
+</disqus>

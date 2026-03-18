@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<disqus xmlns="http://disqus.com"
+        xmlns:dsq="http://disqus.com/disqus-internals">
+
+  <thread dsq:id="3001">
+    <link>https://example.com/edge-post</link>
+    <title>Edge Cases</title>
+  </thread>
+
+  <!-- Normal comment — included -->
+  <post dsq:id="4001">
+    <message>Normal comment.</message>
+    <createdAt>2024-02-01T10:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name>Carol White</name>
+      <username>carol</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="3001"/>
+    <parent dsq:id=""/>
+  </post>
+
+  <!-- Deleted — excluded -->
+  <post dsq:id="4002">
+    <message>This was deleted.</message>
+    <createdAt>2024-02-01T11:00:00Z</createdAt>
+    <isDeleted>true</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name>Carol White</name>
+      <username>carol</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="3001"/>
+    <parent dsq:id=""/>
+  </post>
+
+  <!-- Spam — excluded -->
+  <post dsq:id="4003">
+    <message>Buy cheap meds now!</message>
+    <createdAt>2024-02-01T12:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>true</isSpam>
+    <author>
+      <name>Spammer</name>
+      <username>spammer</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="3001"/>
+    <parent dsq:id=""/>
+  </post>
+
+  <!-- Orphaned post — thread 9999 has no <thread> element; page fields fall back to empty -->
+  <post dsq:id="4004">
+    <message>My thread is gone.</message>
+    <createdAt>2024-02-01T13:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name>Dave Brown</name>
+      <username>dave</username>
+      <isAnonymous>false</isAnonymous>
+    </author>
+    <thread dsq:id="9999"/>
+    <parent dsq:id=""/>
+  </post>
+
+  <!-- Anonymous — no username, no name; falls back to "anonymous" key -->
+  <post dsq:id="4005">
+    <message>Anonymous comment.</message>
+    <createdAt>2024-02-01T14:00:00Z</createdAt>
+    <isDeleted>false</isDeleted>
+    <isSpam>false</isSpam>
+    <author>
+      <name></name>
+      <username></username>
+      <isAnonymous>true</isAnonymous>
+    </author>
+    <thread dsq:id="3001"/>
+    <parent dsq:id=""/>
+  </post>
+
+</disqus>

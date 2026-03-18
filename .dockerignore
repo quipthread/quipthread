@@ -1,0 +1,21 @@
+.git
+.claude
+.env
+*.env.local
+
+# Node / Bun
+node_modules
+*/node_modules
+
+# Build artifacts (produced during Docker multi-stage build)
+apps/dashboard/dist
+apps/website/dist
+apps/website/.astro
+embed/dist
+backend/static
+
+# Runtime data
+backend/data
+
+# Go build cache
+backend/vendor

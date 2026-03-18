@@ -1,0 +1,27 @@
+{
+  "name": "create-quipthread",
+  "version": "0.1.0",
+  "description": "Scaffold Quipthread comment widget into your project",
+  "type": "module",
+  "bin": {
+    "create-quipthread": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun run build.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": ["quipthread", "comments", "scaffold"],
+  "dependencies": {
+    "@clack/prompts": "^0.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../layouts/AdminLayout.astro'
+import AuthGuard from '../components/AuthGuard'
+import CommentsPanel from '../components/CommentsPanel'
+---
+
+<AdminLayout title="Comments" page="comments">
+  <AuthGuard client:load>
+    <CommentsPanel client:load />
+  </AuthGuard>
+</AdminLayout>

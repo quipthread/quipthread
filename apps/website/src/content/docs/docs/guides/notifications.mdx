@@ -1,0 +1,79 @@
+---
+title: Notifications
+description: Configure new-comment notifications via email, Telegram, Slack, Discord, or webhook.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Quipthread can notify you when new comments are submitted. Notifications are sent in batches after a configurable cooldown period to avoid alert fatigue.
+
+## Supported channels
+
+Any combination of channels can be active simultaneously.
+
+### Email
+
+Delivered via SMTP or an email API provider (same configuration as [email auth](/docs/guides/email-auth/)). Set `NOTIFY_EMAIL_TO` to specify a fallback recipient when the site owner has no email address on their account.
+
+```bash
+# SMTP (reuses the SMTP_* vars)
+SMTP_HOST=smtp.example.com
+SMTP_USER=user@example.com
+SMTP_PASS=your-password
+SMTP_FROM=noreply@example.com
+
+# Or email API
+EMAIL_PROVIDER=resend
+EMAIL_API_KEY=your-api-key
+
+# Fallback recipient
+NOTIFY_EMAIL_TO=you@example.com
+```
+
+### Telegram
+
+```bash
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_CHAT_ID=your-chat-id
+```
+
+Create a bot via [@BotFather](https://t.me/botfather) to get the token. The chat ID can be a personal chat, group, or channel.
+
+### Slack
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
+Create an incoming webhook in your Slack workspace's app settings.
+
+### Discord
+
+```bash
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+```
+
+Create a webhook in your Discord server's channel settings.
+
+### Generic webhook
+
+```bash
+WEBHOOK_URL=https://your-endpoint.example.com/hook
+```
+
+Quipthread posts a JSON payload to this URL for each notification batch.
+
+## Batching and cooldown
+
+To prevent notification floods, Quipthread groups pending comments before sending.
+
+```bash
+NOTIFY_BATCH_SIZE=5      # default: 5 — send when this many comments are queued
+NOTIFY_COOLDOWN_HOURS=24 # default: 24 — minimum hours between notification sends
+```
+
+A notification is triggered when new comments are submitted that require moderation. Comments that auto-approve (from users with previously approved comments) do not trigger notifications.
+
+<Aside>
+  At least one email delivery method or external channel must be configured for notifications to be sent. Setting `NOTIFY_EMAIL_TO` alone is not sufficient without SMTP or email API credentials.
+</Aside>

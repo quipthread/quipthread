@@ -1,0 +1,68 @@
+---
+title: Embed Widget Reference
+description: All data attributes and configuration options for the Quipthread embed script.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Quipthread embed widget is a self-contained JavaScript bundle. It reads configuration from `data-*` attributes on a `<div id="comments">` container element.
+
+## Basic usage
+
+```html
+<div
+  id="comments"
+  data-site-id="YOUR_SITE_ID"
+  data-page-id="YOUR_PAGE_ID"
+></div>
+<script
+  src="https://your-quipthread-instance.com/embed.js"
+  async
+></script>
+```
+
+The script discovers your Quipthread instance automatically from the `src` URL — no separate API URL configuration needed.
+
+## Container element
+
+The widget mounts into a `<div id="comments">`. The element must exist in the DOM before the script runs, or the script will exit silently. All configuration is placed as `data-*` attributes on this element.
+
+## Attributes
+
+### Required
+
+| Attribute | Description |
+|---|---|
+| `data-site-id` | The site ID from your Quipthread dashboard. |
+| `data-page-id` | A unique identifier for the current page (e.g. post slug, URL path). Comments are scoped to this value. |
+
+### Optional
+
+| Attribute | Default | Description |
+|---|---|---|
+| `data-page-url` | — | The canonical URL of the page. Stored with comments for reference in the dashboard. |
+| `data-page-title` | — | The title of the page. Stored with comments for display in the dashboard. |
+| `data-lang` | `en` | UI language for the widget. |
+| `data-theme` | — | Theme preset name. If omitted or set to `auto`, follows the theme configured in the dashboard for this site, falling back to system preference. See [Theming](/docs/embed/theming/). |
+
+## Theme override
+
+If you set `data-theme` on the container element, it takes priority over the site's dashboard theme setting. Set it to `auto` to revert to the dashboard setting with a system-preference fallback.
+
+The widget also observes changes to `data-theme` on the container element at runtime, so you can drive theme switching from your own page-level toggle by updating the attribute.
+
+## Script placement
+
+The `async` attribute is recommended. The script defers mounting until `DOMContentLoaded` if the DOM is not yet ready.
+
+```html
+<script src="https://your-instance.com/embed.js" async></script>
+```
+
+<Aside>
+  The `src` origin is captured synchronously during script evaluation. If you load the script via a bundler or inject it dynamically after page load, the API base URL detection may not work correctly. Use a standard `<script>` tag in HTML.
+</Aside>
+
+## Browser compatibility
+
+The widget targets modern browsers (ES2020+). It uses `createRoot` from React 19, `MutationObserver`, and `fetch`. It does not support IE11 or other legacy environments.

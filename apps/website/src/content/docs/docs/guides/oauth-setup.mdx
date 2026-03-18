@@ -1,0 +1,59 @@
+---
+title: OAuth Setup
+description: Configure GitHub and Google OAuth for Quipthread.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Quipthread supports GitHub and Google as OAuth providers. You can enable one, both, or neither. If neither is configured, only email auth is available (and only when `EMAIL_AUTH_ENABLED=true`).
+
+## GitHub
+
+### 1. Create a GitHub OAuth App
+
+1. Go to [github.com/settings/developers](https://github.com/settings/developers) and click **New OAuth App**.
+2. Fill in the form:
+   - **Application name**: anything (e.g. "Quipthread Comments")
+   - **Homepage URL**: your site URL
+   - **Authorization callback URL**: `https://your-domain.com/auth/github/callback`
+3. Click **Register application**.
+4. Copy the **Client ID** and generate a **Client Secret**.
+
+### 2. Set environment variables
+
+```bash
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+```
+
+## Google
+
+### 1. Create a Google OAuth Client
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and select or create a project.
+2. Go to **APIs & Services → Credentials** and click **Create Credentials → OAuth client ID**.
+3. Choose **Web application** as the application type.
+4. Under **Authorized redirect URIs**, add: `https://your-domain.com/auth/google/callback`
+5. Click **Create** and copy the **Client ID** and **Client Secret**.
+
+<Aside>
+  You may need to configure the OAuth consent screen before creating credentials. Set the user type to **External** and add your domain to the authorized domains list.
+</Aside>
+
+### 2. Set environment variables
+
+```bash
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+## Callback URL format
+
+Both providers follow the same pattern:
+
+| Provider | Callback URL |
+|---|---|
+| GitHub | `https://your-domain.com/auth/github/callback` |
+| Google | `https://your-domain.com/auth/google/callback` |
+
+`your-domain.com` must match the value you set in `BASE_URL`.

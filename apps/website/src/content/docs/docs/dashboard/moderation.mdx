@@ -1,0 +1,46 @@
+---
+title: Moderation
+description: Manage the comment queue, auto-approve logic, bulk actions, and moderation rules.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## The approval queue
+
+All comments start in one of three states: `pending`, `approved`, or `rejected`. The **Moderation** tab in the dashboard shows the pending queue by default.
+
+From the queue you can:
+- **Approve** — the comment becomes visible to all readers
+- **Reject** — the comment is hidden from readers and marked rejected
+- **Delete** — permanently removes the comment
+- **Edit** — modify the comment content inline before approving
+- **Reply** — post an admin reply directly from the queue
+
+## Auto-approve logic
+
+A user's first comment on a given site is always held in `pending` until a moderator approves it. Once a user has at least one approved comment on a site, all subsequent comments from that user on that site are auto-approved and go live immediately.
+
+Spam detection and blocked terms checks run before the auto-approve check. A comment that matches a heuristic spam pattern or a blocked term is auto-rejected regardless of the user's history. It is saved with `rejected` status so you have an audit trail.
+
+<Aside>
+  Auto-approve is per-site, not global. A user who has approved comments on one site will still be held for review on a different site they have not posted to before.
+</Aside>
+
+## Bulk actions
+
+Select multiple comments using the checkboxes in the queue, then use the bulk action controls to approve or reject all selected comments at once.
+
+## Site filter
+
+Use the site selector at the top of the Moderation tab to filter the queue to a single site. By default the queue shows comments from all sites.
+
+## Moderation rules
+
+The **Mod Rules** tab (Pro plan and above on cloud; always available when self-hosted) lets you maintain a list of blocked terms.
+
+- Any comment containing a blocked term is auto-rejected on submission.
+- The author sees "awaiting approval" rather than an error, so the rejection is not obvious.
+- Terms are matched case-insensitively as substrings.
+- You can add terms manually or import a list from a URL (one term per line).
+
+The blocked terms list is cached for 60 seconds; changes take effect within one minute of saving.

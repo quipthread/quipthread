@@ -1,0 +1,98 @@
+---
+title: Self-Hosting Guide
+description: Deploy Quipthread on your own server.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This guide walks you through deploying Quipthread on your own server and embedding the comment widget on your site. For containerized deployments, see the [Docker guide](/docs/guides/docker/).
+
+## Prerequisites
+
+- A Linux server or VPS
+- A domain or subdomain pointing to it
+- Go 1.23+ and [Bun](https://bun.sh) installed (for building from source)
+
+## 1. Clone and build
+
+```bash
+git clone https://github.com/quipthread/quipthread
+cd quipthread
+
+# Build the dashboard and embed widget, then copy assets into backend/static/
+bun install
+bun run build:assets
+
+# Build the Go binary with embedded assets
+cd backend
+go build -tags=production -o quipthread .
+```
+
+The resulting `quipthread` binary includes the dashboard and embed widget — no separate static file server needed.
+
+## 2. Configure environment
+
+Create a `.env` file next to the binary. At minimum:
+
+```bash
+# Required
+JWT_SECRET=<output of: openssl rand -hex 32>
+BASE_URL=https://comments.example.com
+
+# At least one auth provider
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+```
+
+See [Environment Variables](/docs/reference/environment-variables/) for the full list. For OAuth app setup, see [OAuth Setup](/docs/guides/oauth-setup/).
+
+<Aside type="caution">
+  `BASE_URL` must exactly match the callback URL you register in your GitHub or Google OAuth app settings (e.g. `https://comments.example.com/auth/github/callback`).
+</Aside>
+
+## 3. Run the backend
+
+```bash
+./quipthread
+# Listening on :8080
+```
+
+Proxy it behind Caddy or nginx to serve HTTPS.
+
+**Caddy example:**
+
+```
+comments.example.com {
+  reverse_proxy localhost:8080
+}
+```
+
+## 4. Sign in and create your first site
+
+Navigate to `https://comments.example.com/login` and sign in with GitHub, Google, or email (if enabled). The first user to sign in is automatically promoted to admin.
+
+Once signed in you will be redirected to the dashboard at `/dashboard/`. Create a site record — you will receive a **Site ID**.
+
+## 5. Embed the widget
+
+Add the snippet to any page where you want comments. Place the `<div>` where the widget should appear:
+
+```html
+<div
+  id="comments"
+  data-site-id="YOUR_SITE_ID"
+  data-page-id="YOUR_PAGE_ID"
+></div>
+<script
+  src="https://comments.example.com/embed.js"
+  async
+></script>
+```
+
+Replace `YOUR_SITE_ID` with the ID from the dashboard, and set `data-page-id` to a unique string per page (e.g. the post slug).
+
+## 6. Verify
+
+Open a page with the embed and you should see the comment widget. Post a test comment — it will appear under **Moderation** in the dashboard pending approval.
+
+You can also visit `https://comments.example.com/dev` to test the widget in isolation against the built-in dev test page.

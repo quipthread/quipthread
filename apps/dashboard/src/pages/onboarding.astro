@@ -1,0 +1,172 @@
+---
+import OnboardingWizard from '../components/OnboardingWizard'
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Get started — Quipthread</title>
+    <link rel="icon" href="/dashboard/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Lora:wght@600&family=Syne:wght@700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="ob-shell">
+      <header class="ob-header">
+        <span class="ob-brand">Quipthread</span>
+      </header>
+      <main class="ob-main">
+        <OnboardingWizard client:load />
+      </main>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --ink:          #0F0F0F;
+    --ink-mid:      #1A1A1A;
+    --paper:        #F7F4EF;
+    --surface:      #EEEBE4;
+    --border:       #D9D4CB;
+    --muted:        #7A7570;
+    --text:         #1A1714;
+
+    --amber:        #C06020;
+    --amber-hi:     #E07F32;
+    --amber-bg:     #F5E0CE;
+    --amber-border: #DDB08C;
+
+    --green-text:   #166534;
+    --green-bg:     #DCFCE7;
+    --green-border: #86EFAC;
+
+    --red-text:     #991B1B;
+    --red-bg:       #FEE2E2;
+    --red-border:   #FCA5A5;
+
+    --f-display: 'Lora', Georgia, serif;
+    --f-ui:      'DM Sans', system-ui, sans-serif;
+    --f-mono:    'ui-monospace', 'SF Mono', 'Fira Code', monospace;
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--text);
+    font-family: var(--f-ui);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ob-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ob-header {
+    border-bottom: 1px solid var(--border);
+    padding: 0.875rem 2rem;
+    background: white;
+  }
+
+  .ob-brand {
+    font-family: 'Syne', system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .ob-main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 3rem 1rem;
+  }
+
+  .ob-main > * {
+    width: 100%;
+  }
+
+  /* Form elements */
+  input[type="text"],
+  input[type="email"],
+  textarea,
+  select {
+    font-family: var(--f-ui);
+    font-size: 0.875rem;
+    color: var(--text);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px var(--amber-bg);
+  }
+
+  input:disabled, textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--text);
+    cursor: pointer;
+    font-family: var(--f-ui);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--surface);
+  }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #2D2D2D;
+    border-color: #2D2D2D;
+  }
+
+  .error-msg {
+    color: var(--red-text);
+    background: var(--red-bg);
+    border: 1px solid var(--red-border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+</style>
