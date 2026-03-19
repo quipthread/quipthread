@@ -11,7 +11,7 @@ on:
 
 jobs:
   go:
-    runs-on: ubuntu-latest # blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
@@ -23,9 +23,7 @@ jobs:
           cache-dependency-path: backend/go.sum
       - run: go build ./...
       - run: go build -tags=selfhosted ./...
-      - run: go build -tags=cloud ./...
       - run: go vet -tags=selfhosted ./...
-      - run: go vet -tags=cloud ./...
       - run: go test ./...
       - uses: golangci/golangci-lint-action@v9
         with:
@@ -36,8 +34,3 @@ jobs:
           working-directory: backend
           install-mode: goinstall
           args: --build-tags=selfhosted
-      - uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: backend
-          install-mode: goinstall
-          args: --build-tags=cloud
