@@ -8,6 +8,7 @@ interface Props {
 }
 
 const { title, page } = Astro.props
+const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
 ---
 
 <!DOCTYPE html>
@@ -52,10 +53,12 @@ const { title, page } = Astro.props
 
           <div class="nav-divider"></div>
 
+          {!isSelfHosted && (
           <a href="/dashboard/analytics" class={page === 'analytics' ? 'active' : ''}>
             Analytics
             <span class="nav-badge nav-badge-starter">Starter</span>
           </a>
+          )}
           <a href="/dashboard/moderation-rules" class={page === 'moderation-rules' ? 'active' : ''}>
             Mod Rules
             <span class="nav-badge nav-badge-pro">Pro</span>

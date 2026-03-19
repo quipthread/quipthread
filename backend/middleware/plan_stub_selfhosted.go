@@ -1,4 +1,4 @@
-//go:build !cloud && !selfhosted
+//go:build selfhosted
 
 package middleware
 
@@ -12,7 +12,6 @@ import (
 )
 
 // PlanLimits maps plan → [commentsPerMonth, sitesLimit] (-1 = unlimited).
-// Kept in the !cloud stub so shared code (e.g. billing status) can reference it.
 var PlanLimits = map[string][2]int{
 	"selfhosted": {-1, 1},
 	"hobby":      {1_000, 1},
@@ -27,17 +26,15 @@ var PlanRank = map[string]int{
 	"selfhosted": 0, "hobby": 0, "starter": 1, "pro": 2, "business": 3, "enterprise": 4,
 }
 
-// InvalidateSubCache is a no-op in dev builds.
+// InvalidateSubCache is a no-op in selfhosted builds.
 func InvalidateSubCache() {}
 
-// GetCachedSubscription returns a synthetic "business" subscription in
-// dev builds — all features unlocked, no Stripe interaction.
+// GetCachedSubscription returns a synthetic "selfhosted" subscription.
 func GetCachedSubscription(_ string, _ db.Store) (*models.Subscription, error) {
-	return &models.Subscription{Plan: "business", Status: "active"}, nil
+	return &models.Subscription{Plan: "selfhosted", Status: "active"}, nil
 }
 
 // AccountIDFromRequest extracts the AccountID from the JWT claims in context.
-// Returns "" for unauthenticated requests.
 func AccountIDFromRequest(r *http.Request) string {
 	claims, _ := r.Context().Value(session.UserKey).(*session.Claims)
 	if claims != nil {
@@ -46,17 +43,28 @@ func AccountIDFromRequest(r *http.Request) string {
 	return ""
 }
 
-// RequirePlan is a no-op in dev builds — all plans are considered met.
+// RequirePlan is a no-op in selfhosted builds.
 func RequirePlan(_ db.Store, _ *config.Config, _ string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler { return next }
 }
 
-// EnforceCommentQuota is a no-op in dev builds.
+// EnforceCommentQuota is a no-op in selfhosted builds — no monthly comment cap.
 func EnforceCommentQuota(_ db.Store, _ *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler { return next }
 }
 
-// EnforceSiteLimit is a no-op in dev builds.
-func EnforceSiteLimit(_ db.Store, _ *config.Config) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler { return next }
+// EnforceSiteLimit caps selfhosted installs at 1 site.
+func EnforceSiteLimit(store db.Store, _ *config.Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			count, err := store.CountSites()
+			if err == nil && count >= 1 {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusPaymentRequired)
+				_, _ = w.Write([]byte(`{"error":"site_limit_exceeded"}`))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/quipthread/quipthread/config"
+	"github.com/quipthread/quipthread/mailer"
 )
 
 // EmailAPINotifier sends HTML email digests via Resend, Postmark, or Sendgrid.
@@ -41,6 +42,8 @@ func (e *EmailAPINotifier) NotifyBatch(ctx context.Context, b Batch) error {
 		return sendPostmark(ctx, e.cfg, to, subject, body)
 	case "sendgrid":
 		return sendSendgrid(ctx, e.cfg, to, subject, body)
+	case "ses":
+		return sendSES(e.cfg, to, subject, body)
 	default:
 		return fmt.Errorf("unknown email provider: %s", e.cfg.EmailProvider)
 	}
@@ -87,6 +90,13 @@ func sendSendgrid(ctx context.Context, cfg *config.Config, to, subject, html str
 	return postJSON(ctx, "https://api.sendgrid.com/v3/mail/send",
 		map[string]string{"Authorization": "Bearer " + cfg.EmailAPIKey},
 		payload)
+}
+
+// sendSES sends via the AWS SES SMTP endpoint using the existing SMTP config.
+// The SMTP_HOST should be set to email-smtp.{region}.amazonaws.com and
+// SMTP_USER/SMTP_PASS should be the IAM SMTP credentials (not access keys).
+func sendSES(cfg *config.Config, to, subject, html string) error {
+	return mailer.SendTransactional(cfg, to, subject, html)
 }
 
 func postJSON(ctx context.Context, url string, headers map[string]string, payload interface{}) error {

@@ -208,6 +208,11 @@ func main() {
 		r.Handle("/dashboard/*", http.StripPrefix("/dashboard", dashFileServer))
 	}
 
+	// Health check — required by Fly.io deployment checks.
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// Root redirects to the dashboard.
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard/", http.StatusFound)

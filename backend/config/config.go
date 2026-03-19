@@ -36,7 +36,7 @@ type Config struct {
 	TelegramChatID    string // TELEGRAM_CHAT_ID
 	SlackWebhookURL   string // SLACK_WEBHOOK_URL
 	DiscordWebhookURL string // DISCORD_WEBHOOK_URL
-	EmailProvider     string // EMAIL_PROVIDER: resend | postmark | sendgrid
+	EmailProvider     string // EMAIL_PROVIDER: resend | postmark | sendgrid | ses
 	EmailAPIKey       string // EMAIL_API_KEY
 
 	// Cloudflare Turnstile (optional bot protection)

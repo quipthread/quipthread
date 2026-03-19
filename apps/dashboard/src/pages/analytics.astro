@@ -2,10 +2,16 @@
 import AdminLayout from '../layouts/AdminLayout.astro'
 import AuthGuard from '../components/AuthGuard'
 import AnalyticsPanel from '../components/AnalyticsPanel'
+
+const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
 ---
 
 <AdminLayout title="Analytics" page="analytics">
   <AuthGuard client:load>
-    <AnalyticsPanel client:load />
+    {isSelfHosted ? (
+      <p style="color: var(--muted); padding: 2rem 0;">Analytics is available on cloud plans. <a href="https://quipthread.com/pricing" style="color: var(--amber);">View plans</a></p>
+    ) : (
+      <AnalyticsPanel client:load />
+    )}
   </AuthGuard>
 </AdminLayout>

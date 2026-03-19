@@ -11,6 +11,7 @@
     "build:website":   "bun --cwd apps/website run build",
     "build": "bun run build:embed && bun run build:dashboard && bun run build:website",
     "build:assets": "bun run build:embed && bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
+    "build:assets:selfhosted": "bun run build:embed && PUBLIC_BUILD_TARGET=selfhosted bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
     "build:cli": "bun --cwd packages/create-quipthread run build",
     "dev:cli": "bun --cwd packages/create-quipthread run dev",
     "test:backend": "cd backend && go test ./..."
