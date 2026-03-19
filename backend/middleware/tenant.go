@@ -51,6 +51,15 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 				return
 			}
 
+			// Static assets never need a tenant store — skip resolution so a
+			// logged-in user's session cookie doesn't block CSS/JS delivery.
+			if strings.HasPrefix(r.URL.Path, "/_astro/") ||
+				r.URL.Path == "/favicon.svg" ||
+				r.URL.Path == "/embed.js" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// Claims may already be in context (set by RequireAuth/RequireAdmin),
 			// or need to be parsed directly from the cookie — InjectTenantStore
 			// runs as a global middleware before the auth group middleware.

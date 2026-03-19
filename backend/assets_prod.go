@@ -7,7 +7,7 @@ import (
 	"io/fs"
 )
 
-//go:embed static/dashboard
+//go:embed all:static/dashboard
 var dashboardEmbedFS embed.FS
 
 //go:embed static/embed.js
