@@ -38,7 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("open database: %v", err)
 	}
-	defer store.Close()
+	defer store.Close() //nolint:errcheck // deferred close on program exit
 
 	// Seed the dev test site used by the / test page.
 	if s, _ := store.GetSite("dev-site"); s == nil {
@@ -53,7 +53,7 @@ func main() {
 			log.Fatalf("open cloud database: %v", err)
 		}
 		if closer, ok := cs.(interface{ Close() error }); ok {
-			defer closer.Close()
+			defer closer.Close() //nolint:errcheck // deferred close on program exit
 		}
 		cloudStore = cs
 	}
@@ -190,7 +190,7 @@ func main() {
 					http.NotFound(w, r)
 					return
 				}
-				defer f.Close()
+				defer f.Close() //nolint:errcheck // deferred close; embedded FS file
 				http.ServeContent(w, r, "index.html", time.Time{}, f.(io.ReadSeeker))
 			}
 		}
@@ -216,7 +216,7 @@ func main() {
 	// Dev test page — available at /dev for testing the embed widget.
 	r.Get("/dev", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, devTestPage)
+		fmt.Fprint(w, devTestPage) //nolint:errcheck // ResponseWriter.Write errors are not actionable
 	})
 
 	// --- Authenticated commenter routes -------------------------------------
@@ -316,7 +316,7 @@ func openStore(cfg *config.Config) (db.Store, error) {
 	}
 
 	// Local SQLite — ensure the data directory exists first.
-	if err := os.MkdirAll(filepath.Dir(url), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(url), 0750); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	return db.NewSQLiteStore(url)

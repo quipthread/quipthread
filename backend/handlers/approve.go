@@ -58,7 +58,7 @@ func HandleApprovalPage(store db.Store) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, approvalPageHTML,
+		fmt.Fprintf(w, approvalPageHTML, //nolint:errcheck,gosec // ResponseWriter.Write errors not actionable; HTML is pre-escaped by html.EscapeString above
 			html.EscapeString(domain),
 			html.EscapeString(author),
 			html.EscapeString(pageLabel),
@@ -120,7 +120,7 @@ func HandleApprovalAction(store db.Store) http.HandlerFunc {
 		_ = store.DeleteApprovalToken(token)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck // error response; connection may already be broken
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck,gosec // error response; connection may already be broken
 			"ok":     true,
 			"status": comment.Status,
 		})
@@ -130,7 +130,7 @@ func HandleApprovalAction(store db.Store) http.HandlerFunc {
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg}) //nolint:errcheck // error response; connection may already be broken
+	json.NewEncoder(w).Encode(map[string]string{"error": msg}) //nolint:errcheck,gosec // error response; connection may already be broken
 }
 
 // approvalPageHTML is a self-contained server-rendered page styled with

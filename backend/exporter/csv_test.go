@@ -53,7 +53,7 @@ func TestWriteCSV_HTMLStripped(t *testing.T) {
 	}
 
 	r := csv.NewReader(&buf)
-	r.Read() // skip header
+	r.Read() //nolint:errcheck,gosec // skip header row
 	row, err := r.Read()
 	if err != nil {
 		t.Fatalf("read row: %v", err)
@@ -77,7 +77,7 @@ func TestWriteCSV_TimestampFormat(t *testing.T) {
 	}
 
 	r := csv.NewReader(&buf)
-	r.Read() // skip header
+	r.Read() //nolint:errcheck,gosec // skip header row
 	row, _ := r.Read()
 
 	want := "2024-03-17T14:30:00Z"
@@ -109,7 +109,7 @@ func TestWriteCSV_SpecialCharsQuoted(t *testing.T) {
 	}
 
 	r := csv.NewReader(&buf)
-	r.Read() // skip header
+	r.Read() //nolint:errcheck,gosec // skip header row
 	row, err := r.Read()
 	if err != nil {
 		t.Fatalf("read row: %v", err)

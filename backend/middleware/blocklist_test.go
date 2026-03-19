@@ -12,7 +12,7 @@ func newBlocklistStore(t *testing.T) db.Store {
 	if err != nil {
 		t.Fatalf("open in-memory store: %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() { s.Close() }) //nolint:errcheck,gosec // deferred store cleanup in test
 	return s
 }
 

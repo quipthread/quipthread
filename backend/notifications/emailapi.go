@@ -106,7 +106,7 @@ func postJSON(ctx context.Context, url string, headers map[string]string, payloa
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // deferred close; response body not read
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("email API %s: HTTP %d", url, resp.StatusCode)
 	}

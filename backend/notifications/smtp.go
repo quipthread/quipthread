@@ -48,9 +48,9 @@ func (s *SMTPNotifier) NotifyBatch(ctx context.Context, b Batch) error {
 func buildMIMEMessage(from, to, subject, htmlBody string) string {
 	var b strings.Builder
 	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString(fmt.Sprintf("From: %s\r\n", from))
-	b.WriteString(fmt.Sprintf("To: %s\r\n", to))
-	b.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	fmt.Fprintf(&b, "From: %s\r\n", from)       //nolint:errcheck // strings.Builder.Write never fails
+	fmt.Fprintf(&b, "To: %s\r\n", to)           //nolint:errcheck // strings.Builder.Write never fails
+	fmt.Fprintf(&b, "Subject: %s\r\n", subject) //nolint:errcheck // strings.Builder.Write never fails
 	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	b.WriteString("\r\n")
 	b.WriteString(htmlBody)

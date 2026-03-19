@@ -10,7 +10,7 @@ func TestParseRemark42_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // deferred close in test
 
 	result, err := ParseRemark42(f)
 	if err != nil {
@@ -61,7 +61,7 @@ func TestParseRemark42_Edge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // deferred close in test
 
 	result, err := ParseRemark42(f)
 	if err != nil {

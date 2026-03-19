@@ -98,7 +98,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session.ClearCookie(w)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck // error response; connection may already be broken
+	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck,gosec // error response; connection may already be broken
 }
 
 // --- state cookie helpers ---------------------------------------------------
@@ -252,12 +252,12 @@ func (h *Handler) upsertAndIssueToken(info *UserInfo) (string, error) {
 				u.Email = info.Email
 			}
 			if err := h.store.UpsertUser(u); err != nil {
-				log.Printf("auth: upsert user profile on login %s: %v", userID, err)
+				log.Printf("auth: upsert user profile on login %s: %v", userID, err) //nolint:gosec // G706: userID is an internal UUID, not user-controlled format string
 			}
 		}
 		if info.Username != "" {
 			if err := h.store.UpdateIdentityUsername(userID, info.Provider, info.Username); err != nil {
-				log.Printf("auth: update identity username %s: %v", userID, err)
+				log.Printf("auth: update identity username %s: %v", userID, err) //nolint:gosec // G706: userID is an internal UUID, not user-controlled format string
 			}
 		}
 	}
@@ -283,10 +283,10 @@ func seedTenantDB(dbURL, accountID string, info *UserInfo) {
 	}
 	s, err := db.NewSQLiteStore(dbURL)
 	if err != nil {
-		log.Printf("seedTenantDB: open store for account %s: %v", accountID, err)
+		log.Printf("seedTenantDB: open store for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
 		return
 	}
-	defer s.Close()
+	defer s.Close() //nolint:errcheck // deferred store close; error non-actionable here
 
 	existing, _ := s.GetUser(accountID)
 	if existing == nil {
@@ -298,7 +298,7 @@ func seedTenantDB(dbURL, accountID string, info *UserInfo) {
 			Role:        "admin",
 		}
 		if err := s.UpsertUser(u); err != nil {
-			log.Printf("seedTenantDB: upsert user for account %s: %v", accountID, err)
+			log.Printf("seedTenantDB: upsert user for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
 		}
 		if err := s.CreateIdentity(&models.UserIdentity{
 			UserID:     accountID,
@@ -306,7 +306,7 @@ func seedTenantDB(dbURL, accountID string, info *UserInfo) {
 			ProviderID: info.ProviderID,
 			Username:   info.Username,
 		}); err != nil {
-			log.Printf("seedTenantDB: create identity for account %s: %v", accountID, err)
+			log.Printf("seedTenantDB: create identity for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
 		}
 	} else {
 		// Keep profile fields fresh on every login.
@@ -316,11 +316,11 @@ func seedTenantDB(dbURL, accountID string, info *UserInfo) {
 			existing.Email = info.Email
 		}
 		if err := s.UpsertUser(existing); err != nil {
-			log.Printf("seedTenantDB: update user for account %s: %v", accountID, err)
+			log.Printf("seedTenantDB: update user for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
 		}
 		if info.Username != "" {
 			if err := s.UpdateIdentityUsername(accountID, info.Provider, info.Username); err != nil {
-				log.Printf("seedTenantDB: update username for account %s: %v", accountID, err)
+				log.Printf("seedTenantDB: update username for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
 			}
 		}
 	}
@@ -420,7 +420,7 @@ func (h *Handler) cloudUpsertAndIssueToken(
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v) //nolint:errcheck // error response; connection may already be broken
+	json.NewEncoder(w).Encode(v) //nolint:errcheck,gosec // error response; connection may already be broken
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

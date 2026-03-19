@@ -47,14 +47,14 @@ func InspectSQLite(path string) ([]TableInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open: %w", err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck // deferred close; read-only SQLite file
 
-	tableRows, err := db.Query(
+	tableRows, err := db.Query( //nolint:noctx // importer; context not threaded through DB calls
 		`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
-	defer tableRows.Close()
+	defer tableRows.Close() //nolint:errcheck // deferred close
 
 	var tableNames []string
 	for tableRows.Next() {
@@ -76,11 +76,11 @@ func InspectSQLite(path string) ([]TableInfo, error) {
 }
 
 func inspectTable(db *sql.DB, table string) ([]ColumnInfo, error) {
-	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%q)`, table))
+	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%q)`, table)) //nolint:noctx // importer; context not threaded through DB calls
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // deferred close
 
 	var cols []ColumnInfo
 	for rows.Next() {
@@ -96,7 +96,7 @@ func inspectTable(db *sql.DB, table string) ([]ColumnInfo, error) {
 
 	// Collect up to 3 sample values per column.
 	for i, col := range cols {
-		sampleRows, err := db.Query(
+		sampleRows, err := db.Query( //nolint:noctx // importer; context not threaded through DB calls
 			fmt.Sprintf(`SELECT %q FROM %q WHERE %q IS NOT NULL LIMIT 3`, col.Name, table, col.Name))
 		if err != nil {
 			continue
@@ -110,7 +110,7 @@ func inspectTable(db *sql.DB, table string) ([]ColumnInfo, error) {
 				cols[i].Samples = append(cols[i].Samples, v)
 			}
 		}
-		sampleRows.Close()
+		sampleRows.Close() //nolint:errcheck,gosec // close in loop; error not actionable
 	}
 	return cols, nil
 }
@@ -122,7 +122,7 @@ func ImportQuipthreadDB(path string) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open: %w", err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck // deferred close; read-only SQLite file
 
 	users, err := readQuipthreadUsers(db)
 	if err != nil {
@@ -136,12 +136,12 @@ func ImportQuipthreadDB(path string) (*Result, error) {
 }
 
 func readQuipthreadUsers(db *sql.DB) ([]*models.User, error) {
-	rows, err := db.Query(
+	rows, err := db.Query( //nolint:noctx // importer; context not threaded through DB calls
 		`SELECT id, display_name, COALESCE(email,''), COALESCE(avatar_url,''), role, banned, created_at FROM users`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // deferred close
 	var users []*models.User
 	for rows.Next() {
 		var u models.User
@@ -155,7 +155,8 @@ func readQuipthreadUsers(db *sql.DB) ([]*models.User, error) {
 }
 
 func readQuipthreadComments(db *sql.DB) ([]*models.Comment, error) {
-	rows, err := db.Query(`
+	rows, err := db.Query( //nolint:noctx // importer; context not threaded through DB calls
+		`
 		SELECT id, site_id, page_id,
 		       COALESCE(page_url,''), COALESCE(page_title,''),
 		       COALESCE(parent_id,''), user_id, content, status,
@@ -165,7 +166,7 @@ func readQuipthreadComments(db *sql.DB) ([]*models.Comment, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // deferred close
 	var comments []*models.Comment
 	for rows.Next() {
 		var c models.Comment
@@ -189,7 +190,7 @@ func ImportMappedSQLite(path string, m ColumnMapping, allowedCols map[string]boo
 	if err != nil {
 		return nil, fmt.Errorf("open: %w", err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck // deferred close; read-only SQLite file
 
 	// Build SELECT list from mapping, validating every column name.
 	selectCols := make(map[string]string) // alias → col name
@@ -212,11 +213,11 @@ func ImportMappedSQLite(path string, m ColumnMapping, allowedCols map[string]boo
 	}
 
 	query := fmt.Sprintf(`SELECT %s FROM %q`, strings.Join(selects, ", "), m.Table) //nolint:gosec // table name from validated config mapping, not user input
-	rows, err := db.Query(query)
+	rows, err := db.Query(query)                                                    //nolint:noctx // importer; context not threaded through DB calls
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // deferred close
 
 	colNames, err := rows.Columns()
 	if err != nil {

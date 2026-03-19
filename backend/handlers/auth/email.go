@@ -327,7 +327,7 @@ func (h *Handler) EmailResetPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, resetFormHTML, html.EscapeString(token))
+	fmt.Fprintf(w, resetFormHTML, html.EscapeString(token)) //nolint:errcheck // ResponseWriter.Write errors are not actionable
 }
 
 type resetRequest struct {
@@ -666,14 +666,14 @@ func (h *Handler) CloudResetPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, cloudResetFormHTML, html.EscapeString(token))
+	fmt.Fprintf(w, cloudResetFormHTML, html.EscapeString(token)) //nolint:errcheck // ResponseWriter.Write errors are not actionable
 }
 
 // writeErrorCode writes a JSON error with an additional machine-readable code field.
 func writeErrorCode(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": code}) //nolint:errcheck // error response; connection may already be broken
+	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": code}) //nolint:errcheck,gosec // error response; connection may already be broken
 }
 
 // renderEmailPage renders a minimal branded result page (success or error).
@@ -686,7 +686,7 @@ func renderEmailPage(w http.ResponseWriter, title, message string, success bool)
 	if !success {
 		icon = `<span style="font-size:2rem;color:#8A8480">&#10007;</span>`
 	}
-	fmt.Fprintf(w, emailResultPageHTML, html.EscapeString(title), icon, html.EscapeString(title), html.EscapeString(message))
+	fmt.Fprintf(w, emailResultPageHTML, html.EscapeString(title), icon, html.EscapeString(title), html.EscapeString(message)) //nolint:errcheck // ResponseWriter.Write errors are not actionable
 }
 
 const emailResultPageHTML = `<!DOCTYPE html>

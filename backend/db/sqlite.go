@@ -15,10 +15,10 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
-	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil { //nolint:noctx // DB layer; full context threading deferred
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
-	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil { //nolint:noctx // DB layer; full context threading deferred
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 

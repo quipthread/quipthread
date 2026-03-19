@@ -42,7 +42,7 @@ func verifyTurnstile(ctx context.Context, secret, token, remoteIP string) (bool,
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by Decode
 
 	var result turnstileResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

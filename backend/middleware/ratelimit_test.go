@@ -98,7 +98,7 @@ func TestParseWindow_Invalid(t *testing.T) {
 // ---- RealIP / RemoteAddrIP --------------------------------------------------
 
 func TestRealIP_XForwardedFor(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", nil) //nolint:noctx // test helper; context not needed
 	r.Header.Set("X-Forwarded-For", "1.2.3.4, 5.6.7.8")
 	if got := RealIP(r); got != "1.2.3.4" {
 		t.Errorf("RealIP(X-Forwarded-For): got %q, want 1.2.3.4", got)
@@ -106,7 +106,7 @@ func TestRealIP_XForwardedFor(t *testing.T) {
 }
 
 func TestRealIP_XRealIP(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", nil) //nolint:noctx // test helper; context not needed
 	r.Header.Set("X-Real-IP", "9.10.11.12")
 	if got := RealIP(r); got != "9.10.11.12" {
 		t.Errorf("RealIP(X-Real-IP): got %q, want 9.10.11.12", got)
@@ -114,7 +114,7 @@ func TestRealIP_XRealIP(t *testing.T) {
 }
 
 func TestRealIP_FallsBackToRemoteAddr(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", nil) //nolint:noctx // test helper; context not needed
 	r.RemoteAddr = "192.168.1.1:1234"
 	if got := RealIP(r); got != "192.168.1.1" {
 		t.Errorf("RealIP(RemoteAddr fallback): got %q, want 192.168.1.1", got)
@@ -122,7 +122,7 @@ func TestRealIP_FallsBackToRemoteAddr(t *testing.T) {
 }
 
 func TestRemoteAddrIP_IgnoresProxyHeaders(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", nil)  //nolint:noctx // test helper; context not needed
 	r.Header.Set("X-Forwarded-For", "1.2.3.4") // must be ignored
 	r.RemoteAddr = "10.0.0.1:4321"
 	if got := RemoteAddrIP(r); got != "10.0.0.1" {

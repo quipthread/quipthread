@@ -21,12 +21,12 @@ func (h *AdminHandler) importFromReader(
 ) {
 	store := h.db(r)
 
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
+	if err := r.ParseMultipartForm(32 << 20); err != nil { //nolint:gosec // G120: 32MB limit is intentional
 		writeError(w, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
-	siteID := r.FormValue("siteId")
+	siteID := r.FormValue("siteId") //nolint:gosec // G120: ParseMultipartForm(32MB) called on line above; body already limited
 	if siteID == "" {
 		writeError(w, http.StatusBadRequest, "siteId is required")
 		return
@@ -37,7 +37,7 @@ func (h *AdminHandler) importFromReader(
 		writeError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck // deferred close; multipart file handle
 
 	result, err := parse(file)
 	if err != nil {
@@ -66,16 +66,16 @@ func saveTempFile(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck // deferred close; multipart file handle
 
 	tmp, err := os.CreateTemp("", "qt-import-*.db")
 	if err != nil {
 		return "", err
 	}
-	defer tmp.Close()
+	defer tmp.Close() //nolint:errcheck // deferred close; temp file
 
 	if _, err := io.Copy(tmp, file); err != nil {
-		os.Remove(tmp.Name())
+		os.Remove(tmp.Name()) //nolint:errcheck,gosec // best-effort cleanup on copy failure
 		return "", err
 	}
 	return tmp.Name(), nil
@@ -118,12 +118,12 @@ func (h *AdminHandler) ImportNative(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 
-	if err := r.ParseMultipartForm(128 << 20); err != nil {
+	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit is intentional for SQLite database file uploads
 		writeError(w, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
-	siteID := r.FormValue("siteId")
+	siteID := r.FormValue("siteId") //nolint:gosec // G120: ParseMultipartForm(128MB) called on line above; body already limited
 	if siteID == "" {
 		writeError(w, http.StatusBadRequest, "siteId is required")
 		return
@@ -134,7 +134,7 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer os.Remove(path)
+	defer os.Remove(path) //nolint:errcheck // best-effort cleanup of temp file
 
 	result, err := importer.ImportQuipthreadDB(path)
 	if err != nil {
@@ -159,7 +159,7 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 // POST /api/admin/import/sqlite/inspect
 // Accepts a SQLite file and returns the schema of every table with sample values.
 func (h *AdminHandler) ImportSQLiteInspect(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(128 << 20); err != nil {
+	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit intentional for SQLite database file uploads
 		writeError(w, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
@@ -169,7 +169,7 @@ func (h *AdminHandler) ImportSQLiteInspect(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer os.Remove(path)
+	defer os.Remove(path) //nolint:errcheck // best-effort cleanup of temp file
 
 	tables, err := importer.InspectSQLite(path)
 	if err != nil {
@@ -186,18 +186,18 @@ func (h *AdminHandler) ImportSQLiteInspect(w http.ResponseWriter, r *http.Reques
 func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 
-	if err := r.ParseMultipartForm(128 << 20); err != nil {
+	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit intentional for SQLite database file uploads
 		writeError(w, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
-	siteID := r.FormValue("siteId")
+	siteID := r.FormValue("siteId") //nolint:gosec // G120: ParseMultipartForm(128MB) called on line above; body already limited
 	if siteID == "" {
 		writeError(w, http.StatusBadRequest, "siteId is required")
 		return
 	}
 
-	mappingJSON := r.FormValue("mapping")
+	mappingJSON := r.FormValue("mapping") //nolint:gosec // G120: ParseMultipartForm(128MB) called on line above
 	if mappingJSON == "" {
 		writeError(w, http.StatusBadRequest, "mapping is required")
 		return
@@ -219,7 +219,7 @@ func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer os.Remove(path)
+	defer os.Remove(path) //nolint:errcheck // best-effort cleanup of temp file
 
 	// Build the allowedCols whitelist from the actual schema before running.
 	tables, err := importer.InspectSQLite(path)

@@ -55,7 +55,7 @@ func (p *GoogleProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	if err != nil {
 		return nil, fmt.Errorf("fetch google userinfo: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by Decode
 
 	var userInfo struct {
 		Sub     string `json:"sub"`

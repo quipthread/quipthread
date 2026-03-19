@@ -12,7 +12,7 @@ func TestParseNative_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // deferred close in test
 
 	result, err := ParseNative(f)
 	if err != nil {
@@ -89,7 +89,7 @@ func TestParseNative_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // deferred close in test
 
 	r1, err := ParseNative(f)
 	if err != nil {
@@ -100,7 +100,7 @@ func TestParseNative_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f2.Close()
+	defer f2.Close() //nolint:errcheck // deferred close in test
 	r2, err := ParseNative(f2)
 	if err != nil {
 		t.Fatal(err)

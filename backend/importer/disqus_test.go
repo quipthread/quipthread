@@ -11,7 +11,7 @@ func TestParseDisqus_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // deferred close in test
 
 	result, err := ParseDisqus(f)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestParseDisqus_Edge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // deferred close in test
 
 	result, err := ParseDisqus(f)
 	if err != nil {

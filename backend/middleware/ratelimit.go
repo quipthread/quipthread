@@ -29,7 +29,7 @@ func RateLimit(rl RateLimiter, ipFn func(*http.Request) string) func(http.Handle
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", "60")
 				w.WriteHeader(http.StatusTooManyRequests)
-				w.Write([]byte(`{"error":"rate limit exceeded"}`)) //nolint:errcheck // error response; connection may already be broken
+				w.Write([]byte(`{"error":"rate limit exceeded"}`)) //nolint:errcheck,gosec // error response; connection may already be broken
 				return
 			}
 			next.ServeHTTP(w, r)

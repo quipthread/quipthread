@@ -55,7 +55,7 @@ func (p *GithubProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	if err != nil {
 		return nil, fmt.Errorf("fetch github user: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by Decode
 
 	var ghUser struct {
 		ID        int64  `json:"id"`
@@ -100,7 +100,7 @@ func fetchGithubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by Decode
 	var emails []struct {
 		Email    string `json:"email"`
 		Primary  bool   `json:"primary"`
