@@ -25,6 +25,7 @@ import (
 	"github.com/quipthread/quipthread/middleware"
 	"github.com/quipthread/quipthread/models"
 	"github.com/quipthread/quipthread/notifications"
+	"github.com/quipthread/quipthread/session"
 )
 
 func main() {
@@ -203,9 +204,24 @@ func main() {
 		r.Handle("/_astro/*", dashFileServer)
 		r.Get("/favicon.svg", dashFileServer.ServeHTTP)
 
-		// Dashboard pages: strip /dashboard prefix to match the Astro output layout.
+		// Dashboard pages: require a valid session server-side to avoid flashing
+		// the layout before the client-side AuthGuard can redirect to /login.
+		requireSessionOrLogin := func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				cookie, err := r.Cookie(session.CookieName)
+				if err != nil {
+					http.Redirect(w, r, "/login", http.StatusFound)
+					return
+				}
+				if claims, _ := session.Parse(cfg.JWTSecret, cookie.Value); claims == nil {
+					http.Redirect(w, r, "/login", http.StatusFound)
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		}
 		r.Handle("/dashboard", http.RedirectHandler("/dashboard/", http.StatusMovedPermanently))
-		r.Handle("/dashboard/*", http.StripPrefix("/dashboard", dashFileServer))
+		r.Handle("/dashboard/*", requireSessionOrLogin(http.StripPrefix("/dashboard", dashFileServer)))
 	}
 
 	// Health check — required by Fly.io deployment checks.
