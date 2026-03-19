@@ -2,6 +2,8 @@
 
 A self-hostable comment system you can drop into any website. No third-party tracking, no ads, no lock-in — just comments on your own infrastructure.
 
+**Don't want to manage your own server?** [Quipthread Cloud](https://quipthread.com) is the hosted version — same software, managed for you, with a free tier to get started.
+
 ## Features
 
 - **Embed anywhere** — drop a single `<script>` tag into any HTML page
