@@ -178,6 +178,20 @@ const PROVIDER_META: Record<string, { label: string; icon: () => any }> = {
 function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo; onRefresh: () => void }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('link_error')
+    if (err) {
+      setLinkError(
+        err === 'already_linked'
+          ? 'That account is already connected to a different Quipthread account.'
+          : 'Failed to connect the account. Please try again.'
+      )
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   async function disconnect(provider: string) {
     setLoading(l => ({ ...l, [provider]: true }))
@@ -192,20 +206,28 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
     }
   }
 
-  // OAuth providers always shown; email/password only shown if connected
-  // (no UI to connect email/password from the dashboard)
-  const visibleProviders = ['github', 'google'].concat(
+  function connect(provider: string) {
+    window.location.href = `/auth/${provider}/link`
+  }
+
+  // Show OAuth providers that are either connected or available to connect.
+  // Email/password only shown if already connected (no UI to add it post-signup).
+  const visibleProviders = ['github', 'google'].filter(p =>
+    account.providers.includes(p) || account.configured_providers.includes(p)
+  ).concat(
     account.providers.includes('email') ? ['email'] : []
   )
 
   return (
     <SectionCard>
       <SectionHeading>Connected Accounts</SectionHeading>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      {linkError && <InlineMsg type="error">{linkError}</InlineMsg>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: linkError ? '0.75rem' : 0 }}>
         {visibleProviders.map((provider) => {
           const meta = PROVIDER_META[provider]
           const connected = account.providers.includes(provider)
           const canDisconnect = connected && account.providers.length > 1
+          const canConnect = !connected && provider !== 'email'
           const Icon = meta.icon
 
           return (
@@ -222,7 +244,9 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
               <div style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: 'var(--text)' }}>
                 {meta.label}
                 {connected && provider !== 'email' && (() => {
-                  const identifier = account.email || (account.provider_usernames[provider] ? `@${account.provider_usernames[provider]}` : '')
+                  const identifier = account.provider_usernames[provider]
+                    ? `@${account.provider_usernames[provider]}`
+                    : account.email || ''
                   return identifier ? <span style={{ fontWeight: 400, color: 'var(--muted)' }}> ({identifier})</span> : null
                 })()}
               </div>
@@ -252,6 +276,15 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
                 }}>
                   Not connected
                 </span>
+              )}
+              {canConnect && (
+                <button
+                  class="btn"
+                  style={{ fontSize: '0.8125rem' }}
+                  onClick={() => connect(provider)}
+                >
+                  Connect
+                </button>
               )}
               {canDisconnect && (
                 <button

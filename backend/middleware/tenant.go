@@ -51,11 +51,14 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 				return
 			}
 
-			// Static assets never need a tenant store — skip resolution so a
-			// logged-in user's session cookie doesn't block CSS/JS delivery.
+			// Static assets and public pages that don't need a tenant store —
+			// skip resolution so a logged-in user's session cookie doesn't
+			// block delivery, and so unauthenticated access never returns 500
+			// from a failed tenant lookup.
 			if strings.HasPrefix(r.URL.Path, "/_astro/") ||
 				r.URL.Path == "/favicon.svg" ||
-				r.URL.Path == "/embed.js" {
+				r.URL.Path == "/embed.js" ||
+				r.URL.Path == "/embed-preview" {
 				next.ServeHTTP(w, r)
 				return
 			}

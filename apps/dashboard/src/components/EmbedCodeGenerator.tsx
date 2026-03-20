@@ -157,11 +157,13 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
           gap: 2,
           borderBottom: '1px solid var(--border)',
           marginBottom: 0,
+          overflowX: 'auto' as const,
         }}
       >
         {TABS.map(t => (
           <button
             key={t.id}
+            className="embed-tab-btn"
             onClick={() => setTab(t.id)}
             style={{
               background: 'none',
@@ -175,6 +177,8 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
               fontWeight: 500,
               color: tab === t.id ? 'var(--text)' : 'var(--muted)',
               transition: 'color 0.12s',
+              flexShrink: 0,
+              whiteSpace: 'nowrap' as const,
             }}
           >
             {t.label}
@@ -190,6 +194,7 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
           borderRadius: '0 0 8px 8px',
           border: '1px solid var(--border)',
           borderTop: 'none',
+          overflow: 'hidden',
         }}
       >
         <button
@@ -202,15 +207,25 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
             border: '1px solid rgba(255,255,255,0.12)',
             borderRadius: 5,
             color: copied ? '#86efac' : 'rgba(247, 244, 239, 0.65)',
-            padding: '0.25rem 0.625rem',
+            padding: '0.375rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
             cursor: 'pointer',
-            fontFamily: 'var(--f-ui)',
-            fontSize: '0.75rem',
-            fontWeight: 500,
             transition: 'color 0.15s, background 0.15s',
           }}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? (
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Copied">
+              <path d="M2.5 7l3 3 6-6" stroke="#86efac" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Copy">
+              <rect x="5" y="5" width="7.5" height="7.5" rx="1.5" stroke="currentColor" stroke-width="1.4" />
+              <path d="M9 5V3a1.5 1.5 0 0 0-1.5-1.5H3A1.5 1.5 0 0 0 1.5 3v4.5A1.5 1.5 0 0 0 3 9h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+          )}
         </button>
 
         <pre

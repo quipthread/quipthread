@@ -3,40 +3,25 @@ import { api, buildExportURL } from '../api'
 import { relativeTime } from '../utils'
 import type { Site } from '../types'
 
-const THEME_OPTIONS = [
-  {
-    group: 'Default',
-    options: [
-      { value: 'auto', label: 'Auto' },
-      { value: 'light', label: 'Light' },
-      { value: 'dark', label: 'Dark' },
-    ],
-  },
-  {
-    group: 'Catppuccin',
-    options: [
-      { value: 'catppuccin-latte', label: 'Latte' },
-      { value: 'catppuccin-frappe', label: 'Frappé' },
-      { value: 'catppuccin-macchiato', label: 'Macchiato' },
-      { value: 'catppuccin-mocha', label: 'Mocha' },
-    ],
-  },
-  {
-    group: 'Other',
-    options: [
-      { value: 'dracula', label: 'Dracula' },
-      { value: 'nord', label: 'Nord' },
-      { value: 'gruvbox-light', label: 'Gruvbox Light' },
-      { value: 'gruvbox-dark', label: 'Gruvbox Dark' },
-      { value: 'tokyo-night', label: 'Tokyo Night' },
-      { value: 'rose-pine', label: 'Rosé Pine' },
-      { value: 'rose-pine-dawn', label: 'Rosé Pine Dawn' },
-      { value: 'solarized-light', label: 'Solarized Light' },
-      { value: 'solarized-dark', label: 'Solarized Dark' },
-      { value: 'one-dark', label: 'One Dark' },
-    ],
-  },
-]
+const THEME_LABEL: Record<string, string> = {
+  'auto':                 'Auto',
+  'light':                'Light',
+  'dark':                 'Dark',
+  'catppuccin-latte':     'Latte',
+  'catppuccin-frappe':    'Frappé',
+  'catppuccin-macchiato': 'Macchiato',
+  'catppuccin-mocha':     'Mocha',
+  'dracula':              'Dracula',
+  'nord':                 'Nord',
+  'gruvbox-light':        'Gruvbox Light',
+  'gruvbox-dark':         'Gruvbox Dark',
+  'tokyo-night':          'Tokyo Night',
+  'rose-pine':            'Rosé Pine',
+  'rose-pine-dawn':       'Rosé Pine Dawn',
+  'solarized-light':      'Solarized Light',
+  'solarized-dark':       'Solarized Dark',
+  'one-dark':             'One Dark',
+}
 
 const THEME_BG: Record<string, string> = {
   'auto':                '#888888',
@@ -95,8 +80,6 @@ export default function SitesPanel() {
   const [domain, setDomain] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
-  const [savingId, setSavingId] = useState<string | null>(null)
-  const [savedId, setSavedId] = useState<string | null>(null)
   const [exportOpenId, setExportOpenId] = useState<string | null>(null)
   const [exportState, setExportState] = useState<ExportState>(defaultExport())
 
@@ -130,22 +113,6 @@ export default function SitesPanel() {
       setCreateError(err instanceof Error ? err.message : 'Failed to create site.')
     } finally {
       setCreating(false)
-    }
-  }
-
-  const updateTheme = async (site: Site, theme: string) => {
-    setSites(prev => prev.map(s => s.id === site.id ? { ...s, theme } : s))
-    setSavingId(site.id)
-    setSavedId(null)
-    try {
-      await api.sites.update(site.id, { theme })
-      setSavedId(site.id)
-      setTimeout(() => setSavedId(id => id === site.id ? null : id), 2000)
-    } catch {
-      // Revert on failure
-      setSites(prev => prev.map(s => s.id === site.id ? { ...s, theme: site.theme } : s))
-    } finally {
-      setSavingId(null)
     }
   }
 
@@ -219,13 +186,10 @@ export default function SitesPanel() {
                 <th>Export</th>
               </tr>
             </thead>
-            <tbody>
               {sites.map(s => {
                 const theme = s.theme || 'auto'
                 const bg = THEME_BG[theme] ?? '#888'
                 const accent = THEME_ACCENT[theme] ?? '#888'
-                const isSaving = savingId === s.id
-                const isSaved = savedId === s.id
                 const isExportOpen = exportOpenId === s.id
                 const plan = typeof document !== 'undefined'
                   ? (document.documentElement.dataset.plan ?? 'hobby')
@@ -242,9 +206,9 @@ export default function SitesPanel() {
                 }
 
                 return (
-                  <>
-                    <tr key={s.id}>
-                      <td>
+                  <tbody key={s.id}>
+                    <tr>
+                      <td data-label="ID">
                         <code style={{
                           fontSize: '0.75rem',
                           color: 'var(--muted)',
@@ -256,56 +220,37 @@ export default function SitesPanel() {
                           {s.id}
                         </code>
                       </td>
-                      <td style={{ fontWeight: 500 }}>{s.domain}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <td data-label="Domain" style={{ fontWeight: 500 }}>{s.domain}</td>
+                      <td data-label="Theme">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' as const }}>
                           <span
                             title={theme}
                             style={{
                               display: 'inline-block',
-                              width: 22,
-                              height: 22,
+                              width: 18,
+                              height: 18,
                               borderRadius: '50%',
                               background: `linear-gradient(135deg, ${bg} 40%, ${accent})`,
                               border: '2px solid var(--border)',
                               flexShrink: 0,
                             }}
                           />
-                          <select
-                            value={theme}
-                            disabled={isSaving}
-                            onChange={e => updateTheme(s, e.target.value)}
-                            style={{
-                              fontSize: '0.8125rem',
-                              padding: '0.25rem 0.375rem',
-                              borderRadius: 4,
-                              border: '1px solid var(--border)',
-                              background: 'var(--surface)',
-                              color: 'var(--text)',
-                              cursor: 'pointer',
-                              opacity: isSaving ? 0.6 : 1,
-                            }}
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--text)' }}>
+                            {THEME_LABEL[theme] ?? theme}
+                          </span>
+                          <a
+                            href="/dashboard/preview"
+                            className="btn"
+                            style={{ fontSize: '0.75rem', padding: '0.1875rem 0.5rem', textDecoration: 'none' }}
                           >
-                            {THEME_OPTIONS.map(group => (
-                              <optgroup key={group.group} label={group.group}>
-                                {group.options.map(opt => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                              </optgroup>
-                            ))}
-                          </select>
-                          {isSaving && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Saving…</span>
-                          )}
-                          {isSaved && !isSaving && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--success, #22c55e)' }}>Saved</span>
-                          )}
+                            Configure
+                          </a>
                         </div>
                       </td>
-                      <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                      <td data-label="Created" style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>
                         {relativeTime(s.created_at)}
                       </td>
-                      <td>
+                      <td data-label="Export">
                         <button
                           className="btn"
                           style={{ fontSize: '0.8125rem', padding: '0.25rem 0.625rem' }}
@@ -315,7 +260,7 @@ export default function SitesPanel() {
                         </button>
                       </td>
                     </tr>
-                    <tr style={{ display: isExportOpen ? 'table-row' : 'none' }}>
+                    <tr className="table-accordion-row" style={{ display: isExportOpen ? undefined : 'none' }}>
                       <td colSpan={5} style={{ padding: '0.875rem 1rem', background: 'var(--surface)', borderTop: 'none' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
                           <div>
@@ -375,10 +320,9 @@ export default function SitesPanel() {
                         </div>
                       </td>
                     </tr>
-                  </>
+                  </tbody>
                 )
               })}
-            </tbody>
           </table>
         </div>
       )}

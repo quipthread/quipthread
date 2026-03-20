@@ -188,7 +188,17 @@ export default function ModRulesPanel() {
           }}
         >
           <span>Import from URL</span>
-          <span style={{ color: MUTED, fontSize: '0.75rem' }}>{importOpen ? '▲' : '▼'}</span>
+          <span style={{
+            color: MUTED,
+            display: 'inline-flex',
+            flexShrink: 0,
+            transition: 'transform 230ms cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: importOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M2.5 5l4.5 4.5L11.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
         </button>
 
         {importOpen && (

@@ -200,6 +200,91 @@ func consumeReturnToCookie(w http.ResponseWriter, r *http.Request) string {
 	return cookie.Value
 }
 
+// --- link intent cookie helpers ---------------------------------------------
+
+const linkIntentCookieName = "quipthread_link_intent"
+
+func setLinkIntentCookie(w http.ResponseWriter, accountID string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     linkIntentCookieName,
+		Value:    accountID,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   600,
+	})
+}
+
+func consumeLinkIntentCookie(w http.ResponseWriter, r *http.Request) string {
+	cookie, err := r.Cookie(linkIntentCookieName)
+	if err != nil {
+		return ""
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:   linkIntentCookieName,
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+	return cookie.Value
+}
+
+// handleLinkCallback links an OAuth identity to an existing authenticated account
+// instead of performing a login. accountID is the Sub claim from the current session.
+func (h *Handler) handleLinkCallback(w http.ResponseWriter, r *http.Request, info *UserInfo, accountID string) {
+	accountPage := h.config.BaseURL + "/dashboard/account"
+
+	if h.cloudStore != nil && h.config.CloudMode {
+		existing, err := h.cloudStore.GetOAuthLink(info.Provider, info.ProviderID)
+		if err != nil {
+			http.Redirect(w, r, accountPage+"?link_error=server_error", http.StatusFound)
+			return
+		}
+		if existing != nil && existing.AccountID != accountID {
+			http.Redirect(w, r, accountPage+"?link_error=already_linked", http.StatusFound)
+			return
+		}
+		if existing == nil {
+			_ = h.cloudStore.CreateOAuthLink(&cloudpkg.OAuthLink{
+				AccountID:      accountID,
+				Provider:       info.Provider,
+				ProviderUserID: info.ProviderID,
+				Email:          info.Email,
+			})
+		}
+		acc, err := h.cloudStore.GetAccountByID(accountID)
+		if err == nil && acc != nil {
+			seedTenantDB(acc.DBURL, accountID, info)
+		}
+		http.Redirect(w, r, accountPage, http.StatusFound)
+		return
+	}
+
+	// Self-hosted: link the OAuth identity directly to the user in the tenant store.
+	existing, err := h.store.GetIdentity(info.Provider, info.ProviderID)
+	if err != nil {
+		http.Redirect(w, r, accountPage+"?link_error=server_error", http.StatusFound)
+		return
+	}
+	if existing != nil && existing.UserID != accountID {
+		http.Redirect(w, r, accountPage+"?link_error=already_linked", http.StatusFound)
+		return
+	}
+	if existing == nil {
+		if err := h.store.CreateIdentity(&models.UserIdentity{
+			UserID:     accountID,
+			Provider:   info.Provider,
+			ProviderID: info.ProviderID,
+			Username:   info.Username,
+		}); err != nil {
+			log.Printf("handleLinkCallback: create identity for user %s: %v", accountID, err) //nolint:gosec // G706: accountID is internal UUID
+			http.Redirect(w, r, accountPage+"?link_error=server_error", http.StatusFound)
+			return
+		}
+	}
+	http.Redirect(w, r, accountPage, http.StatusFound)
+}
+
 // --- shared upsert + JWT issue ----------------------------------------------
 
 // upsertAndIssueToken finds or creates the user for the given provider identity,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { api } from '../api'
-import type { Site, BillingStatus } from '../types'
+import type { BillingStatus } from '../types'
 
 const FAQ_ITEMS = [
   {
@@ -10,7 +10,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do I embed Quipthread on my site?',
-    a: 'Add the embed snippet from the Quick Start section above to any page where you want comments. The data-site-id attribute identifies which site the comments belong to.',
+    a: 'Go to the Preview page — select your site, copy the snippet for your framework, and paste it into your page template. The Preview page also shows installation detection once you\'ve deployed.',
     gate: null,
   },
   {
@@ -40,51 +40,23 @@ const FAQ_ITEMS = [
   },
 ]
 
-function buildSnippet(siteId: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
-  return `<div id="quipthread"></div>
-<script src="${origin}/embed.js"
-  data-site-id="${siteId}"
-  async>
-<\/script>`
-}
-
 export default function HelpPanel() {
-  const [sites, setSites]               = useState<Site[]>([])
-  const [selectedSite, setSelectedSite] = useState<string>('')
-  const [billing, setBilling]           = useState<BillingStatus | null>(null)
-  const [sitesLoaded, setSitesLoaded]   = useState(false)
-  const [openFaq, setOpenFaq]           = useState<boolean[]>([])
-  const [copied, setCopied]             = useState(false)
+  const [billing, setBilling] = useState<BillingStatus | null>(null)
+  const [openFaq, setOpenFaq] = useState<boolean[]>([])
 
   useEffect(() => {
-    Promise.all([api.sites.list(), api.billing.status()])
-      .then(([{ sites }, status]) => {
-        setSites(sites)
-        if (sites.length > 0) setSelectedSite(sites[0].id)
+    api.billing.status()
+      .then(status => {
         setBilling(status)
-        setSitesLoaded(true)
         setOpenFaq(new Array(FAQ_ITEMS.length).fill(false))
       })
       .catch(() => {
-        setSitesLoaded(true)
         setOpenFaq(new Array(FAQ_ITEMS.length).fill(false))
       })
   }, [])
 
   function toggleFaq(i: number) {
     setOpenFaq(prev => prev.map((v, idx) => idx === i ? !v : v))
-  }
-
-  async function handleCopy() {
-    if (!selectedSite) return
-    try {
-      await navigator.clipboard.writeText(buildSnippet(selectedSite))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // clipboard unavailable — silently ignore
-    }
   }
 
   const visibleFaq = FAQ_ITEMS.filter(item => {
@@ -101,57 +73,27 @@ export default function HelpPanel() {
       {/* ── Quick Start ──────────────────────────────────── */}
       <section style={{ marginBottom: '2.5rem' }}>
         <h2 style={sectionHeadingStyle}>Add Quipthread to your site</h2>
-
-        {!sitesLoaded && (
-          <div class="loading" style={{ textAlign: 'left', padding: '1rem 0' }}>Loading…</div>
-        )}
-
-        {sitesLoaded && sites.length === 0 && (
-          <p style={{ color: 'var(--muted)', fontSize: '0.9375rem', margin: 0 }}>
-            Create a site first in the Sites tab to get your embed snippet.
-          </p>
-        )}
-
-        {sitesLoaded && sites.length > 0 && (
-          <div class="table-card" style={{ padding: '1.25rem 1.5rem' }}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label
-                for="help-site-select"
-                style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}
-              >
-                Site
-              </label>
-              <select
-                id="help-site-select"
-                value={selectedSite}
-                onChange={e => setSelectedSite((e.target as HTMLSelectElement).value)}
-                style={{ maxWidth: 320 }}
-              >
-                {sites.map(s => (
-                  <option key={s.id} value={s.id}>{s.domain}</option>
-                ))}
-              </select>
-            </div>
-
-            {selectedSite && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                    Embed snippet
-                  </span>
-                  <button
-                    class="btn"
-                    onClick={handleCopy}
-                    style={{ minWidth: 72 }}
-                  >
-                    {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                <pre style={codeBlockStyle}>{buildSnippet(selectedSite)}</pre>
-              </div>
-            )}
-          </div>
-        )}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.875rem',
+          padding: '1rem 1.25rem',
+          background: 'var(--amber-bg)',
+          border: '1px solid var(--amber-border)',
+          borderRadius: 8,
+        }}>
+          <span style={{ fontSize: '1.125rem', lineHeight: 1 }}>→</span>
+          <span style={{ fontSize: '0.9375rem', color: 'var(--text)' }}>
+            Get your embed snippet, pick a theme, and verify installation on the{' '}
+            <a
+              href="/dashboard/preview"
+              style={{ color: 'var(--amber)', fontWeight: 600, textDecoration: 'none' }}
+            >
+              Preview page
+            </a>
+            .
+          </span>
+        </div>
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────── */}
@@ -273,19 +215,6 @@ const sectionHeadingStyle: object = {
   color: 'var(--text)',
 }
 
-const codeBlockStyle: object = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontFamily: 'var(--f-mono)',
-  fontSize: '0.8125rem',
-  padding: '1rem',
-  overflowX: 'auto' as const,
-  color: 'var(--text)',
-  margin: 0,
-  lineHeight: 1.6,
-  whiteSpace: 'pre' as const,
-}
 
 const faqButtonStyle: object = {
   width: '100%',

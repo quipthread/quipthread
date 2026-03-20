@@ -64,13 +64,23 @@ func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 			providerUsernames[id.Provider] = id.Username
 		}
 	}
+
+	configured := make([]string, 0, 2)
+	if h.cfg.GitHubClientID != "" {
+		configured = append(configured, "github")
+	}
+	if h.cfg.GoogleClientID != "" {
+		configured = append(configured, "google")
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"id":                 user.ID,
-		"display_name":       user.DisplayName,
-		"email":              user.Email,
-		"avatar_url":         user.AvatarURL,
-		"providers":          providers,
-		"provider_usernames": providerUsernames,
+		"id":                   user.ID,
+		"display_name":         user.DisplayName,
+		"email":                user.Email,
+		"avatar_url":           user.AvatarURL,
+		"providers":            providers,
+		"provider_usernames":   providerUsernames,
+		"configured_providers": configured,
 	})
 }
 

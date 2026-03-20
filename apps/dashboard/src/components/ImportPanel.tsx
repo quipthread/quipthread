@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import { api } from '../api'
 import type { Site, TableInfo, ImportResult, ColumnMapping } from '../types'
+import SelectDropdown from './SelectDropdown'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -347,17 +348,12 @@ export default function ImportPanel() {
             {sites.length === 0 ? (
               <p class="import-hint">No sites found. <a href="/dashboard/sites">Create a site</a> first.</p>
             ) : (
-              <select
+              <SelectDropdown
                 value={siteId}
-                onChange={(e) => setSiteId((e.target as HTMLSelectElement).value)}
+                options={sites.map(s => ({ value: s.id, label: s.domain }))}
+                onChange={setSiteId}
                 disabled={isLoading}
-              >
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.domain}
-                  </option>
-                ))}
-              </select>
+              />
             )}
           </Section>
 
@@ -642,6 +638,17 @@ const styles = `
 
 .mapper-row select {
   width: 100%;
+}
+
+@media (max-width: 600px) {
+  .mapper-row {
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+  }
+
+  .mapper-label {
+    padding-top: 0;
+  }
 }
 
 .mapper-options {

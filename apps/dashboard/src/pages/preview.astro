@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../layouts/AdminLayout.astro'
+import AuthGuard from '../components/AuthGuard'
+import PreviewPanel from '../components/PreviewPanel'
+---
+
+<AdminLayout title="Preview" page="preview">
+  <AuthGuard client:load>
+    <PreviewPanel client:load />
+  </AuthGuard>
+</AdminLayout>

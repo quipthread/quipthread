@@ -7,6 +7,23 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [unverified, setUnverified] = useState(false)
+  const [resendSent, setResendSent] = useState(false)
+  const [resending, setResending] = useState(false)
+
+  const handleResend = async () => {
+    setResending(true)
+    try {
+      await fetch(`${API}/auth/email/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      })
+      setResendSent(true)
+    } finally {
+      setResending(false)
+    }
+  }
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
@@ -70,7 +87,22 @@ export default function LoginForm() {
         <form onSubmit={handleSubmit}>
           {unverified && (
             <div class="error-msg" style={{ marginBottom: '1rem' }}>
-              Your email isn't verified yet. Check your inbox for the verification link.
+              {resendSent
+                ? 'Verification email sent — check your inbox.'
+                : 'Your email isn\'t verified yet.'}
+              {!resendSent && (
+                <span>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+                  >
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                </span>
+              )}
             </div>
           )}
           {error && !unverified && (

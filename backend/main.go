@@ -102,8 +102,10 @@ func main() {
 	// --- Auth routes (public) -----------------------------------------------
 	r.Get("/auth/github/login", authHandler.GithubLogin)
 	r.Get("/auth/github/callback", authHandler.GithubCallback)
+	r.Get("/auth/github/link", authHandler.GithubLink)
 	r.Get("/auth/google/login", authHandler.GoogleLogin)
 	r.Get("/auth/google/callback", authHandler.GoogleCallback)
+	r.Get("/auth/google/link", authHandler.GoogleLink)
 
 	// Email auth endpoints are rate-limited (brute-force protection).
 	r.With(middleware.RateLimit(authRL, ipFn)).Post("/auth/email/register", authHandler.EmailRegister)
@@ -125,6 +127,9 @@ func main() {
 
 	// Billing routes (public webhook + admin-protected status/checkout/portal).
 	handlers.RegisterBillingRoutes(r, store, cfg, cloudStore, tenantCache)
+
+	// Embed preview page — public, no auth, safe to iframe from the dashboard.
+	r.Get("/embed-preview", handlers.HandleEmbedPreview)
 
 	// --- Public API routes --------------------------------------------------
 	r.Get("/api/config", configHandler.PublicConfig)

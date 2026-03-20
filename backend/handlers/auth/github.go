@@ -119,6 +119,36 @@ func fetchGithubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 
 // --- HTTP handlers ----------------------------------------------------------
 
+// GithubLink initiates an OAuth flow that links GitHub to the currently
+// authenticated account rather than performing a login.
+func (h *Handler) GithubLink(w http.ResponseWriter, r *http.Request) {
+	if h.github == nil {
+		writeError(w, http.StatusNotFound, "GitHub auth not configured")
+		return
+	}
+
+	cookie, err := r.Cookie(session.CookieName)
+	if err != nil {
+		http.Redirect(w, r, h.config.BaseURL+"/login", http.StatusFound)
+		return
+	}
+	claims, err := session.Parse(h.config.JWTSecret, cookie.Value)
+	if err != nil || claims == nil {
+		http.Redirect(w, r, h.config.BaseURL+"/login", http.StatusFound)
+		return
+	}
+
+	state, err := generateState()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate state")
+		return
+	}
+
+	setLinkIntentCookie(w, claims.Sub)
+	setStateCookie(w, state)
+	http.Redirect(w, r, h.github.LoginURL(state), http.StatusFound)
+}
+
 func (h *Handler) GithubLogin(w http.ResponseWriter, r *http.Request) {
 	if h.github == nil {
 		writeError(w, http.StatusNotFound, "GitHub auth not configured")
@@ -160,6 +190,11 @@ func (h *Handler) GithubCallback(w http.ResponseWriter, r *http.Request) {
 	info, err := h.github.ExchangeUser(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if accountID := consumeLinkIntentCookie(w, r); accountID != "" {
+		h.handleLinkCallback(w, r, info, accountID)
 		return
 	}
 

@@ -133,6 +133,7 @@ export interface AccountInfo {
   avatar_url: string
   providers: string[] // ['github', 'google', 'email']
   provider_usernames: Record<string, string> // e.g. { github: 'frankie' }
+  configured_providers: string[] // providers with OAuth credentials configured on the server
 }
 
 export interface SecuritySettings {

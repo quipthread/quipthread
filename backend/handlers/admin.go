@@ -9,6 +9,7 @@ import (
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/models"
+	"github.com/quipthread/quipthread/session"
 )
 
 type AdminHandler struct {
@@ -177,6 +178,14 @@ type updateUserRequest struct {
 func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 	id := chi.URLParam(r, "id")
+
+	// Prevent admins from demoting or banning themselves.
+	if claims, ok := r.Context().Value(session.UserKey).(*session.Claims); ok && claims != nil {
+		if claims.Sub == id {
+			writeError(w, http.StatusForbidden, "cannot modify your own account")
+			return
+		}
+	}
 
 	var req updateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

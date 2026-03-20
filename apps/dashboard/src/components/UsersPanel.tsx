@@ -12,6 +12,11 @@ export default function UsersPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [acting, setActing] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.me().then(me => setCurrentUserId(me.id)).catch(() => {})
+  }, [])
 
   const fetchUsers = useCallback(async (p: number) => {
     setLoading(true)
@@ -80,38 +85,38 @@ export default function UsersPanel() {
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id}>
-                    <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+              {users.map(u => (
+                <tbody key={u.id}>
+                  <tr>
+                    <td data-label="Name" style={{ fontWeight: 500 }}>
                       {u.display_name || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
-                    <td style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                    <td data-label="Email" style={{ color: 'var(--muted)', fontSize: '0.8125rem', wordBreak: 'break-all' }}>
                       {u.email || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
-                    <td>
+                    <td data-label="Role">
                       <span className={`badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}`}>
                         {u.role}
                       </span>
                     </td>
-                    <td>
-                      {u.banned && <span className="badge badge-banned">Banned</span>}
+                    <td data-label="Status">
+                      {u.banned ? <span className="badge badge-banned">Banned</span> : <span style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>—</span>}
                     </td>
-                    <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                    <td data-label="Joined" style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>
                       {relativeTime(u.created_at)}
                     </td>
-                    <td>
+                    <td data-label="Actions">
                       <div className="actions">
                         <button
                           className="btn"
-                          disabled={acting === u.id}
+                          disabled={acting === u.id || u.id === currentUserId}
                           onClick={() => toggleAdmin(u)}
                         >
                           {u.role === 'admin' ? 'Demote' : 'Make Admin'}
                         </button>
                         <button
                           className={`btn${u.banned ? '' : ' btn-reject'}`}
-                          disabled={acting === u.id}
+                          disabled={acting === u.id || u.id === currentUserId}
                           onClick={() => toggleBan(u)}
                         >
                           {u.banned ? 'Unban' : 'Ban'}
@@ -119,8 +124,8 @@ export default function UsersPanel() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                </tbody>
+              ))}
             </table>
           </div>
 

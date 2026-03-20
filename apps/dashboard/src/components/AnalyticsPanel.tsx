@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'preact/hooks'
+import SelectDropdown from './SelectDropdown'
 import {
   AreaChart, Area,
   BarChart, Bar,
@@ -140,14 +141,17 @@ export default function AnalyticsPanel() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const [isDark, setIsDark]       = useState(false)
+  const [isMobile, setIsMobile]   = useState(typeof window !== 'undefined' ? window.innerWidth < 600 : false)
 
   const isPro      = plan ? PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('pro') : false
   const isBusiness = plan === 'business'
   const hasAccess  = plan ? PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('starter') : false
 
-  const gridColor   = isDark ? '#2E2C29' : '#D9D4CB'
-  const axisColor   = isDark ? '#8A8480' : '#7A7570'
-  const cursorColor = isDark ? 'rgba(224,127,50,0.12)' : '#F5E0CE'
+  const gridColor    = isDark ? '#2E2C29' : '#D9D4CB'
+  const axisColor    = isDark ? '#8A8480' : '#7A7570'
+  const cursorColor  = isDark ? 'rgba(224,127,50,0.12)' : '#F5E0CE'
+  const yAxisWidth   = isMobile ? 80 : 140
+  const labelTrunc   = isMobile ? 14 : 32
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -155,6 +159,12 @@ export default function AnalyticsPanel() {
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 600)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
   }, [])
 
   useEffect(() => {
@@ -195,17 +205,16 @@ export default function AnalyticsPanel() {
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: '0.75rem' }}>
         <h1>Analytics</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="analytics-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {(sites.length > 1 || isBusiness) && (
-            <select
+            <SelectDropdown
               value={siteId}
-              onChange={e => setSiteId((e.target as HTMLSelectElement).value)}
-              className="input"
-              style={{ margin: 0 }}
-            >
-              {isBusiness && <option value="all">All sites</option>}
-              {sites.map(s => <option key={s.id} value={s.id}>{s.domain}</option>)}
-            </select>
+              options={[
+                ...(isBusiness ? [{ value: 'all', label: 'All sites' }] : []),
+                ...sites.map(s => ({ value: s.id, label: s.domain })),
+              ]}
+              onChange={setSiteId}
+            />
           )}
           <RangeToggle value={range} onChange={setRange} />
         </div>
@@ -272,11 +281,11 @@ export default function AnalyticsPanel() {
             <div style={sectionStyle()}>
               {sectionLabel('Top pages')}
               <ResponsiveContainer width="100%" height={Math.max(120, data.pages.length * 36)}>
-                <BarChart data={data.pages.map(p => ({ ...p, label: truncate(p.page_title) }))}
+                <BarChart data={data.pages.map(p => ({ ...p, label: truncate(p.page_title, labelTrunc) }))}
                   layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <YAxis type="category" dataKey="label" width={140} tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="label" width={yAxisWidth} tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} />
                   <Tooltip content={<BarTooltip />} cursor={{ fill: cursorColor }} />
                   <Bar dataKey="count" fill={AMBER} radius={[0, 3, 3, 0]} maxBarSize={24} />
                 </BarChart>
@@ -289,11 +298,11 @@ export default function AnalyticsPanel() {
             <div style={sectionStyle()}>
               {sectionLabel('Top commenters')}
               <ResponsiveContainer width="100%" height={Math.max(120, data.commenters.length * 36)}>
-                <BarChart data={data.commenters.map(c => ({ ...c, label: truncate(c.display_name) }))}
+                <BarChart data={data.commenters.map(c => ({ ...c, label: truncate(c.display_name, labelTrunc) }))}
                   layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <YAxis type="category" dataKey="label" width={140} tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="label" width={yAxisWidth} tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} />
                   <Tooltip content={<BarTooltip />} cursor={{ fill: cursorColor }} />
                   <Bar dataKey="count" fill={AMBER_HI} radius={[0, 3, 3, 0]} maxBarSize={24} />
                 </BarChart>
@@ -314,8 +323,8 @@ export default function AnalyticsPanel() {
               {data.status_breakdown && data.status_breakdown.length > 0 && (
                 <div style={sectionStyle()}>
                   {sectionLabel('Comment status breakdown')}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' as const }}>
-                    <ResponsiveContainer width={200} height={200}>
+                  <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: '1.5rem', flexWrap: 'wrap' as const }}>
+                    <ResponsiveContainer width={isMobile ? '100%' : 200} height={180}>
                       <PieChart>
                         <Pie data={data.status_breakdown} dataKey="count" nameKey="status"
                           cx="50%" cy="50%" outerRadius={80} innerRadius={44}>

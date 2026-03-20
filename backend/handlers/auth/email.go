@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -171,22 +172,58 @@ func (h *Handler) EmailResend(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
-	// Always return success to avoid user enumeration.
+	const ok = `{"message":"if that email is registered and unverified, a new verification link has been sent"}`
+
+	// Cloud mode: look up account in the cloud store.
+	if h.cloudStore != nil && h.config.CloudMode {
+		acc, err := h.cloudStore.GetAccountByEmail(req.Email)
+		if err != nil || acc == nil || acc.EmailVerified {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(ok))
+			return
+		}
+		tok := &cloudpkg.EmailToken{
+			AccountID: acc.ID,
+			Token:     uuid.New().String(),
+			ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+			Purpose:   "verify",
+		}
+		if err := h.cloudStore.CreateEmailToken(tok); err == nil {
+			verifyURL := fmt.Sprintf("%s/auth/email/cloud-verify?token=%s", h.config.BaseURL, tok.Token)
+			body := mailer.VerificationEmailBody(acc.Email, verifyURL)
+			if err := mailer.SendTransactional(h.config, acc.Email, "Verify your Quipthread email address", body); err != nil {
+				log.Printf("EmailResend(cloud): failed to send to %s: %v", acc.Email, err)
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(ok))
+		return
+	}
+
+	// Self-hosted: look up account in the tenant store.
 	identity, err := h.store.GetIdentity("email", req.Email)
 	if err != nil || identity == nil {
-		writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered and unverified, a new verification link has been sent"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(ok))
 		return
 	}
 
 	user, err := h.store.GetUser(identity.UserID)
 	if err != nil || user == nil || user.EmailVerified {
-		writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered and unverified, a new verification link has been sent"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(ok))
 		return
 	}
 
 	sendVerificationEmail(h.store, h.config, user)
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered and unverified, a new verification link has been sent"})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(ok))
 }
 
 type loginRequest struct {
@@ -296,7 +333,9 @@ func (h *Handler) EmailForgot(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.CreateEmailToken(token); err == nil {
 		resetURL := fmt.Sprintf("%s/auth/email/reset/%s", h.config.BaseURL, token.Token)
 		body := mailer.PasswordResetEmailBody(user.DisplayName, resetURL)
-		_ = mailer.SendTransactional(h.config, user.Email, "Reset your Quipthread password", body)
+		if err := mailer.SendTransactional(h.config, user.Email, "Reset your Quipthread password", body); err != nil {
+			log.Printf("EmailForgot: failed to send password reset to %s: %v", user.Email, err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered you will receive a reset link"})
@@ -401,7 +440,9 @@ func sendVerificationEmail(store db.Store, cfg *config.Config, user *models.User
 	}
 	verifyURL := fmt.Sprintf("%s/auth/email/verify/%s", cfg.BaseURL, token.Token)
 	body := mailer.VerificationEmailBody(user.DisplayName, verifyURL)
-	_ = mailer.SendTransactional(cfg, user.Email, "Verify your Quipthread email address", body)
+	if err := mailer.SendTransactional(cfg, user.Email, "Verify your Quipthread email address", body); err != nil {
+		log.Printf("sendVerificationEmail: failed to send to %s: %v", user.Email, err)
+	}
 }
 
 // --- Cloud email auth handlers -----------------------------------------------
@@ -473,7 +514,9 @@ func (h *Handler) cloudEmailRegister(w http.ResponseWriter, r *http.Request) {
 	if err := h.cloudStore.CreateEmailToken(tok); err == nil {
 		verifyURL := fmt.Sprintf("%s/auth/email/cloud-verify?token=%s", h.config.BaseURL, tok.Token)
 		body := mailer.VerificationEmailBody(req.Email, verifyURL)
-		_ = mailer.SendTransactional(h.config, req.Email, "Verify your Quipthread email address", body)
+		if err := mailer.SendTransactional(h.config, req.Email, "Verify your Quipthread email address", body); err != nil {
+			log.Printf("cloudEmailRegister: failed to send verification to %s: %v", req.Email, err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "check your email to verify your account"})
@@ -514,6 +557,12 @@ func (h *Handler) cloudEmailLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	seedTenantDB(acc.DBURL, acc.ID, &UserInfo{
+		Provider:    "email",
+		ProviderID:  acc.ID,
+		DisplayName: acc.Email,
+		Email:       acc.Email,
+	})
 	session.SetCookie(w, tokenStr, r.TLS != nil)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged in"})
 }
@@ -558,6 +607,12 @@ func (h *Handler) CloudEmailVerify(w http.ResponseWriter, r *http.Request) {
 		renderEmailPage(w, "Email verified", "Your email has been verified. You can now log in.", true)
 		return
 	}
+	seedTenantDB(acc.DBURL, acc.ID, &UserInfo{
+		Provider:    "email",
+		ProviderID:  acc.ID,
+		DisplayName: acc.Email,
+		Email:       acc.Email,
+	})
 	session.SetCookie(w, tokenStr, r.TLS != nil)
 	http.Redirect(w, r, h.config.BaseURL+"/dashboard/onboarding", http.StatusFound)
 }
@@ -587,7 +642,9 @@ func (h *Handler) CloudPasswordResetRequest(w http.ResponseWriter, r *http.Reque
 	if err := h.cloudStore.CreateEmailToken(tok); err == nil {
 		resetURL := fmt.Sprintf("%s/auth/email/cloud-reset-confirm?token=%s", h.config.BaseURL, tok.Token)
 		body := mailer.PasswordResetEmailBody(acc.Email, resetURL)
-		_ = mailer.SendTransactional(h.config, acc.Email, "Reset your Quipthread password", body)
+		if err := mailer.SendTransactional(h.config, acc.Email, "Reset your Quipthread password", body); err != nil {
+			log.Printf("cloudPasswordResetRequest: failed to send reset to %s: %v", acc.Email, err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered you will receive a reset link"})

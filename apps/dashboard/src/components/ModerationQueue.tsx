@@ -217,7 +217,7 @@ export default function ModerationQueue() {
         <div className="empty">No pending comments.</div>
       ) : (
         <>
-          <div className="mq-grid">
+          <div className="mq-scroll"><div className="mq-grid">
             <div className="mq-header">
               <div>
                 <input
@@ -239,7 +239,7 @@ export default function ModerationQueue() {
                 key={c.id}
                 className={`mq-row${selected.has(c.id) ? ' selected' : ''}`}
               >
-                <div className="mq-cell">
+                <div className="mq-cell mq-cell-check">
                   <input
                     type="checkbox"
                     checked={selected.has(c.id)}
@@ -247,13 +247,13 @@ export default function ModerationQueue() {
                   />
                 </div>
 
-                <div className="mq-cell" style={{ fontWeight: 500 }}>
+                <div className="mq-cell" data-label="From" style={{ fontWeight: 500 }}>
                   {c.author_name || c.disqus_author || (
                     <span style={{ color: 'var(--muted)' }}>—</span>
                   )}
                 </div>
 
-                <div className="mq-cell" style={{ gap: '0.25rem' }}>
+                <div className="mq-cell" data-label="Comment" style={{ gap: '0.25rem' }}>
                   <span style={{
                     flex: 1,
                     minWidth: 0,
@@ -273,17 +273,17 @@ export default function ModerationQueue() {
                   </button>
                 </div>
 
-                <div className="mq-cell" style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                <div className="mq-cell" data-label="Page" style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {c.page_title || c.page_id}
                   </span>
                 </div>
 
-                <div className="mq-cell" style={{ color: 'var(--muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
+                <div className="mq-cell" data-label="Date" style={{ color: 'var(--muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
                   {relativeTime(c.created_at)}
                 </div>
 
-                <div className="mq-cell">
+                <div className="mq-cell mq-cell-actions">
                   <div className="actions">
                     <button
                       className="btn btn-approve"
@@ -392,7 +392,7 @@ export default function ModerationQueue() {
                 </div>
               </div>
             ))}
-          </div>
+          </div></div>
 
           {totalPages > 1 && (
             <div className="pagination">

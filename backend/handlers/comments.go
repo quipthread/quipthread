@@ -97,6 +97,11 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.PageID == "__preview__" {
+		writeError(w, http.StatusForbidden, "preview_mode")
+		return
+	}
+
 	// Prefer account-level Turnstile secret key; fall back to global env var.
 	turnstileSecret := h.config.TurnstileSecretKey
 	if accountSecret, err := func() (string, error) {

@@ -78,6 +78,36 @@ func (p *GoogleProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 
 // --- HTTP handlers ----------------------------------------------------------
 
+// GoogleLink initiates an OAuth flow that links Google to the currently
+// authenticated account rather than performing a login.
+func (h *Handler) GoogleLink(w http.ResponseWriter, r *http.Request) {
+	if h.google == nil {
+		writeError(w, http.StatusNotFound, "Google auth not configured")
+		return
+	}
+
+	cookie, err := r.Cookie(session.CookieName)
+	if err != nil {
+		http.Redirect(w, r, h.config.BaseURL+"/login", http.StatusFound)
+		return
+	}
+	claims, err := session.Parse(h.config.JWTSecret, cookie.Value)
+	if err != nil || claims == nil {
+		http.Redirect(w, r, h.config.BaseURL+"/login", http.StatusFound)
+		return
+	}
+
+	state, err := generateState()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate state")
+		return
+	}
+
+	setLinkIntentCookie(w, claims.Sub)
+	setStateCookie(w, state)
+	http.Redirect(w, r, h.google.LoginURL(state), http.StatusFound)
+}
+
 func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	if h.google == nil {
 		writeError(w, http.StatusNotFound, "Google auth not configured")
@@ -119,6 +149,11 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	info, err := h.google.ExchangeUser(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if accountID := consumeLinkIntentCookie(w, r); accountID != "" {
+		h.handleLinkCallback(w, r, info, accountID)
 		return
 	}
 
