@@ -112,8 +112,8 @@ export default function SitesPanel() {
 
   useEffect(() => { fetchSites() }, [fetchSites])
 
-  const createSite = async (e: SubmitEvent) => {
-    e.preventDefault()
+  const createSite = async (e?: Event) => {
+    e?.preventDefault()
     const trimmed = domain.trim()
     if (!trimmed) return
     setCreating(true)
@@ -153,7 +153,7 @@ export default function SitesPanel() {
             borderRadius: 8,
             display: 'flex',
             gap: '0.625rem',
-            alignItems: 'flex-start',
+            alignItems: 'center',
           }}
         >
           <div style={{ flex: 1 }}>
@@ -162,6 +162,7 @@ export default function SitesPanel() {
               placeholder="example.com"
               value={domain}
               onChange={e => setDomain(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createSite() } }}
               disabled={creating}
               style={{ width: '100%' }}
               autoFocus
