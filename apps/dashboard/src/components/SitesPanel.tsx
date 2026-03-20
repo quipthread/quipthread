@@ -148,7 +148,7 @@ export default function SitesPanel() {
           style={{
             marginBottom: '1.5rem',
             padding: '1.125rem 1.25rem',
-            background: 'white',
+            background: 'var(--card-bg)',
             border: '1px solid var(--border)',
             borderRadius: 8,
             display: 'flex',
