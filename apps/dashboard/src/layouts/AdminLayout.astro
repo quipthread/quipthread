@@ -1,6 +1,7 @@
 ---
 import { ClientRouter, fade } from 'astro:transitions'
 import NavPlanSync from '../components/NavPlanSync'
+import CheckoutSuccessModal from '../components/CheckoutSuccessModal'
 
 interface Props {
   title: string
@@ -97,6 +98,7 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
       </main>
     </div>
     <NavPlanSync client:load />
+    <CheckoutSuccessModal client:load />
     <script>
       document.addEventListener('astro:page-load', () => {
         const btn = document.getElementById('nav-logout')
