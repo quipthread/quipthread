@@ -564,6 +564,11 @@ func (s *sqlStore) UpdateSite(site *models.Site) error {
 	return err
 }
 
+func (s *sqlStore) DeleteSite(id string) error {
+	_, err := s.db.Exec(`DELETE FROM sites WHERE id = ?`, id) //nolint:noctx // DB layer; full context threading deferred
+	return err
+}
+
 // ---- Approval tokens --------------------------------------------------------
 
 func (s *sqlStore) GetApprovalToken(token string) (*models.ApprovalToken, error) {

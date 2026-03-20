@@ -57,6 +57,8 @@ export const api = {
     create: (domain: string) => json('POST', '/api/admin/sites', { domain }),
     update: (id: string, body: { theme: string }) =>
       json('PATCH', `/api/admin/sites/${id}`, body),
+    delete: (id: string) =>
+      req(`/api/admin/sites/${id}`, { method: 'DELETE' }),
   },
 
   modrules: {

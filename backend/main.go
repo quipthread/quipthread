@@ -268,6 +268,7 @@ func main() {
 		r.Get("/api/admin/sites", adminHandler.ListSites)
 		r.With(middleware.EnforceSiteLimit(store, cfg)).Post("/api/admin/sites", adminHandler.CreateSite)
 		r.Patch("/api/admin/sites/{id}", adminHandler.UpdateSite)
+		r.Delete("/api/admin/sites/{id}", adminHandler.DeleteSite)
 
 		// Analytics route
 		r.Get("/api/admin/analytics", analyticsHandler.Get)

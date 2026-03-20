@@ -266,6 +266,35 @@ func (h *AdminHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, site)
 }
 
+// DELETE /api/admin/sites/:id
+func (h *AdminHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
+	store := h.db(r)
+	id := chi.URLParam(r, "id")
+
+	site, err := store.GetSite(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if site == nil {
+		writeError(w, http.StatusNotFound, "site not found")
+		return
+	}
+
+	claims := claimsFromContext(r)
+	if claims == nil || (claims.Role != "admin" && claims.Sub != site.OwnerID) {
+		writeError(w, http.StatusForbidden, "only owners and admins may delete a site")
+		return
+	}
+
+	if err := store.DeleteSite(id); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete site")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type createSiteRequest struct {
 	Domain string `json:"domain"`
 }

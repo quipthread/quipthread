@@ -82,6 +82,20 @@ export default function SitesPanel() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [exportOpenId, setExportOpenId] = useState<string | null>(null)
   const [exportState, setExportState] = useState<ExportState>(defaultExport())
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (site: Site) => {
+    if (!confirm(`Delete site "${site.domain}"? This cannot be undone.`)) return
+    setDeletingId(site.id)
+    try {
+      await api.sites.delete(site.id)
+      setSites(prev => prev.filter(s => s.id !== site.id))
+    } catch {
+      alert('Failed to delete site.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const fetchSites = useCallback(async () => {
     setLoading(true)
@@ -184,6 +198,7 @@ export default function SitesPanel() {
                 <th>Theme</th>
                 <th>Created</th>
                 <th>Export</th>
+                <th></th>
               </tr>
             </thead>
               {sites.map(s => {
@@ -259,9 +274,19 @@ export default function SitesPanel() {
                           {isExportOpen ? 'Close' : 'Export'}
                         </button>
                       </td>
+                      <td data-label="Delete">
+                        <button
+                          className="btn btn-reject"
+                          style={{ fontSize: '0.8125rem', padding: '0.25rem 0.625rem' }}
+                          disabled={deletingId === s.id}
+                          onClick={() => handleDelete(s)}
+                        >
+                          {deletingId === s.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </td>
                     </tr>
                     <tr className="table-accordion-row" style={{ display: isExportOpen ? undefined : 'none' }}>
-                      <td colSpan={5} style={{ padding: '0.875rem 1rem', background: 'var(--surface)', borderTop: 'none' }}>
+                      <td colSpan={6} style={{ padding: '0.875rem 1rem', background: 'var(--surface)', borderTop: 'none' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
                           <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Format</label>

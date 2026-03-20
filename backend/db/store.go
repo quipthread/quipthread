@@ -56,6 +56,7 @@ type Store interface {
 	CountSites() (int, error)
 	CreateSite(s *models.Site) error
 	UpdateSite(s *models.Site) error
+	DeleteSite(id string) error
 	UpdateSiteLastNotifiedAt(siteID string, t time.Time) error
 
 	// Pending comment queries (used by notification dispatcher)
