@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	cloudpkg "github.com/quipthread/quipthread/cloud"
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/mailer"
@@ -44,8 +43,7 @@ type registerRequest struct {
 }
 
 func (h *Handler) EmailRegister(w http.ResponseWriter, r *http.Request) {
-	if h.cloudStore != nil && h.config.CloudMode {
-		h.cloudEmailRegister(w, r)
+	if h.cloudEmailRegister(w, r) {
 		return
 	}
 	if h.email == nil {
@@ -159,6 +157,9 @@ type resendRequest struct {
 }
 
 func (h *Handler) EmailResend(w http.ResponseWriter, r *http.Request) {
+	if h.cloudEmailResend(w, r) {
+		return
+	}
 	if h.email == nil {
 		writeError(w, http.StatusNotFound, "email auth not enabled")
 		return
@@ -173,34 +174,6 @@ func (h *Handler) EmailResend(w http.ResponseWriter, r *http.Request) {
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
 	const ok = `{"message":"if that email is registered and unverified, a new verification link has been sent"}`
-
-	// Cloud mode: look up account in the cloud store.
-	if h.cloudStore != nil && h.config.CloudMode {
-		acc, err := h.cloudStore.GetAccountByEmail(req.Email)
-		if err != nil || acc == nil || acc.EmailVerified {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(ok))
-			return
-		}
-		tok := &cloudpkg.EmailToken{
-			AccountID: acc.ID,
-			Token:     uuid.New().String(),
-			ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
-			Purpose:   "verify",
-		}
-		if err := h.cloudStore.CreateEmailToken(tok); err == nil {
-			verifyURL := fmt.Sprintf("%s/auth/email/cloud-verify?token=%s", h.config.BaseURL, tok.Token)
-			body := mailer.VerificationEmailBody(acc.Email, verifyURL)
-			if err := mailer.SendTransactional(h.config, acc.Email, "Verify your Quipthread email address", body); err != nil {
-				log.Printf("EmailResend(cloud): failed to send to %s: %v", acc.Email, err)
-			}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(ok))
-		return
-	}
 
 	// Self-hosted: look up account in the tenant store.
 	identity, err := h.store.GetIdentity("email", req.Email)
@@ -232,8 +205,7 @@ type loginRequest struct {
 }
 
 func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
-	if h.cloudStore != nil && h.config.CloudMode {
-		h.cloudEmailLogin(w, r)
+	if h.cloudEmailLogin(w, r) {
 		return
 	}
 	if h.email == nil {
@@ -294,8 +266,7 @@ type forgotRequest struct {
 }
 
 func (h *Handler) EmailForgot(w http.ResponseWriter, r *http.Request) {
-	if h.cloudStore != nil && h.config.CloudMode {
-		h.CloudPasswordResetRequest(w, r)
+	if h.cloudForgot(w, r) {
 		return
 	}
 	if h.email == nil {
@@ -443,287 +414,6 @@ func sendVerificationEmail(store db.Store, cfg *config.Config, user *models.User
 	if err := mailer.SendTransactional(cfg, user.Email, "Verify your Quipthread email address", body); err != nil {
 		log.Printf("sendVerificationEmail: failed to send to %s: %v", user.Email, err)
 	}
-}
-
-// --- Cloud email auth handlers -----------------------------------------------
-
-func (h *Handler) cloudEmailRegister(w http.ResponseWriter, r *http.Request) {
-	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	if !emailRe.MatchString(req.Email) {
-		writeError(w, http.StatusBadRequest, "invalid email address")
-		return
-	}
-	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
-		return
-	}
-
-	existing, err := h.cloudStore.GetAccountByEmail(req.Email)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if existing != nil {
-		writeError(w, http.StatusConflict, "email already registered")
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
-		return
-	}
-
-	accountID := uuid.New().String()
-	acc := &cloudpkg.Account{
-		ID:            accountID,
-		Email:         req.Email,
-		PasswordHash:  string(hash),
-		EmailVerified: false,
-		Plan:          "hobby",
-		DBType:        "sqlite",
-		CreatedAt:     time.Now().UTC(),
-	}
-	if err := h.cloudStore.CreateAccount(acc); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create account")
-		return
-	}
-
-	dbPath, err := cloudpkg.ProvisionSQLite(h.config.TenantDataDir, accountID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to provision database")
-		return
-	}
-	if err := h.cloudStore.UpdateAccountPlan(accountID, "hobby", "sqlite", dbPath); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update account")
-		return
-	}
-
-	tok := &cloudpkg.EmailToken{
-		AccountID: accountID,
-		Token:     uuid.New().String(),
-		ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
-		Purpose:   "verify",
-	}
-	if err := h.cloudStore.CreateEmailToken(tok); err == nil {
-		verifyURL := fmt.Sprintf("%s/auth/email/cloud-verify?token=%s", h.config.BaseURL, tok.Token)
-		body := mailer.VerificationEmailBody(req.Email, verifyURL)
-		if err := mailer.SendTransactional(h.config, req.Email, "Verify your Quipthread email address", body); err != nil {
-			log.Printf("cloudEmailRegister: failed to send verification to %s: %v", req.Email, err)
-		}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"message": "check your email to verify your account"})
-}
-
-func (h *Handler) cloudEmailLogin(w http.ResponseWriter, r *http.Request) {
-	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-
-	acc, err := h.cloudStore.GetAccountByEmail(req.Email)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if acc == nil {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
-		return
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(acc.PasswordHash), []byte(req.Password)); err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
-		return
-	}
-
-	if !acc.EmailVerified {
-		writeErrorCode(w, http.StatusForbidden, "email_not_verified", "your email isn't verified yet — check your inbox")
-		return
-	}
-
-	tokenStr, err := session.Issue(h.config.JWTSecret, acc.ID, acc.Email, "email", "admin", acc.ID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to issue token")
-		return
-	}
-
-	seedTenantDB(acc.DBURL, acc.ID, &UserInfo{
-		Provider:    "email",
-		ProviderID:  acc.ID,
-		DisplayName: acc.Email,
-		Email:       acc.Email,
-	})
-	session.SetCookie(w, tokenStr, r.TLS != nil)
-	writeJSON(w, http.StatusOK, map[string]string{"message": "logged in"})
-}
-
-// CloudEmailVerify handles GET /auth/email/cloud-verify?token=...
-func (h *Handler) CloudEmailVerify(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		renderEmailPage(w, "Invalid link", "The verification link is missing a token.", false)
-		return
-	}
-
-	tok, err := h.cloudStore.GetEmailToken(token)
-	if err != nil || tok == nil {
-		renderEmailPage(w, "Link not found", "This verification link is invalid or has already been used.", false)
-		return
-	}
-	if tok.Purpose != "verify" {
-		renderEmailPage(w, "Invalid link", "This link cannot be used for email verification.", false)
-		return
-	}
-	if time.Now().After(tok.ExpiresAt) {
-		_ = h.cloudStore.DeleteEmailToken(token)
-		renderEmailPage(w, "Link expired", "This verification link has expired. Please request a new one.", false)
-		return
-	}
-
-	if err := h.cloudStore.UpdateAccountEmailVerified(tok.AccountID); err != nil {
-		renderEmailPage(w, "Error", "Failed to verify email. Please try again.", false)
-		return
-	}
-	_ = h.cloudStore.DeleteEmailToken(token)
-
-	acc, err := h.cloudStore.GetAccountByID(tok.AccountID)
-	if err != nil {
-		renderEmailPage(w, "Email verified", "Your email has been verified. You can now log in.", true)
-		return
-	}
-
-	tokenStr, err := session.Issue(h.config.JWTSecret, acc.ID, acc.Email, "email", "admin", acc.ID)
-	if err != nil {
-		renderEmailPage(w, "Email verified", "Your email has been verified. You can now log in.", true)
-		return
-	}
-	seedTenantDB(acc.DBURL, acc.ID, &UserInfo{
-		Provider:    "email",
-		ProviderID:  acc.ID,
-		DisplayName: acc.Email,
-		Email:       acc.Email,
-	})
-	session.SetCookie(w, tokenStr, r.TLS != nil)
-	http.Redirect(w, r, h.config.BaseURL+"/dashboard/onboarding", http.StatusFound)
-}
-
-// CloudPasswordResetRequest handles POST /auth/email/cloud-reset-request
-func (h *Handler) CloudPasswordResetRequest(w http.ResponseWriter, r *http.Request) {
-	var req forgotRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-
-	// Always return success to avoid user enumeration.
-	acc, err := h.cloudStore.GetAccountByEmail(req.Email)
-	if err != nil || acc == nil {
-		writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered you will receive a reset link"})
-		return
-	}
-
-	tok := &cloudpkg.EmailToken{
-		AccountID: acc.ID,
-		Token:     uuid.New().String(),
-		ExpiresAt: time.Now().UTC().Add(1 * time.Hour),
-		Purpose:   "reset",
-	}
-	if err := h.cloudStore.CreateEmailToken(tok); err == nil {
-		resetURL := fmt.Sprintf("%s/auth/email/cloud-reset-confirm?token=%s", h.config.BaseURL, tok.Token)
-		body := mailer.PasswordResetEmailBody(acc.Email, resetURL)
-		if err := mailer.SendTransactional(h.config, acc.Email, "Reset your Quipthread password", body); err != nil {
-			log.Printf("cloudPasswordResetRequest: failed to send reset to %s: %v", acc.Email, err)
-		}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"message": "if that email is registered you will receive a reset link"})
-}
-
-// CloudPasswordResetConfirm handles POST /auth/email/cloud-reset-confirm
-func (h *Handler) CloudPasswordResetConfirm(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		writeError(w, http.StatusBadRequest, "missing token")
-		return
-	}
-
-	tok, err := h.cloudStore.GetEmailToken(token)
-	if err != nil || tok == nil {
-		writeError(w, http.StatusNotFound, "token not found or already used")
-		return
-	}
-	if tok.Purpose != "reset" {
-		writeError(w, http.StatusBadRequest, "invalid token type")
-		return
-	}
-	if time.Now().After(tok.ExpiresAt) {
-		_ = h.cloudStore.DeleteEmailToken(token)
-		writeError(w, http.StatusGone, "password reset link has expired")
-		return
-	}
-
-	var req resetRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
-		return
-	}
-
-	if err := h.cloudStore.UpdateAccountPassword(tok.AccountID, string(hash)); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update password")
-		return
-	}
-	_ = h.cloudStore.DeleteEmailToken(token)
-
-	writeJSON(w, http.StatusOK, map[string]string{"message": "password updated successfully"})
-}
-
-// CloudResetPage renders the password reset form for cloud accounts.
-// GET /auth/email/cloud-reset-confirm
-func (h *Handler) CloudResetPage(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		renderEmailPage(w, "Invalid link", "The reset link is missing a token.", false)
-		return
-	}
-
-	tok, err := h.cloudStore.GetEmailToken(token)
-	if err != nil || tok == nil {
-		renderEmailPage(w, "Link not found", "This password reset link is invalid or has already been used.", false)
-		return
-	}
-	if tok.Purpose != "reset" {
-		renderEmailPage(w, "Invalid link", "This link cannot be used for password reset.", false)
-		return
-	}
-	if time.Now().After(tok.ExpiresAt) {
-		_ = h.cloudStore.DeleteEmailToken(token)
-		renderEmailPage(w, "Link expired", "This password reset link has expired. Please request a new one.", false)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, cloudResetFormHTML, html.EscapeString(token)) //nolint:errcheck // ResponseWriter.Write errors are not actionable
 }
 
 // writeErrorCode writes a JSON error with an additional machine-readable code field.
@@ -913,134 +603,6 @@ async function submit() {
 
   try {
     const res = await fetch('/auth/email/reset/%s', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw }),
-    });
-    const data = await res.json();
-
-    if (res.ok) {
-      btn.style.display = 'none';
-      document.getElementById('pw').style.display = 'none';
-      document.querySelector('label').style.display = 'none';
-      document.querySelector('.body p').textContent = 'Your password has been updated. You can now log in.';
-    } else {
-      msg.className = 'msg error';
-      msg.textContent = (data && data.error) ? data.error : 'Something went wrong. Please try again.';
-      btn.disabled = false;
-    }
-  } catch (e) {
-    msg.className = 'msg error';
-    msg.textContent = 'Network error — please try again.';
-    btn.disabled = false;
-  }
-}
-</script>
-</body>
-</html>`
-
-const cloudResetFormHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quipthread — Reset Password</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --ink: #0F0F0F; --surface: #1A1A1A; --border: #2A2A2A;
-    --text: #E8E3DC; --muted: #8A8480; --amber: #E07F32; --amber-h: #F0A06A;
-    --paper: #F7F4EF; --p-surf: #EEEBE4; --p-bord: #D9D4CB;
-    --p-text: #1A1714; --p-muted: #7A7570;
-  }
-  @media (prefers-color-scheme: light) {
-    body { --bg: var(--paper); --surf: var(--p-surf); --bord: var(--p-bord); --fg: var(--p-text); --faded: var(--p-muted); }
-  }
-  @media (prefers-color-scheme: dark) {
-    body { --bg: var(--ink); --surf: var(--surface); --bord: var(--border); --fg: var(--text); --faded: var(--muted); }
-  }
-  body {
-    font-family: system-ui, -apple-system, sans-serif;
-    background: var(--bg, var(--paper));
-    color: var(--fg, var(--p-text));
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 1rem;
-  }
-  .card {
-    width: 100%%; max-width: 480px;
-    background: var(--surf, var(--p-surf));
-    border: 1px solid var(--bord, var(--p-bord));
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .card-header {
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--bord, var(--p-bord));
-    display: flex; align-items: center; gap: 0.5rem;
-  }
-  .logo { font-size: 0.875rem; font-weight: 700; color: var(--amber); letter-spacing: 0.02em; text-transform: uppercase; }
-  .sep { color: var(--faded, var(--p-muted)); }
-  .card-title { font-size: 0.875rem; color: var(--faded, var(--p-muted)); }
-  .body { padding: 2rem 1.5rem; }
-  .body p { font-size: 0.9375rem; color: var(--faded, var(--p-muted)); margin-bottom: 1.5rem; line-height: 1.6; }
-  label { display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.375rem; }
-  input[type="password"] {
-    width: 100%%; padding: 0.625rem 0.875rem;
-    background: var(--bg, var(--paper));
-    color: var(--fg, var(--p-text));
-    border: 1px solid var(--bord, var(--p-bord));
-    border-radius: 6px; font-size: 0.9375rem;
-    outline: none;
-  }
-  input[type="password"]:focus { border-color: var(--amber); }
-  .btn {
-    margin-top: 1.25rem; width: 100%%;
-    padding: 0.75rem; background: var(--amber); color: #fff;
-    border: none; border-radius: 6px; font-size: 0.9375rem;
-    font-weight: 600; cursor: pointer; transition: background 0.15s;
-  }
-  .btn:hover:not(:disabled) { background: var(--amber-h); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
-  .msg { margin-top: 1rem; font-size: 0.875rem; text-align: center; color: var(--faded, var(--p-muted)); }
-  .msg.error { color: #c0392b; }
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="card-header">
-    <span class="logo">Quipthread</span>
-    <span class="sep">/</span>
-    <span class="card-title">Reset Password</span>
-  </div>
-  <div class="body">
-    <p>Enter a new password for your account. It must be at least 8 characters.</p>
-    <label for="pw">New password</label>
-    <input type="password" id="pw" placeholder="New password" autocomplete="new-password">
-    <button class="btn" id="btn" onclick="submit()">Set new password</button>
-    <div class="msg" id="msg"></div>
-  </div>
-</div>
-<script>
-async function submit() {
-  const pw = document.getElementById('pw').value;
-  const btn = document.getElementById('btn');
-  const msg = document.getElementById('msg');
-
-  if (pw.length < 8) {
-    msg.className = 'msg error';
-    msg.textContent = 'Password must be at least 8 characters.';
-    return;
-  }
-
-  btn.disabled = true;
-  msg.className = 'msg';
-  msg.textContent = '';
-
-  try {
-    const res = await fetch('/auth/email/cloud-reset-confirm?token=%s', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw }),

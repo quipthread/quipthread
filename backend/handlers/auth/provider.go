@@ -10,11 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
-
-	cloudpkg "github.com/quipthread/quipthread/cloud"
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/models"
@@ -40,23 +36,19 @@ type UserInfo struct {
 
 // Handler holds shared dependencies for all auth sub-handlers.
 type Handler struct {
-	store      db.Store
-	config     *config.Config
-	cloudStore cloudpkg.Store
-	github     *GithubProvider
-	google     *GoogleProvider
-	email      *EmailProvider
+	store       db.Store
+	config      *config.Config
+	cloudExtras //nolint:unused // populated by provider_cloud.go in cloud builds
+	github      *GithubProvider
+	google      *GoogleProvider
+	email       *EmailProvider
 }
 
-func NewHandler(store db.Store, cfg *config.Config) *Handler {
-	return NewHandlerWithCloud(store, cfg, nil)
-}
-
-func NewHandlerWithCloud(store db.Store, cfg *config.Config, cloudStore cloudpkg.Store) *Handler {
+// newHandler constructs the base Handler without any cloud extras set.
+func newHandler(store db.Store, cfg *config.Config) *Handler {
 	h := &Handler{
-		store:      store,
-		config:     cfg,
-		cloudStore: cloudStore,
+		store:  store,
+		config: cfg,
 	}
 
 	if cfg.GitHubClientID != "" && cfg.GitHubSecret != "" {
@@ -232,33 +224,11 @@ func consumeLinkIntentCookie(w http.ResponseWriter, r *http.Request) string {
 // handleLinkCallback links an OAuth identity to an existing authenticated account
 // instead of performing a login. accountID is the Sub claim from the current session.
 func (h *Handler) handleLinkCallback(w http.ResponseWriter, r *http.Request, info *UserInfo, accountID string) {
-	accountPage := h.config.BaseURL + "/dashboard/account"
-
-	if h.cloudStore != nil && h.config.CloudMode {
-		existing, err := h.cloudStore.GetOAuthLink(info.Provider, info.ProviderID)
-		if err != nil {
-			http.Redirect(w, r, accountPage+"?link_error=server_error", http.StatusFound)
-			return
-		}
-		if existing != nil && existing.AccountID != accountID {
-			http.Redirect(w, r, accountPage+"?link_error=already_linked", http.StatusFound)
-			return
-		}
-		if existing == nil {
-			_ = h.cloudStore.CreateOAuthLink(&cloudpkg.OAuthLink{
-				AccountID:      accountID,
-				Provider:       info.Provider,
-				ProviderUserID: info.ProviderID,
-				Email:          info.Email,
-			})
-		}
-		acc, err := h.cloudStore.GetAccountByID(accountID)
-		if err == nil && acc != nil {
-			seedTenantDB(acc.DBURL, accountID, info)
-		}
-		http.Redirect(w, r, accountPage, http.StatusFound)
+	if h.cloudHandleLinkCallback(w, r, info, accountID) {
 		return
 	}
+
+	accountPage := h.config.BaseURL + "/dashboard/account"
 
 	// Self-hosted: link the OAuth identity directly to the user in the tenant store.
 	existing, err := h.store.GetIdentity(info.Provider, info.ProviderID)
@@ -356,150 +326,6 @@ func (h *Handler) upsertAndIssueToken(info *UserInfo) (string, error) {
 	}
 
 	return session.Issue(h.config.JWTSecret, user.ID, user.DisplayName, info.Provider, user.Role, "")
-}
-
-// seedTenantDB ensures the tenant SQLite contains a user record and identity
-// row for the given account. It is a no-op for non-SQLite tenant DBs and is
-// safe to call on every login (idempotent — only writes on first call).
-func seedTenantDB(dbURL, accountID string, info *UserInfo) {
-	// Skip non-local DBs (Turso/libSQL provisioning is handled separately).
-	if strings.HasPrefix(dbURL, "libsql://") || strings.HasPrefix(dbURL, "https://") {
-		return
-	}
-	s, err := db.NewSQLiteStore(dbURL)
-	if err != nil {
-		log.Printf("seedTenantDB: open store for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
-		return
-	}
-	defer s.Close() //nolint:errcheck // deferred store close; error non-actionable here
-
-	existing, _ := s.GetUser(accountID)
-	if existing == nil {
-		u := &models.User{
-			ID:          accountID,
-			DisplayName: info.DisplayName,
-			Email:       info.Email,
-			AvatarURL:   info.AvatarURL,
-			Role:        "admin",
-		}
-		if err := s.UpsertUser(u); err != nil {
-			log.Printf("seedTenantDB: upsert user for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
-		}
-		if err := s.CreateIdentity(&models.UserIdentity{
-			UserID:     accountID,
-			Provider:   info.Provider,
-			ProviderID: info.ProviderID,
-			Username:   info.Username,
-		}); err != nil {
-			log.Printf("seedTenantDB: create identity for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
-		}
-	} else {
-		// Keep profile fields fresh on every login.
-		existing.DisplayName = info.DisplayName
-		existing.AvatarURL = info.AvatarURL
-		if info.Email != "" {
-			existing.Email = info.Email
-		}
-		if err := s.UpsertUser(existing); err != nil {
-			log.Printf("seedTenantDB: update user for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
-		}
-		if info.Username != "" {
-			if err := s.UpdateIdentityUsername(accountID, info.Provider, info.Username); err != nil {
-				log.Printf("seedTenantDB: update username for account %s: %v", accountID, err) //nolint:gosec // G706: accountID is an internal UUID, not user-controlled format string
-			}
-		}
-	}
-}
-
-// cloudUpsertAndIssueToken handles OAuth sign-in/sign-up in cloud mode.
-// It looks up the OAuth link, falls back to email match, or creates a new account.
-func (h *Handler) cloudUpsertAndIssueToken(
-	w http.ResponseWriter, r *http.Request,
-	info *UserInfo,
-) {
-	// Step 1: oauth_links lookup — returning user
-	link, err := h.cloudStore.GetOAuthLink(info.Provider, info.ProviderID)
-	if err != nil {
-		http.Error(w, "database error", http.StatusInternalServerError)
-		return
-	}
-	if link != nil {
-		acc, err := h.cloudStore.GetAccountByID(link.AccountID)
-		if err != nil || acc == nil {
-			http.Error(w, "account not found", http.StatusInternalServerError)
-			return
-		}
-		seedTenantDB(acc.DBURL, acc.ID, info)
-		tok, err := session.Issue(h.config.JWTSecret, acc.ID, acc.Email, info.Provider, "admin", acc.ID)
-		if err != nil {
-			http.Error(w, "session error", http.StatusInternalServerError)
-			return
-		}
-		session.SetCookie(w, tok, r.TLS != nil)
-		http.Redirect(w, r, h.config.BaseURL+"/dashboard/", http.StatusFound)
-		return
-	}
-
-	// Step 2: email match — link new provider to existing account
-	if info.Email != "" {
-		acc, err := h.cloudStore.GetAccountByEmail(info.Email)
-		if err != nil {
-			http.Error(w, "database error", http.StatusInternalServerError)
-			return
-		}
-		if acc != nil {
-			_ = h.cloudStore.CreateOAuthLink(&cloudpkg.OAuthLink{
-				AccountID:      acc.ID,
-				Provider:       info.Provider,
-				ProviderUserID: info.ProviderID,
-				Email:          info.Email,
-			})
-			seedTenantDB(acc.DBURL, acc.ID, info)
-			tok, err := session.Issue(h.config.JWTSecret, acc.ID, acc.Email, info.Provider, "admin", acc.ID)
-			if err != nil {
-				http.Error(w, "session error", http.StatusInternalServerError)
-				return
-			}
-			session.SetCookie(w, tok, r.TLS != nil)
-			http.Redirect(w, r, h.config.BaseURL+"/dashboard/", http.StatusFound)
-			return
-		}
-	}
-
-	// Step 3: new account
-	accountID := uuid.New().String()
-	dbPath, err := cloudpkg.ProvisionSQLite(h.config.TenantDataDir, accountID)
-	if err != nil {
-		http.Error(w, "provisioning failed", http.StatusInternalServerError)
-		return
-	}
-	acc := &cloudpkg.Account{
-		ID:            accountID,
-		Email:         info.Email,
-		EmailVerified: true, // OAuth emails are pre-verified
-		Plan:          "hobby",
-		DBType:        "sqlite",
-		DBURL:         dbPath,
-		CreatedAt:     time.Now().UTC(),
-	}
-	if err := h.cloudStore.CreateAccount(acc); err != nil {
-		http.Error(w, "account creation failed", http.StatusInternalServerError)
-		return
-	}
-	_ = h.cloudStore.CreateOAuthLink(&cloudpkg.OAuthLink{
-		AccountID:      accountID,
-		Provider:       info.Provider,
-		ProviderUserID: info.ProviderID,
-		Email:          info.Email,
-	})
-	seedTenantDB(dbPath, accountID, info)
-	tok, err := session.Issue(h.config.JWTSecret, accountID, info.Email, info.Provider, "admin", accountID)
-	if err != nil {
-		http.Error(w, "session error", http.StatusInternalServerError)
-		return
-	}
-	session.SetCookie(w, tok, r.TLS != nil)
-	http.Redirect(w, r, h.config.BaseURL+"/dashboard/onboarding", http.StatusFound)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

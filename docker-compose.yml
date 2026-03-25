@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/quipthread/quipthread:latest
     restart: unless-stopped
     env_file: .env
     environment:

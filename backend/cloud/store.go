@@ -33,6 +33,7 @@ type Store interface {
 	CreateAccount(acc *Account) error
 	GetAccountByID(id string) (*Account, error)
 	GetAccountByEmail(email string) (*Account, error)
+	GetAccountByStripeCustomerID(stripeCustomerID string) (*Account, error)
 	UpdateAccountEmailVerified(id string) error
 	UpdateAccountPassword(id string, passwordHash string) error
 	UpdateAccountPlan(id string, plan, dbType, dbURL string) error

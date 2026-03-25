@@ -116,11 +116,8 @@ func main() {
 	r.Get("/auth/email/reset/{token}", authHandler.EmailResetPage)
 	r.Post("/auth/email/reset/{token}", authHandler.EmailReset)
 
-	// Cloud email auth routes (cloud mode only)
-	r.Get("/auth/email/cloud-verify", authHandler.CloudEmailVerify)
-	r.With(middleware.RateLimit(authRL, ipFn)).Post("/auth/email/cloud-reset-request", authHandler.CloudPasswordResetRequest)
-	r.Get("/auth/email/cloud-reset-confirm", authHandler.CloudResetPage)
-	r.With(middleware.RateLimit(authRL, ipFn)).Post("/auth/email/cloud-reset-confirm", authHandler.CloudPasswordResetConfirm)
+	// Cloud email auth routes (no-op in non-cloud builds).
+	authhandlers.RegisterCloudAuthRoutes(r, authHandler, authRL, ipFn)
 
 	r.Post("/auth/logout", authHandler.Logout)
 	r.Get("/api/auth/me", authHandler.Me)

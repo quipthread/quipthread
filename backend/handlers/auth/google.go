@@ -157,7 +157,7 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.cloudStore != nil && h.config.CloudMode {
+	if h.config.CloudMode {
 		h.cloudUpsertAndIssueToken(w, r, info)
 		return
 	}
