@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: quipthread
     image: ghcr.io/quipthread/quipthread:latest
     restart: unless-stopped
     env_file: .env
@@ -7,11 +8,11 @@ services:
       DATABASE_URL: /data/db.sqlite
     volumes:
       - data:/data
-      - ./deploy/litestream.yml:/etc/litestream.yml:ro
     expose:
       - "8080"
 
   caddy:
+    container_name: quipthread_proxy
     image: caddy:2-alpine
     restart: unless-stopped
     ports:

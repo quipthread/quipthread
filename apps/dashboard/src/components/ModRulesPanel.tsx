@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks'
 import { api } from '../api'
 import type { BlockedTerm } from '../types'
 import UpgradeGate from './UpgradeGate'
+import { IS_SELF_HOSTED } from '../lib/env'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
@@ -37,6 +38,11 @@ export default function ModRulesPanel() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (IS_SELF_HOSTED) {
+      setHasAccess(true)
+      fetchTerms()
+      return
+    }
     api.billing.status()
       .then(status => {
         const hasIt = PLAN_ORDER.indexOf(status.plan) >= PLAN_ORDER.indexOf('pro')

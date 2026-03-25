@@ -74,14 +74,16 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
           )}
           <a href="/dashboard/moderation-rules" class={page === 'moderation-rules' ? 'active' : ''}>
             Mod Rules
-            <span class="nav-badge nav-badge-pro">Pro</span>
+            {!isSelfHosted && <span class="nav-badge nav-badge-pro">Pro</span>}
           </a>
 
           <div class="nav-divider"></div>
 
+          {!isSelfHosted && (
           <a href="/dashboard/billing" class={page === 'billing' ? 'active' : ''}>
             Billing
           </a>
+          )}
           <a href="/dashboard/account" class={page === 'account' ? 'active' : ''}>
             Account
           </a>
@@ -97,8 +99,8 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
         <slot />
       </main>
     </div>
-    <NavPlanSync client:load />
-    <CheckoutSuccessModal client:load />
+    {!isSelfHosted && <NavPlanSync client:load />}
+    {!isSelfHosted && <CheckoutSuccessModal client:load />}
     <script>
       document.addEventListener('astro:page-load', () => {
         const btn = document.getElementById('nav-logout')

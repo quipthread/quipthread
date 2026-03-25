@@ -3,17 +3,17 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*", "embed"],
   "scripts": {
-    "dev:dashboard": "bun --cwd apps/dashboard run dev",
-    "dev:embed":     "bun --cwd embed run dev",
-    "dev:website":   "bun --cwd apps/website run dev",
-    "build:dashboard": "bun --cwd apps/dashboard run build",
-    "build:embed":     "bun --cwd embed run build",
-    "build:website":   "bun --cwd apps/website run build",
+    "dev:dashboard": "bun run --cwd apps/dashboard dev",
+    "dev:embed":     "bun run --cwd embed dev",
+    "dev:website":   "bun run --cwd apps/website dev",
+    "build:dashboard": "bun run --cwd apps/dashboard build",
+    "build:embed":     "bun run --cwd embed build",
+    "build:website":   "bun run --cwd apps/website build",
     "build": "bun run build:embed && bun run build:dashboard && bun run build:website",
     "build:assets": "bun run build:embed && bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
     "build:assets:selfhosted": "bun run build:embed && PUBLIC_BUILD_TARGET=selfhosted bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
-    "build:cli": "bun --cwd packages/create-quipthread run build",
-    "dev:cli": "bun --cwd packages/create-quipthread run dev",
+    "build:cli": "bun run --cwd packages/create-quipthread build",
+    "dev:cli": "bun run --cwd packages/create-quipthread dev",
     "test:backend": "cd backend && go test ./..."
   }
 }

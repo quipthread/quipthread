@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks'
 import { api } from '../api'
 import type { AccountInfo, SecuritySettings, BillingStatus } from '../types'
 import UpgradeGate from './UpgradeGate'
+import { IS_SELF_HOSTED } from '../lib/env'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
@@ -391,7 +392,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const planIndex = billing ? PLAN_ORDER.indexOf(billing.plan) : PLAN_ORDER.indexOf('business')
-  const canAccess = planIndex >= PLAN_ORDER.indexOf('starter')
+  const canAccess = IS_SELF_HOSTED || planIndex >= PLAN_ORDER.indexOf('starter')
 
   useEffect(() => {
     if (!canAccess) return
@@ -500,11 +501,11 @@ export default function AccountPanel() {
 
   useEffect(() => {
     load()
-    api.billing.status().then(setBilling).catch(() => {
-      // Non-fatal — billing may be unavailable in self-hosted mode.
-      // Treat as business plan (unrestricted) so Turnstile section is usable.
-      setBilling({ plan: 'business' } as BillingStatus)
-    })
+    if (!IS_SELF_HOSTED) {
+      api.billing.status().then(setBilling).catch(() => {
+        setBilling({ plan: 'business' } as BillingStatus)
+      })
+    }
   }, [])
 
   if (loadErr) {

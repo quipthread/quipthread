@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks'
 import { api } from '../api'
 import type { BillingStatus } from '../types'
+import { IS_SELF_HOSTED } from '../lib/env'
 
 const FAQ_ITEMS = [
   {
@@ -45,14 +46,14 @@ export default function HelpPanel() {
   const [openFaq, setOpenFaq] = useState<boolean[]>([])
 
   useEffect(() => {
-    api.billing.status()
-      .then(status => {
-        setBilling(status)
-        setOpenFaq(new Array(FAQ_ITEMS.length).fill(false))
-      })
-      .catch(() => {
-        setOpenFaq(new Array(FAQ_ITEMS.length).fill(false))
-      })
+    if (!IS_SELF_HOSTED) {
+      api.billing.status()
+        .then(status => {
+          setBilling(status)
+        })
+        .catch(() => {})
+    }
+    setOpenFaq(new Array(FAQ_ITEMS.length).fill(false))
   }, [])
 
   function toggleFaq(i: number) {
@@ -60,7 +61,7 @@ export default function HelpPanel() {
   }
 
   const visibleFaq = FAQ_ITEMS.filter(item => {
-    if (item.gate === 'billing') return billing !== null
+    if (item.gate === 'billing') return !IS_SELF_HOSTED && billing !== null
     return true
   })
 
