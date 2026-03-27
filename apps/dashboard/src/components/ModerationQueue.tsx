@@ -13,6 +13,7 @@ const ChevronIcon = () => (
     strokeWidth="2.5"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
   >
     <path d="M9 18l6-6-6-6" />
   </svg>

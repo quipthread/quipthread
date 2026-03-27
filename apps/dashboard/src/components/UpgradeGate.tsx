@@ -32,6 +32,7 @@ export default function UpgradeGate({ feature, description, minPlan }: Props) {
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
+          aria-hidden="true"
           style={{ color: 'var(--muted)' }}
         >
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />

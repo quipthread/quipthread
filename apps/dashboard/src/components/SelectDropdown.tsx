@@ -68,6 +68,7 @@ export default function SelectDropdown({ value, options, onChange, disabled }: P
           height="12"
           viewBox="0 0 12 12"
           fill="none"
+          aria-hidden="true"
           style={{
             flexShrink: 0,
             transition: 'transform 150ms',
@@ -129,6 +130,7 @@ export default function SelectDropdown({ value, options, onChange, disabled }: P
                 height="12"
                 viewBox="0 0 12 12"
                 fill="none"
+                aria-hidden="true"
                 style={{ flexShrink: 0, opacity: o.value === value ? 1 : 0 }}
               >
                 <path

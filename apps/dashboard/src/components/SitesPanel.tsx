@@ -381,6 +381,7 @@ export default function SitesPanel() {
                       >
                         <div>
                           <label
+                            htmlFor={`export-format-${s.id}`}
                             style={{
                               display: 'block',
                               fontSize: '0.75rem',
@@ -391,6 +392,7 @@ export default function SitesPanel() {
                             Format
                           </label>
                           <select
+                            id={`export-format-${s.id}`}
                             value={exportState.format}
                             onChange={(e) =>
                               setExportState((prev) => ({
@@ -415,6 +417,7 @@ export default function SitesPanel() {
                         </div>
                         <div>
                           <label
+                            htmlFor={`export-status-${s.id}`}
                             style={{
                               display: 'block',
                               fontSize: '0.75rem',
@@ -425,6 +428,7 @@ export default function SitesPanel() {
                             Status
                           </label>
                           <select
+                            id={`export-status-${s.id}`}
                             value={exportState.status}
                             onChange={(e) =>
                               setExportState((prev) => ({
@@ -447,6 +451,7 @@ export default function SitesPanel() {
                         </div>
                         <div>
                           <label
+                            htmlFor={`export-from-${s.id}`}
                             style={{
                               display: 'block',
                               fontSize: '0.75rem',
@@ -457,6 +462,7 @@ export default function SitesPanel() {
                             From
                           </label>
                           <input
+                            id={`export-from-${s.id}`}
                             type="date"
                             value={exportState.from}
                             onChange={(e) =>
@@ -477,6 +483,7 @@ export default function SitesPanel() {
                         </div>
                         <div>
                           <label
+                            htmlFor={`export-to-${s.id}`}
                             style={{
                               display: 'block',
                               fontSize: '0.75rem',
@@ -487,6 +494,7 @@ export default function SitesPanel() {
                             To
                           </label>
                           <input
+                            id={`export-to-${s.id}`}
                             type="date"
                             value={exportState.to}
                             onChange={(e) =>
@@ -546,6 +554,7 @@ export default function SitesPanel() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                           <div>
                             <label
+                              htmlFor={`notify-interval-${s.id}`}
                               style={{
                                 display: 'block',
                                 fontSize: '0.75rem',
@@ -556,6 +565,7 @@ export default function SitesPanel() {
                               Dispatch interval
                             </label>
                             <select
+                              id={`notify-interval-${s.id}`}
                               value={currentInterval}
                               disabled={savingNotifyId === s.id}
                               onChange={(e) =>

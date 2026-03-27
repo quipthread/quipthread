@@ -71,8 +71,12 @@ export default function CheckoutSuccessModal() {
         background: 'rgba(0,0,0,0.55)',
         backdropFilter: 'blur(4px)',
       }}
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) setVisible(false)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setVisible(false)
       }}
     >
       <div
@@ -120,7 +124,7 @@ export default function CheckoutSuccessModal() {
                   margin: '0 auto 1rem',
                 }}
               >
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
                   <path
                     d="M4 11.5l5 5 9-9.5"
                     stroke="var(--amber)"

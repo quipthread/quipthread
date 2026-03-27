@@ -64,6 +64,7 @@ function StepIndicator({ current }: { current: (typeof STEPS)[number] }) {
                     stroke-width="2.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
+                    aria-hidden="true"
                   >
                     <polyline points="1.5,6 5,9.5 10.5,2.5" />
                   </svg>
@@ -117,8 +118,7 @@ export default function OnboardingWizard() {
       .then(() => setStep('site'))
       .catch(() => {
         setAuthError(true)
-        const returnTo = encodeURIComponent(window.location.href)
-        window.location.href = `${API}/auth/github/login?returnTo=${returnTo}`
+        window.location.href = '/login'
       })
   }, [])
 
@@ -187,6 +187,7 @@ export default function OnboardingWizard() {
           <form onSubmit={handleCreateSite}>
             <div style={{ marginBottom: '1rem' }}>
               <label
+                htmlFor="onboarding-site-domain"
                 style={{
                   display: 'block',
                   marginBottom: '0.375rem',
@@ -198,6 +199,7 @@ export default function OnboardingWizard() {
                 Site domain
               </label>
               <input
+                id="onboarding-site-domain"
                 type="text"
                 placeholder="example.com"
                 value={domain}

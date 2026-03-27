@@ -1,3 +1,4 @@
+import type { ComponentChildren, JSX } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
@@ -60,7 +61,7 @@ function EmailIcon() {
 
 // ---- Section card -----------------------------------------------------------
 
-function SectionCard({ children }: { children: any }) {
+function SectionCard({ children }: { children: ComponentChildren }) {
   return (
     <div
       style={{
@@ -76,7 +77,7 @@ function SectionCard({ children }: { children: any }) {
   )
 }
 
-function SectionHeading({ children }: { children: any }) {
+function SectionHeading({ children }: { children: ComponentChildren }) {
   return (
     <h2
       style={{
@@ -93,7 +94,7 @@ function SectionHeading({ children }: { children: any }) {
   )
 }
 
-function InlineMsg({ type, children }: { type: 'success' | 'error'; children: any }) {
+function InlineMsg({ type, children }: { type: 'success' | 'error'; children: ComponentChildren }) {
   const styles: Record<string, object> = {
     success: {
       color: 'var(--green-text)',
@@ -142,8 +143,8 @@ function ProfileSection({
       await api.account.updateProfile(displayName.trim())
       setMsg({ type: 'success', text: 'Display name updated.' })
       onUpdated(displayName.trim())
-    } catch (e: any) {
-      setMsg({ type: 'error', text: e.message ?? 'Failed to save.' })
+    } catch (e) {
+      setMsg({ type: 'error', text: (e as Error).message ?? 'Failed to save.' })
     } finally {
       setSaving(false)
     }
@@ -181,6 +182,7 @@ function ProfileSection({
 
       <div style={{ marginBottom: '0.875rem' }}>
         <label
+          htmlFor="account-display-name"
           style={{
             display: 'block',
             fontSize: '0.8125rem',
@@ -193,6 +195,7 @@ function ProfileSection({
         </label>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <input
+            id="account-display-name"
             type="text"
             value={displayName}
             onInput={(e) => setDisplayName((e.target as HTMLInputElement).value)}
@@ -216,7 +219,7 @@ function ProfileSection({
 
 // ---- Connected accounts section ---------------------------------------------
 
-const PROVIDER_META: Record<string, { label: string; icon: () => any }> = {
+const PROVIDER_META: Record<string, { label: string; icon: () => JSX.Element }> = {
   github: { label: 'GitHub', icon: GitHubIcon },
   google: { label: 'Google', icon: GoogleIcon },
   email: { label: 'Email / Password', icon: EmailIcon },
@@ -252,8 +255,8 @@ function ConnectedAccountsSection({
     try {
       await api.account.disconnectIdentity(provider)
       onRefresh()
-    } catch (e: any) {
-      setErrors((err) => ({ ...err, [provider]: e.message ?? 'Failed to disconnect.' }))
+    } catch (e) {
+      setErrors((err) => ({ ...err, [provider]: (e as Error).message ?? 'Failed to disconnect.' }))
     } finally {
       setLoading((l) => ({ ...l, [provider]: false }))
     }
@@ -403,8 +406,8 @@ function PasswordSection() {
       setMsg({ type: 'success', text: 'Password updated successfully.' })
       setCurrentPw('')
       setNewPw('')
-    } catch (e: any) {
-      setMsg({ type: 'error', text: e.message ?? 'Failed to update password.' })
+    } catch (e) {
+      setMsg({ type: 'error', text: (e as Error).message ?? 'Failed to update password.' })
     } finally {
       setSaving(false)
     }
@@ -416,6 +419,7 @@ function PasswordSection() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 360 }}>
         <div>
           <label
+            htmlFor="account-current-password"
             style={{
               display: 'block',
               fontSize: '0.8125rem',
@@ -427,6 +431,7 @@ function PasswordSection() {
             Current password
           </label>
           <input
+            id="account-current-password"
             type="password"
             value={currentPw}
             onInput={(e) => setCurrentPw((e.target as HTMLInputElement).value)}
@@ -436,6 +441,7 @@ function PasswordSection() {
         </div>
         <div>
           <label
+            htmlFor="account-new-password"
             style={{
               display: 'block',
               fontSize: '0.8125rem',
@@ -447,6 +453,7 @@ function PasswordSection() {
             New password
           </label>
           <input
+            id="account-new-password"
             type="password"
             value={newPw}
             onInput={(e) => setNewPw((e.target as HTMLInputElement).value)}
@@ -509,8 +516,8 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
       const s = await api.account.getSecurity()
       setSecurity(s)
       setSiteKey(s.turnstile_site_key)
-    } catch (e: any) {
-      setMsg({ type: 'error', text: e.message ?? 'Failed to save.' })
+    } catch (e) {
+      setMsg({ type: 'error', text: (e as Error).message ?? 'Failed to save.' })
     } finally {
       setSaving(false)
     }
@@ -549,6 +556,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 420 }}>
           <div>
             <label
+              htmlFor="account-turnstile-site-key"
               style={{
                 display: 'block',
                 fontSize: '0.8125rem',
@@ -560,6 +568,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
               Site key
             </label>
             <input
+              id="account-turnstile-site-key"
               type="text"
               value={siteKey}
               onInput={(e) => setSiteKey((e.target as HTMLInputElement).value)}
@@ -570,6 +579,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
           </div>
           <div>
             <label
+              htmlFor="account-turnstile-secret-key"
               style={{
                 display: 'block',
                 fontSize: '0.8125rem',
@@ -581,6 +591,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
               Secret key
             </label>
             <input
+              id="account-turnstile-secret-key"
               type="password"
               value={secretKey}
               onInput={(e) => {
@@ -620,8 +631,8 @@ export default function AccountPanel() {
     api.account
       .get()
       .then(setAccount)
-      .catch((e: any) => {
-        setLoadErr(e.message ?? 'Failed to load account.')
+      .catch((e: unknown) => {
+        setLoadErr((e as Error).message ?? 'Failed to load account.')
       })
   }
 

@@ -87,7 +87,18 @@ function sectionLabel(text: string) {
 
 // ---- Tooltips --------------------------------------------------------------
 
-function VolumeTooltip({ active, payload, label }: any) {
+interface TooltipEntry {
+  value: number
+  payload: Record<string, unknown>
+}
+
+interface TooltipProps {
+  active?: boolean
+  payload?: TooltipEntry[]
+  label?: string
+}
+
+function VolumeTooltip({ active, payload, label }: TooltipProps) {
   if (!active || !payload?.length) return null
   return (
     <div
@@ -108,7 +119,7 @@ function VolumeTooltip({ active, payload, label }: any) {
   )
 }
 
-function BarTooltip({ active, payload }: any) {
+function BarTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.length) return null
   const name =
     payload[0].payload.page_title ??
@@ -139,9 +150,9 @@ function BarTooltip({ active, payload }: any) {
   )
 }
 
-function StatusTooltip({ active, payload }: any) {
+function StatusTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.length) return null
-  const { status, count } = payload[0].payload
+  const { status, count } = payload[0].payload as { status: string; count: number }
   return (
     <div
       style={{

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import type { ColumnMapping, ImportResult, Site, TableInfo } from '../types'
 import SelectDropdown from './SelectDropdown'
@@ -66,11 +66,9 @@ function FileInput({
   onFile: (f: File) => void
   file: File | null
 }) {
-  const ref = useRef<HTMLInputElement>(null)
   return (
-    <div
+    <label
       class={`file-drop ${file ? 'has-file' : ''}`}
-      onClick={() => ref.current?.click()}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
@@ -79,7 +77,6 @@ function FileInput({
       }}
     >
       <input
-        ref={ref}
         type="file"
         accept={accept}
         style="display:none"
@@ -93,7 +90,7 @@ function FileInput({
       ) : (
         <span class="file-placeholder">Click to choose a file or drag and drop</span>
       )}
-    </div>
+    </label>
   )
 }
 
@@ -141,8 +138,11 @@ function ColumnMapper({
   return (
     <div class="mapper">
       <div class="mapper-row">
-        <label class="mapper-label">Source table</label>
+        <label class="mapper-label" htmlFor="import-source-table">
+          Source table
+        </label>
         <select
+          id="import-source-table"
           value={mapping.table}
           onChange={(e) => set({ table: (e.target as HTMLSelectElement).value, columns: {} })}
         >

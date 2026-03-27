@@ -169,4 +169,61 @@ import OnboardingWizard from '../components/OnboardingWizard'
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink:          #E8E3DC;
+      --ink-mid:      #CFCAC3;
+      --paper:        #111110;
+      --surface:      #1C1B19;
+      --border:       #2E2C29;
+      --muted:        #8A8480;
+      --text:         #E8E3DC;
+
+      --amber:        #E07F32;
+      --amber-hi:     #F09550;
+      --amber-bg:     rgba(224, 127, 50, 0.15);
+      --amber-border: rgba(224, 127, 50, 0.35);
+
+      --green-text:   #4ADE80;
+      --green-bg:     rgba(20, 83, 45, 0.35);
+      --green-border: rgba(134, 239, 172, 0.25);
+
+      --red-text:     #FCA5A5;
+      --red-bg:       rgba(127, 29, 29, 0.4);
+      --red-border:   rgba(252, 165, 165, 0.25);
+    }
+
+    .ob-header {
+      background: #1A1918;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    textarea,
+    select {
+      background: #1C1B19;
+      color: var(--text);
+    }
+
+    .btn {
+      background: #1C1B19;
+      color: var(--text);
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #2A2927;
+    }
+
+    .btn-primary {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #CFCAC3;
+      border-color: #CFCAC3;
+    }
+  }
 </style>
