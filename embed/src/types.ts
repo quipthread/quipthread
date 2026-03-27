@@ -17,9 +17,14 @@ export interface Comment {
   status: string
   author_name: string
   author_avatar: string
+  upvotes: number
+  user_voted: boolean
+  user_flagged: boolean
   created_at: string
   updated_at: string
 }
+
+export type SortOrder = 'newest' | 'oldest' | 'top'
 
 export interface CommentsResponse {
   comments: Comment[]

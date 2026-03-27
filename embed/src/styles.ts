@@ -430,6 +430,84 @@ const CSS = `
   margin-top: 0.75rem;
 }
 
+/* Sort bar */
+.qt-sort-bar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+.qt-sort-btn {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--qt-border);
+  border-radius: var(--qt-radius-sm);
+  background: transparent;
+  color: var(--qt-text-muted);
+  font-size: 0.75rem;
+  font-family: var(--qt-font);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.qt-sort-btn:hover {
+  color: var(--qt-text);
+  border-color: var(--qt-text-muted);
+}
+.qt-sort-btn.active {
+  color: var(--qt-accent);
+  border-color: var(--qt-accent);
+  background: transparent;
+  font-weight: 500;
+}
+
+/* Vote button */
+.qt-vote-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.375rem;
+  border: 1px solid transparent;
+  border-radius: var(--qt-radius-sm);
+  background: transparent;
+  color: var(--qt-text-muted);
+  font-size: 0.75rem;
+  font-family: var(--qt-font);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.qt-vote-btn:hover {
+  color: var(--qt-accent);
+  border-color: var(--qt-border);
+}
+.qt-vote-btn.voted {
+  color: var(--qt-accent);
+}
+.qt-vote-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Flag button */
+.qt-flag-btn {
+  padding: 0.125rem 0.375rem;
+  border: none;
+  border-radius: var(--qt-radius-sm);
+  background: transparent;
+  color: var(--qt-text-muted);
+  font-size: 0.6875rem;
+  font-family: var(--qt-font);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: color 0.15s, opacity 0.15s;
+}
+.qt-flag-btn:hover {
+  color: var(--qt-text-muted);
+  opacity: 1;
+}
+.qt-flag-btn.flagged {
+  color: var(--qt-accent);
+  opacity: 0.8;
+}
+
 /* Pagination */
 .qt-pagination {
   display: flex;

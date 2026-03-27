@@ -1,8 +1,38 @@
+# ── Global options ────────────────────────────────────────────────────────────
+# Email is used by Let's Encrypt for certificate expiry notifications.
+# Recommended — omitting it means silent cert renewal failures.
+{
+  email you@example.com
+}
+
+# ── Site ──────────────────────────────────────────────────────────────────────
 # Replace example.com with your domain.
 # Caddy automatically obtains and renews TLS certificates via Let's Encrypt.
 
 example.com {
-    reverse_proxy app:8080
+  encode zstd gzip
 
-    encode zstd gzip
+  header {
+    # Prevent MIME type sniffing.
+    X-Content-Type-Options nosniff
+    # Disallow embedding in iframes on other origins.
+    X-Frame-Options SAMEORIGIN
+    # Enforce HTTPS for one year on all subdomains.
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    # Remove server fingerprint.
+    -Server
+  }
+
+  # Limit request body size — protects the comment creation endpoint.
+  request_body {
+    max_size 1MB
+  }
+
+  # Log to stdout so Docker captures access logs via its logging driver.
+  log {
+    output stdout
+    format json
+  }
+
+  reverse_proxy app:8080
 }

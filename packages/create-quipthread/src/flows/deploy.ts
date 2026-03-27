@@ -1,12 +1,12 @@
-import { select, isCancel, cancel, log, note } from '@clack/prompts'
-import { writeFile } from 'fs/promises'
-import { join } from 'path'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { cancel, isCancel, log, note, select } from '@clack/prompts'
 import {
-  railwayToml,
-  renderYaml,
-  railwayInstructions,
-  renderInstructions,
   flyioInstructions,
+  railwayInstructions,
+  railwayToml,
+  renderInstructions,
+  renderYaml,
 } from '../templates/platforms.js'
 
 export async function deployFlow(): Promise<void> {
@@ -19,7 +19,10 @@ export async function deployFlow(): Promise<void> {
     ],
   })
 
-  if (isCancel(platform)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(platform)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   switch (platform) {
     case 'railway': {

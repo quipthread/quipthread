@@ -123,7 +123,7 @@ func fetchGithubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 // authenticated account rather than performing a login.
 func (h *Handler) GithubLink(w http.ResponseWriter, r *http.Request) {
 	if h.github == nil {
-		writeError(w, http.StatusNotFound, "GitHub auth not configured")
+		writeError(w, r, http.StatusNotFound, "GitHub auth not configured")
 		return
 	}
 
@@ -140,7 +140,7 @@ func (h *Handler) GithubLink(w http.ResponseWriter, r *http.Request) {
 
 	state, err := generateState()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to generate state")
+		writeError(w, r, http.StatusInternalServerError, "failed to generate state")
 		return
 	}
 
@@ -151,13 +151,13 @@ func (h *Handler) GithubLink(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GithubLogin(w http.ResponseWriter, r *http.Request) {
 	if h.github == nil {
-		writeError(w, http.StatusNotFound, "GitHub auth not configured")
+		writeError(w, r, http.StatusNotFound, "GitHub auth not configured")
 		return
 	}
 
 	state, err := generateState()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to generate state")
+		writeError(w, r, http.StatusInternalServerError, "failed to generate state")
 		return
 	}
 
@@ -171,25 +171,25 @@ func (h *Handler) GithubLogin(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GithubCallback(w http.ResponseWriter, r *http.Request) {
 	if h.github == nil {
-		writeError(w, http.StatusNotFound, "GitHub auth not configured")
+		writeError(w, r, http.StatusNotFound, "GitHub auth not configured")
 		return
 	}
 
 	state := r.URL.Query().Get("state")
 	if !validateStateCookie(r, state) {
-		writeError(w, http.StatusBadRequest, "invalid state")
+		writeError(w, r, http.StatusBadRequest, "invalid state")
 		return
 	}
 	clearStateCookie(w)
 
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		writeError(w, http.StatusBadRequest, errParam)
+		writeError(w, r, http.StatusBadRequest, errParam)
 		return
 	}
 
 	info, err := h.github.ExchangeUser(r.Context(), r)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -198,14 +198,13 @@ func (h *Handler) GithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.config.CloudMode {
-		h.cloudUpsertAndIssueToken(w, r, info)
+	if h.config.CloudMode && h.cloudUpsertAndIssueToken(w, r, info) {
 		return
 	}
 
 	tokenStr, err := h.upsertAndIssueToken(info)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 

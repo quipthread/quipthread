@@ -30,7 +30,7 @@ func TestContainsBlockedTerm_ExactMatch(t *testing.T) {
 	store := newBlocklistStore(t)
 	InvalidateBlockedTermsCache()
 
-	if _, err := store.AddBlockedTerm("badword"); err != nil {
+	if _, err := store.AddBlockedTerm("badword", false); err != nil {
 		t.Fatalf("AddBlockedTerm: %v", err)
 	}
 	InvalidateBlockedTermsCache()
@@ -49,7 +49,7 @@ func TestContainsBlockedTerm_CaseInsensitive(t *testing.T) {
 	store := newBlocklistStore(t)
 	InvalidateBlockedTermsCache()
 
-	if _, err := store.AddBlockedTerm("spam"); err != nil {
+	if _, err := store.AddBlockedTerm("spam", false); err != nil {
 		t.Fatalf("AddBlockedTerm: %v", err)
 	}
 	InvalidateBlockedTermsCache()
@@ -64,7 +64,7 @@ func TestContainsBlockedTerm_NoMatch(t *testing.T) {
 	store := newBlocklistStore(t)
 	InvalidateBlockedTermsCache()
 
-	if _, err := store.AddBlockedTerm("restricted"); err != nil {
+	if _, err := store.AddBlockedTerm("restricted", false); err != nil {
 		t.Fatalf("AddBlockedTerm: %v", err)
 	}
 	InvalidateBlockedTermsCache()
@@ -75,11 +75,29 @@ func TestContainsBlockedTerm_NoMatch(t *testing.T) {
 	}
 }
 
+func TestContainsBlockedTerm_RegexMatch(t *testing.T) {
+	store := newBlocklistStore(t)
+	InvalidateBlockedTermsCache()
+
+	if _, err := store.AddBlockedTerm(`\bclick here\b`, true); err != nil {
+		t.Fatalf("AddBlockedTerm regex: %v", err)
+	}
+	InvalidateBlockedTermsCache()
+
+	checker := NewBlockedTermsChecker(store)
+	if isBlocked, _ := checker.ContainsBlockedTerm("please click here now"); !isBlocked {
+		t.Error("ContainsBlockedTerm regex: expected match for 'click here', got false")
+	}
+	if isBlocked, _ := checker.ContainsBlockedTerm("do not click elsewhere"); isBlocked {
+		t.Error("ContainsBlockedTerm regex: expected no match for 'click elsewhere', got true")
+	}
+}
+
 func TestContainsBlockedTerm_AfterDelete(t *testing.T) {
 	store := newBlocklistStore(t)
 	InvalidateBlockedTermsCache()
 
-	term, err := store.AddBlockedTerm("temporary")
+	term, err := store.AddBlockedTerm("temporary", false)
 	if err != nil {
 		t.Fatalf("AddBlockedTerm: %v", err)
 	}

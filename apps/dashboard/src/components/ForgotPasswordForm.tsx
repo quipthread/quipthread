@@ -19,7 +19,7 @@ export default function ForgotPasswordForm() {
         body: JSON.stringify({ email }),
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string }
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
         setError(data.error ?? 'Something went wrong. Please try again.')
         return
       }
@@ -35,7 +35,9 @@ export default function ForgotPasswordForm() {
     return (
       <div class="auth-card">
         <div class="auth-card-header">
-          <a href="/" class="auth-brand">Quipthread</a>
+          <a href="/" class="auth-brand">
+            Quipthread
+          </a>
         </div>
         <div class="auth-card-body">
           <h1 class="auth-title">Check your email</h1>
@@ -53,14 +55,20 @@ export default function ForgotPasswordForm() {
   return (
     <div class="auth-card">
       <div class="auth-card-header">
-        <a href="/" class="auth-brand">Quipthread</a>
+        <a href="/" class="auth-brand">
+          Quipthread
+        </a>
       </div>
       <div class="auth-card-body">
         <h1 class="auth-title">Reset your password</h1>
         <p class="auth-subtitle">Enter your email and we'll send you a reset link.</p>
 
         <form onSubmit={handleSubmit}>
-          {error && <div class="error-msg" style={{ marginBottom: '1rem' }}>{error}</div>}
+          {error && (
+            <div class="error-msg" style={{ marginBottom: '1rem' }}>
+              {error}
+            </div>
+          )}
 
           <div class="field">
             <label for="forgot-email">Email</label>
@@ -69,7 +77,7 @@ export default function ForgotPasswordForm() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onInput={e => setEmail(e.currentTarget.value)}
+              onInput={(e) => setEmail(e.currentTarget.value)}
               required
               disabled={loading}
             />
@@ -79,7 +87,13 @@ export default function ForgotPasswordForm() {
             type="submit"
             class="btn btn-primary"
             disabled={loading || !email}
-            style={{ width: '100%', justifyContent: 'center', padding: '0.625rem 1rem', fontSize: '0.9375rem', marginTop: '0.25rem' }}
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              padding: '0.625rem 1rem',
+              fontSize: '0.9375rem',
+              marginTop: '0.25rem',
+            }}
           >
             {loading ? 'Sending…' : 'Send reset link'}
           </button>

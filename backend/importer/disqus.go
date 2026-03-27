@@ -2,10 +2,12 @@ package importer
 
 import (
 	"encoding/xml"
+	"errors"
 	"io"
 	"time"
 
 	"github.com/quipthread/quipthread/models"
+	"github.com/quipthread/quipthread/sanitize"
 )
 
 type disqusThread struct {
@@ -43,7 +45,7 @@ func ParseDisqus(r io.Reader) (*Result, error) {
 	dec.Strict = false
 	for {
 		tok, err := dec.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -107,7 +109,7 @@ func ParseDisqus(r io.Reader) (*Result, error) {
 			PageTitle:    thread.Title,
 			ParentID:     parentID,
 			UserID:       userID,
-			Content:      p.Message,
+			Content:      sanitize.CommentHTML(p.Message),
 			Status:       "approved",
 			Imported:     true,
 			DisqusAuthor: p.Author.Name,

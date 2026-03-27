@@ -5,6 +5,7 @@ export interface User {
   avatar_url: string
   role: string
   banned: boolean
+  shadow_banned: boolean
   created_at: string
 }
 
@@ -21,6 +22,7 @@ export interface Comment {
   author_name: string
   author_avatar: string
   disqus_author: string
+  flags?: number
   created_at: string
   updated_at: string
 }
@@ -30,6 +32,7 @@ export interface Site {
   owner_id: string
   domain: string
   theme: string
+  notify_interval?: number | null
   created_at: string
 }
 
@@ -72,6 +75,7 @@ export interface BillingStatus {
 export interface BlockedTerm {
   id: string
   term: string
+  is_regex: boolean
   created_at: string
 }
 

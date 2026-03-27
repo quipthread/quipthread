@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/quipthread/quipthread/models"
+	"github.com/quipthread/quipthread/sanitize"
 )
 
 // WordPress WXR export (RSS-based). The wp: namespace URL varies by export
@@ -98,7 +99,7 @@ func ParseWordPress(r io.Reader) (*Result, error) {
 				PageTitle:    item.Title,
 				ParentID:     parentID,
 				UserID:       userID,
-				Content:      maybeWrapHTML(c.Content),
+				Content:      sanitize.CommentHTML(maybeWrapHTML(c.Content)),
 				Status:       status,
 				Imported:     true,
 				DisqusAuthor: c.Author,

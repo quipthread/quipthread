@@ -1,8 +1,8 @@
-import { select, text, isCancel, cancel, log, note } from '@clack/prompts'
-import { writeFile, mkdir } from 'fs/promises'
-import { join, dirname } from 'path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { cancel, isCancel, log, note, select, text } from '@clack/prompts'
 import { detectFramework } from '../detect.js'
-import { generateFiles, generateVanillaSnippet, type Config } from '../templates/widget.js'
+import { type Config, generateFiles, generateVanillaSnippet } from '../templates/widget.js'
 import type { Framework } from '../types.js'
 
 export async function addCommentsFlow(): Promise<void> {
@@ -21,26 +21,41 @@ export async function addCommentsFlow(): Promise<void> {
     ],
   })
 
-  if (isCancel(framework)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(framework)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   const rawApiBase = await text({
     message: 'Quipthread API base URL',
     placeholder: 'https://comments.example.com',
     validate: (v) => {
       if (!v.trim()) return 'API base URL is required'
-      try { new URL(v) } catch { return 'Enter a valid URL (e.g. https://comments.example.com)' }
+      try {
+        new URL(v)
+      } catch {
+        return 'Enter a valid URL (e.g. https://comments.example.com)'
+      }
     },
   })
 
-  if (isCancel(rawApiBase)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(rawApiBase)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   const rawSiteId = await text({
     message: 'Site ID  (from your Quipthread dashboard → Sites)',
     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-    validate: (v) => { if (!v.trim()) return 'Site ID is required' },
+    validate: (v) => {
+      if (!v.trim()) return 'Site ID is required'
+    },
   })
 
-  if (isCancel(rawSiteId)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(rawSiteId)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   const theme = await select({
     message: 'Default theme',
@@ -52,7 +67,10 @@ export async function addCommentsFlow(): Promise<void> {
     ],
   })
 
-  if (isCancel(theme)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(theme)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   const config: Config = {
     framework: framework as Framework,

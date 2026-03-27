@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'preact/hooks'
-import { api, API } from '../api'
+import { useEffect, useState } from 'preact/hooks'
+import { API, api } from '../api'
 import type { Site } from '../types'
 import EmbedCodeGenerator from './EmbedCodeGenerator'
 
@@ -7,7 +7,7 @@ type Step = 'auth' | 'site' | 'embed' | 'done'
 
 const STEPS = ['site', 'embed'] as const
 
-function StepIndicator({ current }: { current: typeof STEPS[number] }) {
+function StepIndicator({ current }: { current: (typeof STEPS)[number] }) {
   const LABELS = { site: 'Your site', embed: 'Add to your site' }
   const idx = STEPS.indexOf(current)
   return (
@@ -27,23 +27,24 @@ function StepIndicator({ current }: { current: typeof STEPS[number] }) {
           <>
             <div
               key={s}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem' }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.375rem',
+              }}
             >
               <div
                 style={{
                   width: 28,
                   height: 28,
                   borderRadius: '50%',
-                  background: active
-                    ? 'var(--ink)'
-                    : done
-                    ? 'var(--amber)'
-                    : 'var(--surface)',
+                  background: active ? 'var(--ink)' : done ? 'var(--amber)' : 'var(--surface)',
                   border: active
                     ? '2px solid var(--ink)'
                     : done
-                    ? '2px solid var(--amber)'
-                    : '2px solid var(--border)',
+                      ? '2px solid var(--amber)'
+                      : '2px solid var(--border)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -54,7 +55,16 @@ function StepIndicator({ current }: { current: typeof STEPS[number] }) {
                 }}
               >
                 {done ? (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <polyline points="1.5,6 5,9.5 10.5,2.5" />
                   </svg>
                 ) : (
@@ -102,7 +112,8 @@ export default function OnboardingWizard() {
 
   // Auth check on mount
   useEffect(() => {
-    api.me()
+    api
+      .me()
       .then(() => setStep('site'))
       .catch(() => {
         setAuthError(true)
@@ -118,7 +129,7 @@ export default function OnboardingWizard() {
     setCreating(true)
     setCreateError(null)
     try {
-      const created = await api.sites.create(trimmed) as Site
+      const created = (await api.sites.create(trimmed)) as Site
       setSite(created)
       setStep('embed')
     } catch (err) {
@@ -153,7 +164,7 @@ export default function OnboardingWizard() {
         width: '100%',
       }}
     >
-      <StepIndicator current={step as typeof STEPS[number]} />
+      <StepIndicator current={step as (typeof STEPS)[number]} />
 
       {/* ── Step 1: Site ──────────────────────────────────── */}
       {step === 'site' && (
@@ -190,10 +201,9 @@ export default function OnboardingWizard() {
                 type="text"
                 placeholder="example.com"
                 value={domain}
-                onChange={e => setDomain(e.currentTarget.value)}
+                onChange={(e) => setDomain(e.currentTarget.value)}
                 disabled={creating}
                 style={{ width: '100%' }}
-                autoFocus
               />
               <p style={{ margin: '0.375rem 0 0', fontSize: '0.8125rem', color: 'var(--muted)' }}>
                 Enter the root domain without https:// — e.g. myblog.com
@@ -210,7 +220,12 @@ export default function OnboardingWizard() {
               type="submit"
               className="btn btn-primary"
               disabled={creating || !domain.trim()}
-              style={{ width: '100%', justifyContent: 'center', padding: '0.625rem 1rem', fontSize: '0.9375rem' }}
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                padding: '0.625rem 1rem',
+                fontSize: '0.9375rem',
+              }}
             >
               {creating ? 'Creating…' : 'Continue'}
             </button>
@@ -267,6 +282,7 @@ export default function OnboardingWizard() {
           <EmbedCodeGenerator siteId={site.id} apiBase={API || window.location.origin} />
 
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => {
               setStep('done')

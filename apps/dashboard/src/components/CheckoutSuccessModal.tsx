@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { api } from '../api'
-import { PLAN_LABELS, PLAN_FEATURES } from '../lib/plan'
 import type { Plan } from '../lib/plan'
+import { PLAN_FEATURES, PLAN_LABELS } from '../lib/plan'
 
 const POLL_INTERVAL = 1500
 const MAX_ATTEMPTS = 12 // ~18 seconds
@@ -23,8 +23,9 @@ export default function CheckoutSuccessModal() {
     setVisible(true)
 
     function poll() {
-      api.billing.status()
-        .then(status => {
+      api.billing
+        .status()
+        .then((status) => {
           if (status.plan !== 'hobby') {
             setPlan(status.plan as Plan)
             setConfirming(false)
@@ -70,7 +71,9 @@ export default function CheckoutSuccessModal() {
         background: 'rgba(0,0,0,0.55)',
         backdropFilter: 'blur(4px)',
       }}
-      onClick={e => { if (e.target === e.currentTarget) setVisible(false) }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setVisible(false)
+      }}
     >
       <div
         style={{
@@ -85,13 +88,17 @@ export default function CheckoutSuccessModal() {
       >
         {confirming ? (
           <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%',
-              border: '3px solid var(--border)',
-              borderTopColor: 'var(--amber)',
-              margin: '0 auto 1.25rem',
-              animation: 'spin 0.8s linear infinite',
-            }} />
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                border: '3px solid var(--border)',
+                borderTopColor: 'var(--amber)',
+                margin: '0 auto 1.25rem',
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9375rem' }}>
               Confirming your subscription...
             </p>
@@ -100,26 +107,38 @@ export default function CheckoutSuccessModal() {
           <>
             {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: '50%',
-                background: 'var(--amber-bg)',
-                border: '2px solid var(--amber)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 1rem',
-              }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: 'var(--amber-bg)',
+                  border: '2px solid var(--amber)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 1rem',
+                }}
+              >
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <path d="M4 11.5l5 5 9-9.5" stroke="var(--amber)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" />
+                  <path
+                    d="M4 11.5l5 5 9-9.5"
+                    stroke="var(--amber)"
+                    stroke-width="2.25"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </div>
-              <h2 style={{
-                margin: '0 0 0.375rem',
-                fontFamily: 'var(--f-display)',
-                fontSize: '1.375rem',
-                fontWeight: 600,
-              }}>
-                {plan && plan !== 'hobby'
-                  ? `Welcome to ${PLAN_LABELS[plan]}!`
-                  : 'You\'re all set!'}
+              <h2
+                style={{
+                  margin: '0 0 0.375rem',
+                  fontFamily: 'var(--f-display)',
+                  fontSize: '1.375rem',
+                  fontWeight: 600,
+                }}
+              >
+                {plan && plan !== 'hobby' ? `Welcome to ${PLAN_LABELS[plan]}!` : "You're all set!"}
               </h2>
               <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9375rem' }}>
                 {plan && plan !== 'hobby'
@@ -130,29 +149,44 @@ export default function CheckoutSuccessModal() {
 
             {/* Feature list */}
             {features && plan !== 'hobby' && (
-              <div style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                padding: '1rem 1.125rem',
-                marginBottom: '1.5rem',
-              }}>
-                <div style={{
-                  fontSize: '0.6875rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--muted)',
-                  marginBottom: '0.625rem',
-                }}>
+              <div
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '1rem 1.125rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: 'var(--muted)',
+                    marginBottom: '0.625rem',
+                  }}
+                >
                   What you now have access to
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '0.375rem' }}>
+                <div
+                  style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '0.375rem' }}
+                >
                   {features.sites} &middot; {features.comments}
                 </div>
-                <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.125rem', lineHeight: 1.8, fontSize: '0.875rem' }}>
-                  {features.highlights.map(h => (
-                    <li key={h} style={{ color: 'var(--text)' }}>{h}</li>
+                <ul
+                  style={{
+                    margin: '0.5rem 0 0',
+                    paddingLeft: '1.125rem',
+                    lineHeight: 1.8,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  {features.highlights.map((h) => (
+                    <li key={h} style={{ color: 'var(--text)' }}>
+                      {h}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -161,6 +195,7 @@ export default function CheckoutSuccessModal() {
             {/* CTA */}
             <div style={{ display: 'flex', gap: '0.625rem' }}>
               <button
+                type="button"
                 className="btn btn-primary"
                 style={{ flex: 1, justifyContent: 'center' }}
                 onClick={() => setVisible(false)}

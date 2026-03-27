@@ -47,43 +47,43 @@ func (h *Handler) EmailRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.email == nil {
-		writeError(w, http.StatusNotFound, "email auth not enabled")
+		writeError(w, r, http.StatusNotFound, "email auth not enabled")
 		return
 	}
 
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if !emailRe.MatchString(req.Email) {
-		writeError(w, http.StatusBadRequest, "invalid email address")
+		writeError(w, r, http.StatusBadRequest, "invalid email address")
 		return
 	}
 	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		writeError(w, r, http.StatusBadRequest, "password must be at least 8 characters")
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
+		writeError(w, r, http.StatusBadRequest, "name is required")
 		return
 	}
 
 	existing, err := h.store.GetIdentity("email", req.Email)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, r, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if existing != nil {
-		writeError(w, http.StatusConflict, "email already registered")
+		writeError(w, r, http.StatusConflict, "email already registered")
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
+		writeError(w, r, http.StatusInternalServerError, "failed to hash password")
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *Handler) EmailRegister(w http.ResponseWriter, r *http.Request) {
 		Role:        "commenter",
 	}
 	if err := h.store.UpsertUser(u); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create user")
+		writeError(w, r, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h *Handler) EmailRegister(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(hash),
 	}
 	if err := h.store.CreateIdentity(ident); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create identity")
+		writeError(w, r, http.StatusInternalServerError, "failed to create identity")
 		return
 	}
 
@@ -161,13 +161,13 @@ func (h *Handler) EmailResend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.email == nil {
-		writeError(w, http.StatusNotFound, "email auth not enabled")
+		writeError(w, r, http.StatusNotFound, "email auth not enabled")
 		return
 	}
 
 	var req resendRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -209,13 +209,13 @@ func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.email == nil {
-		writeError(w, http.StatusNotFound, "email auth not enabled")
+		writeError(w, r, http.StatusNotFound, "email auth not enabled")
 		return
 	}
 
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -223,27 +223,27 @@ func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
 
 	identity, err := h.store.GetIdentity("email", req.Email)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, r, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if identity == nil {
 		// Constant-time response to avoid user enumeration.
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		writeError(w, r, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(identity.PasswordHash), []byte(req.Password)); err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		writeError(w, r, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
 
 	user, err := h.store.GetUser(identity.UserID)
 	if err != nil || user == nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, r, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if user.Banned {
-		writeError(w, http.StatusForbidden, "account is banned")
+		writeError(w, r, http.StatusForbidden, "account is banned")
 		return
 	}
 	if !user.EmailVerified {
@@ -253,7 +253,7 @@ func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
 
 	tokenStr, err := session.Issue(h.config.JWTSecret, user.ID, user.DisplayName, "email", user.Role, "")
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to issue token")
+		writeError(w, r, http.StatusInternalServerError, "failed to issue token")
 		return
 	}
 
@@ -270,13 +270,13 @@ func (h *Handler) EmailForgot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.email == nil {
-		writeError(w, http.StatusNotFound, "email auth not enabled")
+		writeError(w, r, http.StatusNotFound, "email auth not enabled")
 		return
 	}
 
 	var req forgotRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -346,7 +346,7 @@ type resetRequest struct {
 
 func (h *Handler) EmailReset(w http.ResponseWriter, r *http.Request) {
 	if h.email == nil {
-		writeError(w, http.StatusNotFound, "email auth not enabled")
+		writeError(w, r, http.StatusNotFound, "email auth not enabled")
 		return
 	}
 
@@ -354,41 +354,41 @@ func (h *Handler) EmailReset(w http.ResponseWriter, r *http.Request) {
 
 	et, err := h.store.GetEmailToken(token)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, r, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if et == nil {
-		writeError(w, http.StatusNotFound, "token not found or already used")
+		writeError(w, r, http.StatusNotFound, "token not found or already used")
 		return
 	}
 	if et.Type != "password_reset" {
-		writeError(w, http.StatusBadRequest, "invalid token type")
+		writeError(w, r, http.StatusBadRequest, "invalid token type")
 		return
 	}
 	if time.Now().After(et.ExpiresAt) {
 		_ = h.store.DeleteEmailToken(token)
-		writeError(w, http.StatusGone, "password reset link has expired")
+		writeError(w, r, http.StatusGone, "password reset link has expired")
 		return
 	}
 
 	var req resetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		writeError(w, r, http.StatusBadRequest, "password must be at least 8 characters")
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
+		writeError(w, r, http.StatusInternalServerError, "failed to hash password")
 		return
 	}
 
 	if err := h.store.UpdatePasswordHashByUser(et.UserID, "email", string(hash)); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update password")
+		writeError(w, r, http.StatusInternalServerError, "failed to update password")
 		return
 	}
 

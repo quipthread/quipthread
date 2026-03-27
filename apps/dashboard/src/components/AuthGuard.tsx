@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
-import { api, API } from '../api'
+import { useEffect, useState } from 'preact/hooks'
+import { api } from '../api'
 
 interface AuthGuardProps {
   children: ComponentChildren
@@ -10,7 +10,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const [status, setStatus] = useState<'loading' | 'ok' | 'redirect'>('loading')
 
   useEffect(() => {
-    api.me()
+    api
+      .me()
       .then((user) => {
         if (user.role === 'admin') {
           setStatus('ok')

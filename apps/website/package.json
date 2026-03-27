@@ -2,7 +2,6 @@
   "name": "@quipthread/website",
   "dependencies": {
     "@astrojs/starlight": "^0.38.1",
-    "@knadh/oat": "latest",
     "astro": "^6.0.6"
   },
   "private": true,
@@ -11,5 +10,10 @@
     "build": "astro build",
     "preview": "astro preview"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@knadh/oat": "latest",
+    "typescript": "^5.9.3"
+  }
 }

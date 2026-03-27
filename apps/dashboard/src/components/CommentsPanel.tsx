@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'preact/hooks'
+import { useCallback, useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
-import { relativeTime, stripHtml, truncate } from '../utils'
 import type { Comment } from '../types'
+import { relativeTime, stripHtml, truncate } from '../utils'
 import ModerationQueue from './ModerationQueue'
 
 const STATUSES = ['pending', 'approved', 'rejected'] as const
@@ -44,8 +44,8 @@ export default function CommentsPanel() {
     setActing(id)
     try {
       await api.comments.update(id, { status: next })
-      setComments(prev => prev.filter(c => c.id !== id))
-      setTotal(t => Math.max(0, t - 1))
+      setComments((prev) => prev.filter((c) => c.id !== id))
+      setTotal((t) => Math.max(0, t - 1))
     } finally {
       setActing(null)
     }
@@ -56,8 +56,8 @@ export default function CommentsPanel() {
     setActing(id)
     try {
       await api.comments.delete(id)
-      setComments(prev => prev.filter(c => c.id !== id))
-      setTotal(t => Math.max(0, t - 1))
+      setComments((prev) => prev.filter((c) => c.id !== id))
+      setTotal((t) => Math.max(0, t - 1))
     } finally {
       setActing(null)
     }
@@ -69,14 +69,13 @@ export default function CommentsPanel() {
     <>
       <div className="page-header">
         <h1>Comments</h1>
-        {status !== 'pending' && (
-          <span className="page-count">{total} total</span>
-        )}
+        {status !== 'pending' && <span className="page-count">{total} total</span>}
       </div>
 
       <div className="status-tabs">
-        {STATUSES.map(s => (
+        {STATUSES.map((s) => (
           <button
+            type="button"
             key={s}
             className={status === s ? 'active' : ''}
             onClick={() => setStatus(s)}
@@ -108,7 +107,7 @@ export default function CommentsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {comments.map(c => (
+                {comments.map((c) => (
                   <tr key={c.id}>
                     <td style={{ whiteSpace: 'nowrap', fontWeight: 500 }}>
                       {c.author_name || c.disqus_author || (
@@ -118,16 +117,26 @@ export default function CommentsPanel() {
                     <td style={{ maxWidth: 300, color: 'var(--muted)' }}>
                       {truncate(stripHtml(c.content), 120)}
                     </td>
-                    <td style={{ maxWidth: 180, wordBreak: 'break-all', color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                    <td
+                      style={{
+                        maxWidth: 180,
+                        wordBreak: 'break-all',
+                        color: 'var(--muted)',
+                        fontSize: '0.8125rem',
+                      }}
+                    >
                       {c.page_title || c.page_id}
                     </td>
-                    <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                    <td
+                      style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: '0.8125rem' }}
+                    >
                       {relativeTime(c.created_at)}
                     </td>
                     <td>
                       <div className="actions">
                         {status !== 'approved' && (
                           <button
+                            type="button"
                             className="btn btn-approve"
                             disabled={acting === c.id}
                             onClick={() => changeStatus(c.id, 'approved')}
@@ -137,6 +146,7 @@ export default function CommentsPanel() {
                         )}
                         {status !== 'rejected' && (
                           <button
+                            type="button"
                             className="btn btn-reject"
                             disabled={acting === c.id}
                             onClick={() => changeStatus(c.id, 'rejected')}
@@ -145,6 +155,7 @@ export default function CommentsPanel() {
                           </button>
                         )}
                         <button
+                          type="button"
                           className="btn"
                           disabled={acting === c.id}
                           onClick={() => remove(c.id)}
@@ -162,14 +173,18 @@ export default function CommentsPanel() {
           {totalPages > 1 && (
             <div className="pagination">
               <button
+                type="button"
                 className="btn"
                 disabled={page <= 1}
                 onClick={() => fetchComments(page - 1, status)}
               >
                 ←
               </button>
-              <span>{page} / {totalPages}</span>
+              <span>
+                {page} / {totalPages}
+              </span>
               <button
+                type="button"
                 className="btn"
                 disabled={page >= totalPages}
                 onClick={() => fetchComments(page + 1, status)}

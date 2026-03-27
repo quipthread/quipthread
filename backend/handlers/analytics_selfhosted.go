@@ -20,6 +20,6 @@ func NewAnalyticsHandler(store db.Store, cfg *config.Config) *AnalyticsHandler {
 }
 
 // Get returns 404 in selfhosted builds — analytics is not available.
-func (h *AnalyticsHandler) Get(w http.ResponseWriter, _ *http.Request) {
-	writeError(w, http.StatusNotFound, "not_available")
+func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusNotFound, "not_available")
 }

@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
-import { getMe, fetchConfig } from './api'
-import { useTranslations } from './i18n'
-import { CommentList } from './CommentList'
-import { CommentForm } from './CommentForm'
+import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AuthModal } from './AuthModal'
+import { fetchConfig, getMe } from './api'
+import { CommentForm } from './CommentForm'
+import { CommentList } from './CommentList'
+import { useTranslations } from './i18n'
 import type { Comment, User } from './types'
 
 interface CommentWidgetProps {
@@ -13,6 +14,7 @@ interface CommentWidgetProps {
   pageTitle?: string
   lang: string
   theme?: string
+  customVars?: Record<string, string>
 }
 
 export function CommentWidget({
@@ -22,6 +24,7 @@ export function CommentWidget({
   pageTitle,
   lang,
   theme,
+  customVars,
 }: CommentWidgetProps) {
   const t = useTranslations(lang)
   const [user, setUser] = useState<User | null>(null)
@@ -99,22 +102,23 @@ export function CommentWidget({
     }
   }
 
-  const commentCount = undefined // Could be fetched separately; left for a later pass
+  const _commentCount = undefined // Could be fetched separately; left for a later pass
 
   return (
-    <div ref={rootRef} className="qt-root" data-theme={activeTheme}>
+    <div
+      ref={rootRef}
+      className="qt-root"
+      data-theme={activeTheme}
+      style={
+        customVars && Object.keys(customVars).length > 0 ? (customVars as CSSProperties) : undefined
+      }
+    >
       <div className="qt-header">
         <h2 className="qt-title">{t.comments}</h2>
         {!authLoading && user && (
           <div className="qt-user-bar">
-            {user.display_name && (
-              <span className="qt-user-bar-name">{user.display_name}</span>
-            )}
-            <button
-              type="button"
-              className="qt-btn qt-btn-ghost"
-              onClick={handleLogout}
-            >
+            {user.display_name && <span className="qt-user-bar-name">{user.display_name}</span>}
+            <button type="button" className="qt-btn qt-btn-ghost" onClick={handleLogout}>
               {t.signOut}
             </button>
           </div>
@@ -156,9 +160,7 @@ export function CommentWidget({
         )}
       </div>
 
-      {showAuthModal && (
-        <AuthModal t={t} onClose={() => setShowAuthModal(false)} />
-      )}
+      {showAuthModal && <AuthModal t={t} onClose={() => setShowAuthModal(false)} />}
     </div>
   )
 }

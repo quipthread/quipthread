@@ -5,11 +5,13 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: /data/db.sqlite
+      DATABASE_URL: ${DATABASE_URL:-/data/db.sqlite}
     volumes:
-      - data:/data
+      - quipthread-data:/data
     expose:
       - "8080"
+    networks:
+      - quipthread
 
   caddy:
     container_name: quipthread_proxy
@@ -21,10 +23,16 @@ services:
       - "443:443/udp"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      - quipthread-caddy-data:/data
+      - quipthread-caddy-config:/config
+    networks:
+      - quipthread
+
+networks:
+  quipthread:
+    name: quipthread
 
 volumes:
-  data:
-  caddy-data:
-  caddy-config:
+  quipthread-data:
+  quipthread-caddy-data:
+  quipthread-caddy-config:

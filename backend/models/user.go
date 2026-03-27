@@ -9,6 +9,7 @@ type User struct {
 	AvatarURL     string    `json:"avatar_url,omitempty"`
 	Role          string    `json:"role"` // commenter | admin
 	Banned        bool      `json:"banned"`
+	ShadowBanned  bool      `json:"shadow_banned"`
 	EmailVerified bool      `json:"email_verified"`
 	CreatedAt     time.Time `json:"created_at"`
 }

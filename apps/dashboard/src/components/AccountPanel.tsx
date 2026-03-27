@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
-import type { AccountInfo, SecuritySettings, BillingStatus } from '../types'
-import UpgradeGate from './UpgradeGate'
 import { IS_SELF_HOSTED } from '../lib/env'
+import type { AccountInfo, BillingStatus, SecuritySettings } from '../types'
+import UpgradeGate from './UpgradeGate'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
@@ -18,26 +18,40 @@ function GitHubIcon() {
 
 function GoogleIcon() {
   return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: 18,
-      height: 18,
-      borderRadius: '50%',
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      fontSize: '0.6875rem',
-      fontWeight: 700,
-      color: 'var(--text)',
-      flexShrink: 0,
-    }}>G</span>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        borderRadius: '50%',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        fontSize: '0.6875rem',
+        fontWeight: 700,
+        color: 'var(--text)',
+        flexShrink: 0,
+      }}
+    >
+      G
+    </span>
   )
 }
 
 function EmailIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </svg>
@@ -48,13 +62,15 @@ function EmailIcon() {
 
 function SectionCard({ children }: { children: any }) {
   return (
-    <div style={{
-      background: 'var(--card-bg)',
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      padding: '1.375rem 1.5rem',
-      marginBottom: '1.5rem',
-    }}>
+    <div
+      style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        padding: '1.375rem 1.5rem',
+        marginBottom: '1.5rem',
+      }}
+    >
       {children}
     </div>
   )
@@ -62,14 +78,16 @@ function SectionCard({ children }: { children: any }) {
 
 function SectionHeading({ children }: { children: any }) {
   return (
-    <h2 style={{
-      margin: '0 0 1.125rem',
-      fontFamily: 'var(--f-display)',
-      fontSize: '1rem',
-      fontWeight: 600,
-      color: 'var(--text)',
-      letterSpacing: '-0.01em',
-    }}>
+    <h2
+      style={{
+        margin: '0 0 1.125rem',
+        fontFamily: 'var(--f-display)',
+        fontSize: '1rem',
+        fontWeight: 600,
+        color: 'var(--text)',
+        letterSpacing: '-0.01em',
+      }}
+    >
       {children}
     </h2>
   )
@@ -89,13 +107,15 @@ function InlineMsg({ type, children }: { type: 'success' | 'error'; children: an
     },
   }
   return (
-    <div style={{
-      borderRadius: 6,
-      padding: '0.5rem 0.875rem',
-      fontSize: '0.8125rem',
-      marginTop: '0.75rem',
-      ...styles[type],
-    }}>
+    <div
+      style={{
+        borderRadius: 6,
+        padding: '0.5rem 0.875rem',
+        fontSize: '0.8125rem',
+        marginTop: '0.75rem',
+        ...styles[type],
+      }}
+    >
       {children}
     </div>
   )
@@ -103,7 +123,13 @@ function InlineMsg({ type, children }: { type: 'success' | 'error'; children: an
 
 // ---- Profile section --------------------------------------------------------
 
-function ProfileSection({ account, onUpdated }: { account: AccountInfo; onUpdated: (name: string) => void }) {
+function ProfileSection({
+  account,
+  onUpdated,
+}: {
+  account: AccountInfo
+  onUpdated: (name: string) => void
+}) {
   const [displayName, setDisplayName] = useState(account.display_name)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -131,19 +157,38 @@ function ProfileSection({ account, onUpdated }: { account: AccountInfo; onUpdate
           <img
             src={account.avatar_url}
             alt={account.display_name}
-            style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '1px solid var(--border)',
+              flexShrink: 0,
+            }}
           />
         )}
         <div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '0.125rem' }}>Signed in as</div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '0.125rem' }}>
+            Signed in as
+          </div>
           <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text)' }}>
-            {account.email || Object.entries(account.provider_usernames ?? {}).map(([, u]) => `@${u}`)[0] || '—'}
+            {account.email ||
+              Object.entries(account.provider_usernames ?? {}).map(([, u]) => `@${u}`)[0] ||
+              '—'}
           </div>
         </div>
       </div>
 
       <div style={{ marginBottom: '0.875rem' }}>
-        <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--muted)', marginBottom: '0.375rem' }}>
+        <label
+          style={{
+            display: 'block',
+            fontSize: '0.8125rem',
+            fontWeight: 500,
+            color: 'var(--muted)',
+            marginBottom: '0.375rem',
+          }}
+        >
           Display name
         </label>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -155,6 +200,7 @@ function ProfileSection({ account, onUpdated }: { account: AccountInfo; onUpdate
             disabled={saving}
           />
           <button
+            type="button"
             class="btn btn-primary"
             onClick={save}
             disabled={saving || !displayName.trim() || displayName.trim() === account.display_name}
@@ -173,10 +219,16 @@ function ProfileSection({ account, onUpdated }: { account: AccountInfo; onUpdate
 const PROVIDER_META: Record<string, { label: string; icon: () => any }> = {
   github: { label: 'GitHub', icon: GitHubIcon },
   google: { label: 'Google', icon: GoogleIcon },
-  email:  { label: 'Email / Password', icon: EmailIcon },
+  email: { label: 'Email / Password', icon: EmailIcon },
 }
 
-function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo; onRefresh: () => void }) {
+function ConnectedAccountsSection({
+  account,
+  onRefresh,
+}: {
+  account: AccountInfo
+  onRefresh: () => void
+}) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [linkError, setLinkError] = useState<string | null>(null)
@@ -188,22 +240,22 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
       setLinkError(
         err === 'already_linked'
           ? 'That account is already connected to a different Quipthread account.'
-          : 'Failed to connect the account. Please try again.'
+          : 'Failed to connect the account. Please try again.',
       )
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [])
 
   async function disconnect(provider: string) {
-    setLoading(l => ({ ...l, [provider]: true }))
-    setErrors(e => ({ ...e, [provider]: '' }))
+    setLoading((l) => ({ ...l, [provider]: true }))
+    setErrors((e) => ({ ...e, [provider]: '' }))
     try {
       await api.account.disconnectIdentity(provider)
       onRefresh()
     } catch (e: any) {
-      setErrors(err => ({ ...err, [provider]: e.message ?? 'Failed to disconnect.' }))
+      setErrors((err) => ({ ...err, [provider]: e.message ?? 'Failed to disconnect.' }))
     } finally {
-      setLoading(l => ({ ...l, [provider]: false }))
+      setLoading((l) => ({ ...l, [provider]: false }))
     }
   }
 
@@ -213,17 +265,22 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
 
   // Show OAuth providers that are either connected or available to connect.
   // Email/password only shown if already connected (no UI to add it post-signup).
-  const visibleProviders = ['github', 'google'].filter(p =>
-    account.providers.includes(p) || account.configured_providers.includes(p)
-  ).concat(
-    account.providers.includes('email') ? ['email'] : []
-  )
+  const visibleProviders = ['github', 'google']
+    .filter((p) => account.providers.includes(p) || account.configured_providers.includes(p))
+    .concat(account.providers.includes('email') ? ['email'] : [])
 
   return (
     <SectionCard>
       <SectionHeading>Connected Accounts</SectionHeading>
       {linkError && <InlineMsg type="error">{linkError}</InlineMsg>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: linkError ? '0.75rem' : 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.25rem',
+          marginTop: linkError ? '0.75rem' : 0,
+        }}
+      >
         {visibleProviders.map((provider) => {
           const meta = PROVIDER_META[provider]
           const connected = account.providers.includes(provider)
@@ -232,54 +289,69 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
           const Icon = meta.icon
 
           return (
-            <div key={provider} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.875rem',
-              padding: '0.75rem 0',
-              borderBottom: '1px solid var(--surface)',
-            }}>
+            <div
+              key={provider}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.875rem',
+                padding: '0.75rem 0',
+                borderBottom: '1px solid var(--surface)',
+              }}
+            >
               <span style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                 <Icon />
               </span>
               <div style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: 'var(--text)' }}>
                 {meta.label}
-                {connected && provider !== 'email' && (() => {
-                  const identifier = account.provider_usernames[provider]
-                    ? `@${account.provider_usernames[provider]}`
-                    : account.email || ''
-                  return identifier ? <span style={{ fontWeight: 400, color: 'var(--muted)' }}> ({identifier})</span> : null
-                })()}
+                {connected &&
+                  provider !== 'email' &&
+                  (() => {
+                    const identifier = account.provider_usernames[provider]
+                      ? `@${account.provider_usernames[provider]}`
+                      : account.email || ''
+                    return identifier ? (
+                      <span style={{ fontWeight: 400, color: 'var(--muted)' }}>
+                        {' '}
+                        ({identifier})
+                      </span>
+                    ) : null
+                  })()}
               </div>
               {connected ? (
-                <span style={{
-                  fontSize: '0.6875rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.06em',
-                  color: 'var(--green-text)',
-                  background: 'var(--green-bg)',
-                  border: '1px solid var(--green-border)',
-                  borderRadius: 9999,
-                  padding: '0.15em 0.55em',
-                }}>
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.06em',
+                    color: 'var(--green-text)',
+                    background: 'var(--green-bg)',
+                    border: '1px solid var(--green-border)',
+                    borderRadius: 9999,
+                    padding: '0.15em 0.55em',
+                  }}
+                >
                   Connected
                 </span>
               ) : (
-                <span style={{
-                  fontSize: '0.6875rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.06em',
-                  color: 'var(--muted)',
-                  borderRadius: 9999,
-                  padding: '0.15em 0.55em',
-                }}>
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.06em',
+                    color: 'var(--muted)',
+                    borderRadius: 9999,
+                    padding: '0.15em 0.55em',
+                  }}
+                >
                   Not connected
                 </span>
               )}
               {canConnect && (
                 <button
+                  type="button"
                   class="btn"
                   style={{ fontSize: '0.8125rem' }}
                   onClick={() => connect(provider)}
@@ -289,6 +361,7 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
               )}
               {canDisconnect && (
                 <button
+                  type="button"
                   class="btn btn-ghost"
                   style={{ fontSize: '0.8125rem' }}
                   onClick={() => disconnect(provider)}
@@ -298,7 +371,9 @@ function ConnectedAccountsSection({ account, onRefresh }: { account: AccountInfo
                 </button>
               )}
               {errors[provider] && (
-                <span style={{ fontSize: '0.8125rem', color: 'var(--red-text)' }}>{errors[provider]}</span>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--red-text)' }}>
+                  {errors[provider]}
+                </span>
               )}
             </div>
           )
@@ -340,7 +415,15 @@ function PasswordSection() {
       <SectionHeading>Change Password</SectionHeading>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 360 }}>
         <div>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--muted)', marginBottom: '0.375rem' }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: 'var(--muted)',
+              marginBottom: '0.375rem',
+            }}
+          >
             Current password
           </label>
           <input
@@ -352,7 +435,15 @@ function PasswordSection() {
           />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--muted)', marginBottom: '0.375rem' }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: 'var(--muted)',
+              marginBottom: '0.375rem',
+            }}
+          >
             New password
           </label>
           <input
@@ -368,6 +459,7 @@ function PasswordSection() {
         </div>
         <div>
           <button
+            type="button"
             class="btn btn-primary"
             onClick={save}
             disabled={saving || !currentPw || newPw.length < 8}
@@ -396,10 +488,13 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
 
   useEffect(() => {
     if (!canAccess) return
-    api.account.getSecurity().then((s) => {
-      setSecurity(s)
-      setSiteKey(s.turnstile_site_key)
-    }).catch(() => {})
+    api.account
+      .getSecurity()
+      .then((s) => {
+        setSecurity(s)
+        setSiteKey(s.turnstile_site_key)
+      })
+      .catch(() => {})
   }, [canAccess])
 
   async function save() {
@@ -424,20 +519,44 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
   return (
     <SectionCard>
       <SectionHeading>Cloudflare Turnstile</SectionHeading>
-      <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: '0 0 1.25rem', lineHeight: 1.6 }}>
+      <p
+        style={{
+          fontSize: '0.875rem',
+          color: 'var(--muted)',
+          margin: '0 0 1.25rem',
+          lineHeight: 1.6,
+        }}
+      >
         Add bot protection to your comment forms. Create a widget at{' '}
-        <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--amber)' }}>
+        <a
+          href="https://dash.cloudflare.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--amber)' }}
+        >
           dash.cloudflare.com
         </a>{' '}
         and paste the keys below.
       </p>
 
       {!canAccess ? (
-        <UpgradeGate feature="Turnstile bot protection" minPlan="starter" />
+        <UpgradeGate
+          feature="Turnstile bot protection"
+          description="Protect your comment sections from bots with Cloudflare Turnstile."
+          minPlan="starter"
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 420 }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--muted)', marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                color: 'var(--muted)',
+                marginBottom: '0.375rem',
+              }}
+            >
               Site key
             </label>
             <input
@@ -450,7 +569,15 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--muted)', marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                color: 'var(--muted)',
+                marginBottom: '0.375rem',
+              }}
+            >
               Secret key
             </label>
             <input
@@ -471,11 +598,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
             )}
           </div>
           <div>
-            <button
-              class="btn btn-primary"
-              onClick={save}
-              disabled={saving}
-            >
+            <button type="button" class="btn btn-primary" onClick={save} disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -494,23 +617,31 @@ export default function AccountPanel() {
   const [loadErr, setLoadErr] = useState<string | null>(null)
 
   function load() {
-    api.account.get().then(setAccount).catch((e: any) => {
-      setLoadErr(e.message ?? 'Failed to load account.')
-    })
+    api.account
+      .get()
+      .then(setAccount)
+      .catch((e: any) => {
+        setLoadErr(e.message ?? 'Failed to load account.')
+      })
   }
 
   useEffect(() => {
     load()
     if (!IS_SELF_HOSTED) {
-      api.billing.status().then(setBilling).catch(() => {
-        setBilling({ plan: 'business' } as BillingStatus)
-      })
+      api.billing
+        .status()
+        .then(setBilling)
+        .catch(() => {
+          setBilling({ plan: 'business' } as BillingStatus)
+        })
     }
   }, [])
 
   if (loadErr) {
     return (
-      <div class="error-msg" style={{ marginTop: '2rem' }}>{loadErr}</div>
+      <div class="error-msg" style={{ marginTop: '2rem' }}>
+        {loadErr}
+      </div>
     )
   }
 
@@ -526,17 +657,12 @@ export default function AccountPanel() {
 
       <ProfileSection
         account={account}
-        onUpdated={(name) => setAccount(a => a ? { ...a, display_name: name } : a)}
+        onUpdated={(name) => setAccount((a) => (a ? { ...a, display_name: name } : a))}
       />
 
-      <ConnectedAccountsSection
-        account={account}
-        onRefresh={load}
-      />
+      <ConnectedAccountsSection account={account} onRefresh={load} />
 
-      {account.providers.includes('email') && (
-        <PasswordSection />
-      )}
+      {account.providers.includes('email') && <PasswordSection />}
 
       <SecuritySection billing={billing} />
     </div>

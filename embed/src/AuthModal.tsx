@@ -54,12 +54,7 @@ export function AuthModal({ t, onClose }: AuthModalProps) {
             </p>
             <p className="qt-modal-subtitle">{t.loginToComment}</p>
           </div>
-          <button
-            type="button"
-            className="qt-modal-close"
-            onClick={onClose}
-            aria-label={t.close}
-          >
+          <button type="button" className="qt-modal-close" onClick={onClose} aria-label={t.close}>
             ×
           </button>
         </div>

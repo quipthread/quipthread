@@ -16,6 +16,10 @@ type Comment struct {
 	DisqusAuthor string    `json:"disqus_author,omitempty"`
 	AuthorName   string    `json:"author_name,omitempty"`
 	AuthorAvatar string    `json:"author_avatar,omitempty"`
+	Upvotes      int       `json:"upvotes"`
+	UserVoted    bool      `json:"user_voted"`
+	Flags        int       `json:"flags,omitempty"`
+	UserFlagged  bool      `json:"user_flagged"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

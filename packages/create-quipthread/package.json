@@ -13,7 +13,12 @@
   "files": [
     "dist"
   ],
-  "keywords": ["quipthread", "comments", "scaffold", "self-hosted"],
+  "keywords": [
+    "quipthread",
+    "comments",
+    "scaffold",
+    "self-hosted"
+  ],
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
@@ -28,7 +33,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

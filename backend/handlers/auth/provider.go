@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
@@ -68,13 +71,13 @@ func newHandler(store db.Store, cfg *config.Config) *Handler {
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(session.CookieName)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "not authenticated")
+		writeError(w, r, http.StatusUnauthorized, "not authenticated")
 		return
 	}
 
 	claims, err := session.Parse(h.config.JWTSecret, cookie.Value)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid session")
+		writeError(w, r, http.StatusUnauthorized, "invalid session")
 		return
 	}
 
@@ -334,6 +337,10 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	json.NewEncoder(w).Encode(v) //nolint:errcheck,gosec // error response; connection may already be broken
 }
 
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+func writeError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	reqID := chimiddleware.GetReqID(r.Context())
+	if status >= 500 {
+		slog.ErrorContext(r.Context(), "request error", "request_id", reqID, "status", status, "error", msg, "path", r.URL.Path)
+	}
+	writeJSON(w, status, map[string]string{"error": msg, "request_id": reqID})
 }

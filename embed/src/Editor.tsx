@@ -1,8 +1,8 @@
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
-import { useEffect, useImperativeHandle, forwardRef } from 'react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { forwardRef, useEffect, useImperativeHandle } from 'react'
 
 export interface EditorRef {
   getHTML: () => string
@@ -72,7 +72,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
     )
 
     const handleAddLink = () => {
-      const prev = editor.isActive('link') ? editor.getAttributes('link').href as string : ''
+      const prev = editor.isActive('link') ? (editor.getAttributes('link').href as string) : ''
       const url = window.prompt('Link URL:', prev)
       if (url === null) return
       if (url === '') {
@@ -129,11 +129,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
           >
             {'<>'}
           </ToolbarBtn>
-          <ToolbarBtn
-            onClick={handleAddLink}
-            active={editor.isActive('link')}
-            title="Add link"
-          >
+          <ToolbarBtn onClick={handleAddLink} active={editor.isActive('link')} title="Add link">
             ↗
           </ToolbarBtn>
         </div>

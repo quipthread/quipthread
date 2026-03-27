@@ -1,119 +1,83 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"embed"
+	"errors"
 	"fmt"
+	"io/fs"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pressly/goose/v3"
 
 	"github.com/quipthread/quipthread/models"
 )
 
-const schema = `
-CREATE TABLE IF NOT EXISTS sites (
-    id          TEXT PRIMARY KEY,
-    owner_id    TEXT NOT NULL,
-    domain      TEXT NOT NULL,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS users (
-    id            TEXT PRIMARY KEY,
-    display_name  TEXT NOT NULL,
-    email         TEXT,
-    avatar_url    TEXT,
-    role          TEXT DEFAULT 'commenter',
-    banned        INTEGER DEFAULT 0,
-    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS user_identities (
-    id            TEXT PRIMARY KEY,
-    user_id       TEXT NOT NULL,
-    provider      TEXT NOT NULL,
-    provider_id   TEXT NOT NULL,
-    password_hash TEXT,
-    UNIQUE(provider, provider_id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS comments (
-    id            TEXT PRIMARY KEY,
-    site_id       TEXT NOT NULL,
-    page_id       TEXT NOT NULL,
-    page_url      TEXT,
-    page_title    TEXT,
-    parent_id     TEXT,
-    user_id       TEXT NOT NULL,
-    content       TEXT NOT NULL,
-    status        TEXT DEFAULT 'pending',
-    imported      INTEGER DEFAULT 0,
-    disqus_author TEXT,
-    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (site_id) REFERENCES sites(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS approval_tokens (
-    token         TEXT PRIMARY KEY,
-    comment_id    TEXT NOT NULL,
-    expires_at    DATETIME NOT NULL,
-    FOREIGN KEY (comment_id) REFERENCES comments(id)
-);
-
-CREATE TABLE IF NOT EXISTS email_tokens (
-    token      TEXT PRIMARY KEY,
-    user_id    TEXT NOT NULL,
-    type       TEXT NOT NULL,
-    expires_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS subscriptions (
-    id                  TEXT PRIMARY KEY DEFAULT 'account',
-    stripe_customer_id  TEXT NOT NULL DEFAULT '',
-    stripe_sub_id       TEXT NOT NULL DEFAULT '',
-    plan                TEXT NOT NULL DEFAULT 'hobby',
-    status              TEXT NOT NULL DEFAULT 'active',
-    interval            TEXT NOT NULL DEFAULT '',
-    trial_ends_at       DATETIME,
-    current_period_end  DATETIME,
-    updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-`
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
 
 type sqlStore struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect goose.Dialect
+}
+
+// ensureColumns adds columns that may be absent from databases created before
+// a column was introduced. CREATE TABLE IF NOT EXISTS in goose migrations is a
+// no-op on existing tables, so ALTER TABLE is required for pre-existing DBs.
+func (s *sqlStore) ensureColumns() error {
+	type colSpec struct{ table, column, def string }
+	cols := []colSpec{
+		{"sites", "notify_interval", "INTEGER"},
+	}
+	for _, c := range cols {
+		rows, err := s.db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, c.table)) //nolint:noctx // DB layer
+		if err != nil {
+			return fmt.Errorf("pragma table_info %s: %w", c.table, err)
+		}
+		found := false
+		for rows.Next() {
+			var cid int
+			var name, typ string
+			var notNull, dflt, pk any
+			if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
+				rows.Close() //nolint:errcheck,gosec // non-actionable cleanup error
+				return fmt.Errorf("scan table_info %s: %w", c.table, err)
+			}
+			if name == c.column {
+				found = true
+				break
+			}
+		}
+		rows.Close() //nolint:errcheck,gosec // non-actionable cleanup error
+		if !found {
+			if _, err := s.db.Exec(fmt.Sprintf( //nolint:noctx // DB layer
+				`ALTER TABLE %s ADD COLUMN %s %s`, c.table, c.column, c.def,
+			)); err != nil {
+				return fmt.Errorf("add column %s.%s: %w", c.table, c.column, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *sqlStore) migrate() error {
-	if _, err := s.db.Exec(schema); err != nil { //nolint:noctx // DB layer; full context threading deferred
-		return err
+	// NewProvider expects migrations at the FS root; strip the "migrations/" prefix.
+	migrationsFS, err := fs.Sub(migrationFiles, "migrations")
+	if err != nil {
+		return fmt.Errorf("goose sub fs: %w", err)
 	}
-	// Idempotent additive migrations — ignore "duplicate column name" errors.
-	s.db.Exec(`ALTER TABLE sites ADD COLUMN last_notified_at DATETIME`)                 //nolint:errcheck,gosec,noctx // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
-	s.db.Exec(`ALTER TABLE sites ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'`)        //nolint:errcheck,gosec,noctx // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
-	s.db.Exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`) //nolint:errcheck,gosec,noctx // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
-
-	// Seed the default subscription row if it doesn't exist.
-	s.db.Exec(`INSERT OR IGNORE INTO subscriptions (id) VALUES ('account')`) //nolint:errcheck,gosec,noctx // INSERT OR IGNORE; intentionally idempotent
-
-	// M26: global keyword blocklist table.
-	const blockedTermsSchema = `CREATE TABLE IF NOT EXISTS blocked_terms (
-		id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-		term       TEXT NOT NULL UNIQUE,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`
-	s.db.Exec(blockedTermsSchema) //nolint:errcheck,gosec,noctx // idempotent CREATE TABLE IF NOT EXISTS
-
-	// M33: account-level Turnstile keys
-	s.db.Exec(`ALTER TABLE subscriptions ADD COLUMN turnstile_site_key TEXT NOT NULL DEFAULT ''`)   //nolint:errcheck,gosec,noctx // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
-	s.db.Exec(`ALTER TABLE subscriptions ADD COLUMN turnstile_secret_key TEXT NOT NULL DEFAULT ''`) //nolint:errcheck,gosec,noctx // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
-	s.db.Exec(`ALTER TABLE user_identities ADD COLUMN username TEXT NOT NULL DEFAULT ''`)           //nolint:errcheck,gosec,noctx // idempotent ALTER TABLE; "duplicate column" error expected on subsequent runs
-
+	provider, err := goose.NewProvider(s.dialect, s.db, migrationsFS,
+		goose.WithLogger(goose.NopLogger()),
+	)
+	if err != nil {
+		return fmt.Errorf("goose provider: %w", err)
+	}
+	if _, err := provider.Up(context.Background()); err != nil {
+		return fmt.Errorf("goose up: %w", err)
+	}
 	return nil
 }
 
@@ -127,28 +91,49 @@ func (s *sqlStore) GetComment(id string) (*models.Comment, error) {
 	return scanComment(row)
 }
 
-func (s *sqlStore) ListComments(siteID, pageID string, page, pageSize int) ([]*models.Comment, int, error) {
+func (s *sqlStore) ListComments(siteID, pageID, sort, userID string, page, pageSize int) ([]*models.Comment, int, error) {
 	offset := (page - 1) * pageSize
 
 	var total int
 	err := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT COUNT(*) FROM comments WHERE site_id = ? AND page_id = ? AND status = 'approved'`,
-		siteID, pageID,
+		`SELECT COUNT(*) FROM comments c
+		LEFT JOIN users u ON c.user_id = u.id
+		WHERE c.site_id = ? AND c.page_id = ? AND c.status = 'approved'
+		AND (COALESCE(u.shadow_banned, 0) = 0 OR c.user_id = ?)`,
+		siteID, pageID, userID,
 	).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count comments: %w", err)
 	}
 
+	var orderBy string
+	switch sort {
+	case "oldest":
+		orderBy = "c.created_at ASC"
+	case "top":
+		orderBy = "c.upvotes DESC, c.created_at DESC"
+	default: // "newest" and anything unrecognised
+		orderBy = "c.created_at DESC"
+	}
+
 	rows, err := s.db.Query( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT c.id, c.site_id, c.page_id, c.page_url, c.page_title, c.parent_id,
+		fmt.Sprintf(`
+		SELECT c.id, c.site_id, c.page_id, c.page_url, c.page_title, c.parent_id,
 		       c.user_id, c.content, c.status, c.imported, c.disqus_author, c.created_at, c.updated_at,
-		       u.display_name, u.avatar_url
+		       COALESCE(u.display_name, '') AS author_name,
+		       COALESCE(u.avatar_url, '')   AS author_avatar,
+		       c.upvotes,
+		       CASE WHEN cv.user_id IS NOT NULL THEN 1 ELSE 0 END AS user_voted,
+		       CASE WHEN cf.user_id IS NOT NULL THEN 1 ELSE 0 END AS user_flagged
 		FROM comments c
-		LEFT JOIN users u ON c.user_id = u.id
+		LEFT JOIN users u            ON c.user_id = u.id
+		LEFT JOIN comment_votes cv   ON c.id = cv.comment_id AND cv.user_id = ?
+		LEFT JOIN comment_flags cf   ON c.id = cf.comment_id AND cf.user_id = ?
 		WHERE c.site_id = ? AND c.page_id = ? AND c.status = 'approved'
-		ORDER BY c.created_at ASC
-		LIMIT ? OFFSET ?`,
-		siteID, pageID, pageSize, offset,
+		AND (COALESCE(u.shadow_banned, 0) = 0 OR c.user_id = ?)
+		ORDER BY %s
+		LIMIT ? OFFSET ?`, orderBy),
+		userID, userID, siteID, pageID, userID, pageSize, offset,
 	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list comments: %w", err)
@@ -157,7 +142,7 @@ func (s *sqlStore) ListComments(siteID, pageID string, page, pageSize int) ([]*m
 
 	comments := make([]*models.Comment, 0, pageSize)
 	for rows.Next() {
-		c, err := scanCommentWithAuthor(rows)
+		c, err := scanCommentWithVotes(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -175,7 +160,16 @@ func (s *sqlStore) ListAdminComments(siteID, status string, page, pageSize int) 
 		where string
 	)
 
-	if siteID != "" && status != "" {
+	// "flagged" is a virtual status: comments with flags > 0, regardless of actual status.
+	if status == "flagged" {
+		if siteID != "" {
+			where = "WHERE site_id = ? AND flags > 0"
+			args = []interface{}{siteID, pageSize, offset}
+		} else {
+			where = "WHERE flags > 0"
+			args = []interface{}{pageSize, offset}
+		}
+	} else if siteID != "" && status != "" {
 		where = "WHERE site_id = ? AND status = ?"
 		args = []interface{}{siteID, status, pageSize, offset}
 	} else if siteID != "" {
@@ -199,10 +193,14 @@ func (s *sqlStore) ListAdminComments(siteID, status string, page, pageSize int) 
 
 	rows, err := s.db.Query( //nolint:noctx // DB layer; full context threading deferred
 		fmt.Sprintf(`
-			SELECT id, site_id, page_id, page_url, page_title, parent_id,
-			       user_id, content, status, imported, disqus_author, created_at, updated_at
-			FROM comments %s
-			ORDER BY created_at DESC
+			SELECT c.id, c.site_id, c.page_id, c.page_url, c.page_title, c.parent_id,
+			       c.user_id, c.content, c.status, c.imported, c.disqus_author, c.created_at, c.updated_at,
+			       COALESCE(u.display_name, c.disqus_author, '') AS author_name,
+			       COALESCE(u.avatar_url, '') AS author_avatar,
+			       c.flags
+			FROM comments c LEFT JOIN users u ON c.user_id = u.id
+			%s
+			ORDER BY c.created_at DESC
 			LIMIT ? OFFSET ?`, where),
 		args...,
 	)
@@ -211,7 +209,15 @@ func (s *sqlStore) ListAdminComments(siteID, status string, page, pageSize int) 
 	}
 	defer rows.Close() //nolint:errcheck // deferred close
 
-	return scanComments(rows, total, pageSize)
+	comments := make([]*models.Comment, 0, pageSize)
+	for rows.Next() {
+		c, err := scanCommentWithAuthorAndFlags(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		comments = append(comments, c)
+	}
+	return comments, total, rows.Err()
 }
 
 func (s *sqlStore) CreateComment(c *models.Comment) error {
@@ -251,6 +257,84 @@ func (s *sqlStore) DeleteComment(id string) error {
 	return err
 }
 
+func (s *sqlStore) ToggleVote(commentID, userID string) (upvotes int, voted bool, err error) {
+	tx, err := s.db.Begin() //nolint:noctx // DB layer; full context threading deferred
+	if err != nil {
+		return 0, false, err
+	}
+	defer tx.Rollback() //nolint:errcheck // deferred rollback; error is expected when tx already committed
+
+	res, err := tx.Exec( //nolint:noctx // DB layer; full context threading deferred
+		`INSERT OR IGNORE INTO comment_votes (id, comment_id, user_id, created_at) VALUES (?, ?, ?, ?)`,
+		uuid.NewString(), commentID, userID, time.Now().UTC(),
+	)
+	if err != nil {
+		return 0, false, err
+	}
+
+	n, _ := res.RowsAffected()
+	if n == 1 {
+		// New vote inserted — increment the denormalized counter.
+		voted = true
+		if _, err = tx.Exec(`UPDATE comments SET upvotes = upvotes + 1 WHERE id = ?`, commentID); err != nil { //nolint:noctx // DB layer
+			return 0, false, err
+		}
+	} else {
+		// Vote already existed — remove it and decrement.
+		voted = false
+		if _, err = tx.Exec(`DELETE FROM comment_votes WHERE comment_id = ? AND user_id = ?`, commentID, userID); err != nil { //nolint:noctx // DB layer
+			return 0, false, err
+		}
+		if _, err = tx.Exec(`UPDATE comments SET upvotes = MAX(0, upvotes - 1) WHERE id = ?`, commentID); err != nil { //nolint:noctx // DB layer
+			return 0, false, err
+		}
+	}
+
+	if err = tx.QueryRow(`SELECT upvotes FROM comments WHERE id = ?`, commentID).Scan(&upvotes); err != nil { //nolint:noctx // DB layer
+		return 0, false, err
+	}
+
+	return upvotes, voted, tx.Commit()
+}
+
+func (s *sqlStore) ToggleFlag(commentID, userID string) (flags int, flagged bool, err error) {
+	tx, err := s.db.Begin() //nolint:noctx // DB layer; full context threading deferred
+	if err != nil {
+		return 0, false, err
+	}
+	defer tx.Rollback() //nolint:errcheck // deferred rollback; error is expected when tx already committed
+
+	res, err := tx.Exec( //nolint:noctx // DB layer; full context threading deferred
+		`INSERT OR IGNORE INTO comment_flags (id, comment_id, user_id, created_at) VALUES (?, ?, ?, ?)`,
+		uuid.NewString(), commentID, userID, time.Now().UTC(),
+	)
+	if err != nil {
+		return 0, false, err
+	}
+
+	n, _ := res.RowsAffected()
+	if n == 1 {
+		flagged = true
+		if _, err = tx.Exec(`UPDATE comments SET flags = flags + 1 WHERE id = ?`, commentID); err != nil { //nolint:noctx // DB layer
+			return 0, false, err
+		}
+	} else {
+		flagged = false
+		if _, err = tx.Exec(`DELETE FROM comment_flags WHERE comment_id = ? AND user_id = ?`, commentID, userID); err != nil { //nolint:noctx // DB layer
+			return 0, false, err
+		}
+		if _, err = tx.Exec(`UPDATE comments SET flags = MAX(0, flags - 1) WHERE id = ?`, commentID); err != nil { //nolint:noctx // DB layer
+			return 0, false, err
+		}
+	}
+
+	if err = tx.QueryRow(`SELECT flags FROM comments WHERE id = ?`, commentID).Scan(&flags); err != nil { //nolint:noctx // DB layer
+		return 0, false, err
+	}
+
+	return flags, flagged, tx.Commit()
+}
+
 func (s *sqlStore) CountApprovedCommentsByUser(userID, siteID string) (int, error) {
 	var count int
 	err := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
@@ -259,6 +343,19 @@ func (s *sqlStore) CountApprovedCommentsByUser(userID, siteID string) (int, erro
 		userID, siteID,
 	).Scan(&count)
 	return count, err
+}
+
+func (s *sqlStore) FindDuplicateComment(userID, pageID, content string, since time.Time) (*models.Comment, error) {
+	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
+		`SELECT id, site_id, page_id, page_url, page_title, parent_id,
+		       user_id, content, status, imported, disqus_author, created_at, updated_at
+		FROM comments
+		WHERE user_id = ? AND page_id = ? AND content = ? AND created_at >= ?
+		ORDER BY created_at DESC
+		LIMIT 1`,
+		userID, pageID, content, since.UTC().Format("2006-01-02 15:04:05"),
+	)
+	return scanComment(row)
 }
 
 func (s *sqlStore) ImportComments(siteID string, comments []*models.Comment) (int, error) {
@@ -352,7 +449,7 @@ func (s *sqlStore) ExportComments(siteID string, filter ExportFilter) ([]*models
 
 func (s *sqlStore) GetUser(id string) (*models.User, error) {
 	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT id, display_name, email, avatar_url, role, banned, email_verified, created_at
+		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, created_at
 		FROM users WHERE id = ?`, id)
 	return scanUser(row)
 }
@@ -383,10 +480,10 @@ func (s *sqlStore) UpsertUser(u *models.User) error {
 
 func (s *sqlStore) UpdateUser(u *models.User) error {
 	_, err := s.db.Exec( //nolint:noctx // DB layer; full context threading deferred
-		`UPDATE users SET display_name = ?, email = ?, avatar_url = ?, role = ?, banned = ?
+		`UPDATE users SET display_name = ?, email = ?, avatar_url = ?, role = ?, banned = ?, shadow_banned = ?
 		WHERE id = ?`,
 		u.DisplayName, nullStr(u.Email), nullStr(u.AvatarURL),
-		u.Role, boolInt(u.Banned), u.ID,
+		u.Role, boolInt(u.Banned), boolInt(u.ShadowBanned), u.ID,
 	)
 	return err
 }
@@ -400,7 +497,7 @@ func (s *sqlStore) ListUsers(page, pageSize int) ([]*models.User, int, error) {
 	}
 
 	rows, err := s.db.Query( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT id, display_name, email, avatar_url, role, banned, email_verified, created_at
+		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, created_at
 		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`,
 		pageSize, offset,
 	)
@@ -434,7 +531,7 @@ func (s *sqlStore) GetIdentity(provider, providerID string) (*models.UserIdentit
 		hash                     sql.NullString
 	)
 	err := row.Scan(&id, &userID, &prov, &provID, &hash)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -475,12 +572,12 @@ func (s *sqlStore) UpdateIdentityPassword(identityID, hash string) error {
 
 func (s *sqlStore) GetSite(id string) (*models.Site, error) {
 	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT id, owner_id, domain, theme, created_at, last_notified_at FROM sites WHERE id = ?`, id)
+		`SELECT id, owner_id, domain, theme, notify_interval, created_at, last_notified_at FROM sites WHERE id = ?`, id)
 	return scanSite(row)
 }
 
 func (s *sqlStore) ListSites() ([]*models.Site, error) {
-	rows, err := s.db.Query(`SELECT id, owner_id, domain, theme, created_at, last_notified_at FROM sites ORDER BY created_at DESC`) //nolint:noctx // DB layer; full context threading deferred
+	rows, err := s.db.Query(`SELECT id, owner_id, domain, theme, notify_interval, created_at, last_notified_at FROM sites ORDER BY created_at DESC`) //nolint:noctx // DB layer; full context threading deferred
 	if err != nil {
 		return nil, err
 	}
@@ -508,23 +605,24 @@ func (s *sqlStore) UpdateSiteLastNotifiedAt(siteID string, t time.Time) error {
 	return err
 }
 
-func (s *sqlStore) CountPendingComments(siteID string) (int, error) {
+func (s *sqlStore) CountPendingComments(siteID string, since time.Time) (int, error) {
 	var count int
 	err := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT COUNT(*) FROM comments WHERE site_id = ? AND status = 'pending'`, siteID,
+		`SELECT COUNT(*) FROM comments WHERE site_id = ? AND status = 'pending' AND created_at > ?`,
+		siteID, since,
 	).Scan(&count)
 	return count, err
 }
 
-func (s *sqlStore) ListPendingComments(siteID string) ([]*models.Comment, error) {
+func (s *sqlStore) ListPendingComments(siteID string, since time.Time) ([]*models.Comment, error) {
 	rows, err := s.db.Query( //nolint:noctx // DB layer; full context threading deferred
 		`SELECT c.id, c.site_id, c.page_id, c.page_url, c.page_title, c.parent_id,
 		       c.user_id, c.content, c.status, c.imported, c.disqus_author, c.created_at, c.updated_at,
 		       u.display_name, u.avatar_url
 		FROM comments c
 		LEFT JOIN users u ON c.user_id = u.id
-		WHERE c.site_id = ? AND c.status = 'pending'
-		ORDER BY c.created_at ASC`, siteID)
+		WHERE c.site_id = ? AND c.status = 'pending' AND c.created_at > ?
+		ORDER BY c.created_at ASC`, siteID, since)
 	if err != nil {
 		return nil, fmt.Errorf("list pending comments: %w", err)
 	}
@@ -560,7 +658,14 @@ func (s *sqlStore) CreateSite(site *models.Site) error {
 }
 
 func (s *sqlStore) UpdateSite(site *models.Site) error {
-	_, err := s.db.Exec(`UPDATE sites SET theme = ? WHERE id = ?`, site.Theme, site.ID) //nolint:noctx // DB layer; full context threading deferred
+	var notifyInterval interface{}
+	if site.NotifyInterval != nil {
+		notifyInterval = int64(*site.NotifyInterval)
+	}
+	_, err := s.db.Exec( //nolint:noctx // DB layer; full context threading deferred
+		`UPDATE sites SET theme = ?, notify_interval = ? WHERE id = ?`,
+		site.Theme, notifyInterval, site.ID,
+	)
 	return err
 }
 
@@ -577,7 +682,7 @@ func (s *sqlStore) GetApprovalToken(token string) (*models.ApprovalToken, error)
 
 	at := &models.ApprovalToken{}
 	err := row.Scan(&at.Token, &at.CommentID, &at.ExpiresAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return at, err
@@ -614,7 +719,7 @@ func (s *sqlStore) GetEmailToken(token string) (*models.EmailToken, error) {
 
 	t := &models.EmailToken{}
 	err := row.Scan(&t.Token, &t.UserID, &t.Type, &t.ExpiresAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return t, err
@@ -657,7 +762,7 @@ func scanComment(s scanner) (*models.Comment, error) {
 		&parentID, &c.UserID, &c.Content, &c.Status,
 		&imported, &disqusAuthor, &c.CreatedAt, &c.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -687,7 +792,7 @@ func scanCommentWithAuthor(s scanner) (*models.Comment, error) {
 		&imported, &disqusAuthor, &c.CreatedAt, &c.UpdatedAt,
 		&authorName, &authorAvatar,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -705,29 +810,96 @@ func scanCommentWithAuthor(s scanner) (*models.Comment, error) {
 	return &c, nil
 }
 
-func scanComments(rows *sql.Rows, total, pageSize int) ([]*models.Comment, int, error) {
-	comments := make([]*models.Comment, 0, pageSize)
-	for rows.Next() {
-		c, err := scanComment(rows)
-		if err != nil {
-			return nil, 0, err
-		}
-		comments = append(comments, c)
+// scanCommentWithVotes scans the extended result set used by ListComments:
+// author columns + upvotes + user_voted + user_flagged.
+func scanCommentWithVotes(s scanner) (*models.Comment, error) {
+	var (
+		c                      models.Comment
+		pageURL, pageTitle     sql.NullString
+		parentID, disqusAuthor sql.NullString
+		imported               int
+		authorName, authorAv   string
+		userVotedInt           int
+		userFlaggedInt         int
+	)
+	err := s.Scan(
+		&c.ID, &c.SiteID, &c.PageID, &pageURL, &pageTitle,
+		&parentID, &c.UserID, &c.Content, &c.Status,
+		&imported, &disqusAuthor, &c.CreatedAt, &c.UpdatedAt,
+		&authorName, &authorAv,
+		&c.Upvotes, &userVotedInt, &userFlaggedInt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-	return comments, total, rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	c.PageURL = pageURL.String
+	c.PageTitle = pageTitle.String
+	c.ParentID = parentID.String
+	c.DisqusAuthor = disqusAuthor.String
+	c.Imported = imported != 0
+	c.AuthorName = authorName
+	c.AuthorAvatar = authorAv
+	c.UserVoted = userVotedInt != 0
+	c.UserFlagged = userFlaggedInt != 0
+
+	return &c, nil
+}
+
+// scanCommentWithAuthorAndFlags scans the extended result set used by ListAdminComments:
+// author columns + flags count.
+func scanCommentWithAuthorAndFlags(s scanner) (*models.Comment, error) {
+	var (
+		c                        models.Comment
+		pageURL, pageTitle       sql.NullString
+		parentID, disqusAuthor   sql.NullString
+		imported                 int
+		authorName, authorAvatar sql.NullString
+	)
+	err := s.Scan(
+		&c.ID, &c.SiteID, &c.PageID, &pageURL, &pageTitle,
+		&parentID, &c.UserID, &c.Content, &c.Status,
+		&imported, &disqusAuthor, &c.CreatedAt, &c.UpdatedAt,
+		&authorName, &authorAvatar,
+		&c.Flags,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	c.PageURL = pageURL.String
+	c.PageTitle = pageTitle.String
+	c.ParentID = parentID.String
+	c.DisqusAuthor = disqusAuthor.String
+	c.Imported = imported != 0
+	c.AuthorName = authorName.String
+	c.AuthorAvatar = authorAvatar.String
+
+	return &c, nil
 }
 
 func scanSite(s scanner) (*models.Site, error) {
 	var (
 		site           models.Site
+		notifyInterval sql.NullInt64
 		lastNotifiedAt sql.NullTime
 	)
-	err := s.Scan(&site.ID, &site.OwnerID, &site.Domain, &site.Theme, &site.CreatedAt, &lastNotifiedAt)
-	if err == sql.ErrNoRows {
+	err := s.Scan(&site.ID, &site.OwnerID, &site.Domain, &site.Theme, &notifyInterval, &site.CreatedAt, &lastNotifiedAt)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if notifyInterval.Valid {
+		n := int(notifyInterval.Int64)
+		site.NotifyInterval = &n
 	}
 	if lastNotifiedAt.Valid {
 		site.LastNotifiedAt = &lastNotifiedAt.Time
@@ -741,10 +913,11 @@ func scanUser(s scanner) (*models.User, error) {
 		email         sql.NullString
 		avatar        sql.NullString
 		banned        int
+		shadowBanned  int
 		emailVerified int
 	)
-	err := s.Scan(&u.ID, &u.DisplayName, &email, &avatar, &u.Role, &banned, &emailVerified, &u.CreatedAt)
-	if err == sql.ErrNoRows {
+	err := s.Scan(&u.ID, &u.DisplayName, &email, &avatar, &u.Role, &banned, &shadowBanned, &emailVerified, &u.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -753,6 +926,7 @@ func scanUser(s scanner) (*models.User, error) {
 	u.Email = email.String
 	u.AvatarURL = avatar.String
 	u.Banned = banned != 0
+	u.ShadowBanned = shadowBanned != 0
 	u.EmailVerified = emailVerified != 0
 	return &u, nil
 }
@@ -790,7 +964,7 @@ func (s *sqlStore) GetSubscription() (*models.Subscription, error) {
 		&sub.StripeCustomerID, &sub.StripeSubID, &sub.Plan, &sub.Status, &sub.Interval,
 		&trialEndsAt, &currentPeriodEnd, &sub.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return &models.Subscription{Plan: "hobby", Status: "active"}, nil
 	}
 	if err != nil {
@@ -1024,7 +1198,7 @@ func (s *sqlStore) GetAnalytics(siteID string, from time.Time, limit int, tier i
 // ---- Blocked terms ----------------------------------------------------------
 
 func (s *sqlStore) ListBlockedTerms() ([]*models.BlockedTerm, error) {
-	rows, err := s.db.Query(`SELECT id, term, created_at FROM blocked_terms ORDER BY created_at DESC`) //nolint:noctx // DB layer; full context threading deferred
+	rows, err := s.db.Query(`SELECT id, term, is_regex, created_at FROM blocked_terms ORDER BY created_at DESC`) //nolint:noctx // DB layer; full context threading deferred
 	if err != nil {
 		return nil, err
 	}
@@ -1032,28 +1206,36 @@ func (s *sqlStore) ListBlockedTerms() ([]*models.BlockedTerm, error) {
 	var out []*models.BlockedTerm
 	for rows.Next() {
 		var t models.BlockedTerm
-		if err := rows.Scan(&t.ID, &t.Term, &t.CreatedAt); err != nil {
+		var isRegexInt int
+		if err := rows.Scan(&t.ID, &t.Term, &isRegexInt, &t.CreatedAt); err != nil {
 			return nil, err
 		}
+		t.IsRegex = isRegexInt != 0
 		out = append(out, &t)
 	}
 	return out, rows.Err()
 }
 
-func (s *sqlStore) AddBlockedTerm(term string) (*models.BlockedTerm, error) {
-	t := &models.BlockedTerm{Term: term, CreatedAt: time.Now().UTC()}
+func (s *sqlStore) AddBlockedTerm(term string, isRegex bool) (*models.BlockedTerm, error) {
+	isRegexInt := 0
+	if isRegex {
+		isRegexInt = 1
+	}
+	t := &models.BlockedTerm{Term: term, IsRegex: isRegex, CreatedAt: time.Now().UTC()}
 	_, err := s.db.Exec( //nolint:noctx // DB layer; full context threading deferred
-		`INSERT INTO blocked_terms (term) VALUES (?) ON CONFLICT(term) DO NOTHING`,
-		term,
+		`INSERT INTO blocked_terms (term, is_regex) VALUES (?, ?) ON CONFLICT(term) DO NOTHING`,
+		term, isRegexInt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	// Fetch back to get the generated id (may be pre-existing if conflict).
-	row := s.db.QueryRow(`SELECT id, term, created_at FROM blocked_terms WHERE term = ?`, term) //nolint:noctx // DB layer; full context threading deferred
-	if err := row.Scan(&t.ID, &t.Term, &t.CreatedAt); err != nil {
+	var isRegexOut int
+	row := s.db.QueryRow(`SELECT id, term, is_regex, created_at FROM blocked_terms WHERE term = ?`, term) //nolint:noctx // DB layer; full context threading deferred
+	if err := row.Scan(&t.ID, &t.Term, &isRegexOut, &t.CreatedAt); err != nil {
 		return nil, err
 	}
+	t.IsRegex = isRegexOut != 0
 	return t, nil
 }
 

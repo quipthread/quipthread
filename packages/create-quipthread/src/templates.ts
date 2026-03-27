@@ -14,12 +14,18 @@ export interface GeneratedFile {
 
 export function generateFiles(config: Config): GeneratedFile[] {
   switch (config.framework) {
-    case 'nextjs-app':   return [nextjsAppTemplate(config)]
-    case 'nextjs-pages': return [nextjsPagesTemplate(config)]
-    case 'astro':        return [astroTemplate(config)]
-    case 'vue':          return [vueTemplate(config)]
-    case 'nuxt':         return nuxtTemplates(config)
-    case 'vanilla':      return []
+    case 'nextjs-app':
+      return [nextjsAppTemplate(config)]
+    case 'nextjs-pages':
+      return [nextjsPagesTemplate(config)]
+    case 'astro':
+      return [astroTemplate(config)]
+    case 'vue':
+      return [vueTemplate(config)]
+    case 'nuxt':
+      return nuxtTemplates(config)
+    case 'vanilla':
+      return []
   }
 }
 

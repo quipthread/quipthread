@@ -1,8 +1,8 @@
-import { useRef, useState, useEffect } from 'react'
-import { Editor, type EditorRef } from './Editor'
+import { useEffect, useRef, useState } from 'react'
 import { createComment } from './api'
-import type { Comment, CreateCommentInput } from './types'
+import { Editor, type EditorRef } from './Editor'
 import type { useTranslations } from './i18n'
+import type { Comment, CreateCommentInput } from './types'
 
 interface CommentFormProps {
   siteId: string
@@ -49,9 +49,15 @@ export function CommentForm({
 
     turnstileWidgetId.current = window.turnstile.render(turnstileContainerRef.current, {
       sitekey: turnstileSiteKey,
-      callback: (token) => { turnstileToken.current = token },
-      'expired-callback': () => { turnstileToken.current = null },
-      'error-callback': () => { turnstileToken.current = null },
+      callback: (token) => {
+        turnstileToken.current = token
+      },
+      'expired-callback': () => {
+        turnstileToken.current = null
+      },
+      'error-callback': () => {
+        turnstileToken.current = null
+      },
     })
 
     return () => {
@@ -89,7 +95,11 @@ export function CommentForm({
 
   const handleChange = (_html: string, isEmpty: boolean) => {
     if (isEmpty) {
-      try { localStorage.removeItem(key) } catch { /* noop */ }
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        /* noop */
+      }
     }
   }
 
@@ -114,7 +124,11 @@ export function CommentForm({
         ...(turnstileToken.current ? { turnstile_token: turnstileToken.current } : {}),
       }
       const comment = await createComment(input)
-      try { localStorage.removeItem(key) } catch { /* noop */ }
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        /* noop */
+      }
       editorRef.current?.clear()
 
       // Reset the Turnstile widget so the next submission gets a fresh token.
@@ -136,11 +150,7 @@ export function CommentForm({
   }
 
   if (pendingNotice) {
-    return (
-      <div className="qt-pending-notice">
-        {t.awaitingApproval}
-      </div>
-    )
+    return <div className="qt-pending-notice">{t.awaitingApproval}</div>
   }
 
   return (

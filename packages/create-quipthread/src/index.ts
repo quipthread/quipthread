@@ -1,7 +1,7 @@
-import { intro, outro, select, isCancel, cancel } from '@clack/prompts'
+import { cancel, intro, isCancel, outro, select } from '@clack/prompts'
 import { addCommentsFlow } from './flows/add-comments.js'
-import { newProjectFlow } from './flows/new-project.js'
 import { deployFlow } from './flows/deploy.js'
+import { newProjectFlow } from './flows/new-project.js'
 
 async function main() {
   console.log()
@@ -16,12 +16,21 @@ async function main() {
     ],
   })
 
-  if (isCancel(action)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(action)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   switch (action) {
-    case 'add-comments': await addCommentsFlow(); break
-    case 'new-project':  await newProjectFlow(); break
-    case 'deploy':       await deployFlow(); break
+    case 'add-comments':
+      await addCommentsFlow()
+      break
+    case 'new-project':
+      await newProjectFlow()
+      break
+    case 'deploy':
+      await deployFlow()
+      break
   }
 
   outro('Done!')

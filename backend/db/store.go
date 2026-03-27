@@ -19,14 +19,28 @@ type ExportFilter struct {
 type Store interface {
 	// Comments
 	GetComment(id string) (*models.Comment, error)
-	ListComments(siteID, pageID string, page, pageSize int) ([]*models.Comment, int, error)
+	// ListComments returns approved comments for a page. sort is "newest" (default),
+	// "oldest", or "top". userID is optional; when non-empty, UserVoted is populated.
+	ListComments(siteID, pageID, sort, userID string, page, pageSize int) ([]*models.Comment, int, error)
 	ListAdminComments(siteID, status string, page, pageSize int) ([]*models.Comment, int, error)
 	CreateComment(c *models.Comment) error
 	UpdateComment(c *models.Comment) error
 	DeleteComment(id string) error
 	CountApprovedCommentsByUser(userID, siteID string) (int, error)
+	// FindDuplicateComment returns an existing comment with identical content
+	// posted by the same user to the same page after the given cutoff time,
+	// or nil if none exists.
+	FindDuplicateComment(userID, pageID, content string, since time.Time) (*models.Comment, error)
 	ImportComments(siteID string, comments []*models.Comment) (int, error)
 	ExportComments(siteID string, filter ExportFilter) ([]*models.Comment, error)
+	// ToggleVote adds an upvote for userID on commentID, or removes it if one
+	// already exists. Returns the updated upvote count and whether the user now
+	// has an active vote.
+	ToggleVote(commentID, userID string) (upvotes int, voted bool, err error)
+	// ToggleFlag adds a flag for userID on commentID, or removes it if one
+	// already exists. Returns the updated flag count and whether the user now
+	// has an active flag.
+	ToggleFlag(commentID, userID string) (flags int, flagged bool, err error)
 
 	// Users
 	GetUser(id string) (*models.User, error)
@@ -59,9 +73,10 @@ type Store interface {
 	DeleteSite(id string) error
 	UpdateSiteLastNotifiedAt(siteID string, t time.Time) error
 
-	// Pending comment queries (used by notification dispatcher)
-	CountPendingComments(siteID string) (int, error)
-	ListPendingComments(siteID string) ([]*models.Comment, error)
+	// Pending comment queries (used by notification dispatcher).
+	// since filters to comments created after that time; pass time.Time{} for all pending.
+	CountPendingComments(siteID string, since time.Time) (int, error)
+	ListPendingComments(siteID string, since time.Time) ([]*models.Comment, error)
 
 	// Approval tokens
 	GetApprovalToken(token string) (*models.ApprovalToken, error)
@@ -74,7 +89,7 @@ type Store interface {
 
 	// Blocked terms (moderation rules)
 	ListBlockedTerms() ([]*models.BlockedTerm, error)
-	AddBlockedTerm(term string) (*models.BlockedTerm, error)
+	AddBlockedTerm(term string, isRegex bool) (*models.BlockedTerm, error)
 	DeleteBlockedTerm(id string) error
 	BulkAddBlockedTerms(terms []string) (added int, err error)
 

@@ -33,7 +33,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	siteID := q.Get("siteId")
 	if siteID == "" {
-		writeError(w, http.StatusBadRequest, "siteId is required")
+		writeError(w, r, http.StatusBadRequest, "siteId is required")
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 		format = "native"
 	}
 	if format != "native" && format != "csv" {
-		writeError(w, http.StatusBadRequest, "format must be native or csv")
+		writeError(w, r, http.StatusBadRequest, "format must be native or csv")
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	if raw := q.Get("from"); raw != "" {
 		t, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "from must be RFC3339")
+			writeError(w, r, http.StatusBadRequest, "from must be RFC3339")
 			return
 		}
 		filter.From = &t
@@ -64,7 +64,7 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	if raw := q.Get("to"); raw != "" {
 		t, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "to must be RFC3339")
+			writeError(w, r, http.StatusBadRequest, "to must be RFC3339")
 			return
 		}
 		filter.To = &t
@@ -74,28 +74,28 @@ func (h *ExportHandler) Export(w http.ResponseWriter, r *http.Request) {
 	if format == "csv" && h.cfg.CloudMode {
 		sub, err := middleware.GetCachedSubscription(middleware.AccountIDFromRequest(r), store)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load subscription")
+			writeError(w, r, http.StatusInternalServerError, "failed to load subscription")
 			return
 		}
 		if middleware.PlanRank[sub.Plan] < middleware.PlanRank["starter"] {
-			writeError(w, http.StatusPaymentRequired, "plan_upgrade_required")
+			writeError(w, r, http.StatusPaymentRequired, "plan_upgrade_required")
 			return
 		}
 	}
 
 	site, err := store.GetSite(siteID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "database error")
+		writeError(w, r, http.StatusInternalServerError, "database error")
 		return
 	}
 	if site == nil {
-		writeError(w, http.StatusNotFound, "site not found")
+		writeError(w, r, http.StatusNotFound, "site not found")
 		return
 	}
 
 	comments, err := store.ExportComments(siteID, filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "export failed")
+		writeError(w, r, http.StatusInternalServerError, "export failed")
 		return
 	}
 	if comments == nil {

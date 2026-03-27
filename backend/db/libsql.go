@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/pressly/goose/v3"
 	_ "github.com/tursodatabase/libsql-client-go/libsql" // register libsql driver for Turso
 )
 
@@ -15,9 +16,12 @@ func NewLibSQLStore(dsn string) (*LibSQLStore, error) {
 		return nil, fmt.Errorf("open libsql: %w", err)
 	}
 
-	store := &LibSQLStore{sqlStore{db: db}}
+	store := &LibSQLStore{sqlStore{db: db, dialect: goose.DialectTurso}}
 	if err := store.migrate(); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	if err := store.ensureColumns(); err != nil {
+		return nil, fmt.Errorf("ensure columns: %w", err)
 	}
 
 	return store, nil

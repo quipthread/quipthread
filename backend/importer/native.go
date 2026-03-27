@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/quipthread/quipthread/models"
+	"github.com/quipthread/quipthread/sanitize"
 )
 
 // NativeExport is the canonical Quipthread import/export format.
@@ -78,7 +79,7 @@ func ParseNative(r io.Reader) (*Result, error) {
 			PageTitle:    c.PageTitle,
 			ParentID:     c.ParentID,
 			UserID:       userID,
-			Content:      c.Content,
+			Content:      sanitize.CommentHTML(c.Content),
 			Status:       status,
 			Imported:     true,
 			DisqusAuthor: c.AuthorName,

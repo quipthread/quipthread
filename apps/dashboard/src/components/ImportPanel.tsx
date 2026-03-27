@@ -1,18 +1,12 @@
-import { useState, useEffect, useRef } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { api } from '../api'
-import type { Site, TableInfo, ImportResult, ColumnMapping } from '../types'
+import type { ColumnMapping, ImportResult, Site, TableInfo } from '../types'
 import SelectDropdown from './SelectDropdown'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Source =
-  | 'disqus'
-  | 'wordpress'
-  | 'remark42'
-  | 'native'
-  | 'quipthread'
-  | 'sqlite'
+type Source = 'disqus' | 'wordpress' | 'remark42' | 'native' | 'quipthread' | 'sqlite'
 
 type Phase = 'configure' | 'inspecting' | 'mapping' | 'importing' | 'done' | 'error'
 
@@ -41,10 +35,14 @@ const MAPPING_FIELDS: { key: string; label: string; required?: boolean; hint?: s
   { key: 'page_id', label: 'Page ID', hint: 'Explicit page identifier (defaults to URL path)' },
   { key: 'page_title', label: 'Page Title', hint: 'Display title of the page' },
   { key: 'author_name', label: 'Author Name', hint: 'Comment author display name' },
-  { key: 'author_avatar', label: 'Author Avatar', hint: 'URL to the author\'s avatar image' },
+  { key: 'author_avatar', label: 'Author Avatar', hint: "URL to the author's avatar image" },
   { key: 'parent_id', label: 'Parent ID', hint: 'ID of the parent comment for threaded replies' },
   { key: 'status', label: 'Status', hint: 'approved / pending / rejected (defaults to approved)' },
-  { key: 'created_at', label: 'Created At', hint: 'Timestamp (ISO 8601, RFC 3339, or YYYY-MM-DD HH:MM:SS)' },
+  {
+    key: 'created_at',
+    label: 'Created At',
+    hint: 'Timestamp (ISO 8601, RFC 3339, or YYYY-MM-DD HH:MM:SS)',
+  },
   { key: 'id', label: 'ID', hint: 'Source comment ID — used for dedup on re-import' },
 ]
 
@@ -250,7 +248,10 @@ export default function ImportPanel() {
 
   async function handleRun() {
     if (!file) return
-    if (!siteId) { setError('Select a site first.'); return }
+    if (!siteId) {
+      setError('Select a site first.')
+      return
+    }
 
     if (source === 'sqlite') {
       // Phase 1: inspect
@@ -277,13 +278,26 @@ export default function ImportPanel() {
     try {
       let res: ImportResult
       switch (source) {
-        case 'disqus':     res = await api.imports.disqus(siteId, file); break
-        case 'wordpress':  res = await api.imports.wordpress(siteId, file); break
-        case 'remark42':   res = await api.imports.remark42(siteId, file); break
-        case 'native':     res = await api.imports.native(siteId, file); break
-        case 'quipthread': res = await api.imports.quipthread(siteId, file); break
-        case 'sqlite':     res = await api.imports.sqliteRun(siteId, file, mapping); break
-        default: throw new Error('Unknown source')
+        case 'disqus':
+          res = await api.imports.disqus(siteId, file)
+          break
+        case 'wordpress':
+          res = await api.imports.wordpress(siteId, file)
+          break
+        case 'remark42':
+          res = await api.imports.remark42(siteId, file)
+          break
+        case 'native':
+          res = await api.imports.native(siteId, file)
+          break
+        case 'quipthread':
+          res = await api.imports.quipthread(siteId, file)
+          break
+        case 'sqlite':
+          res = await api.imports.sqliteRun(siteId, file, mapping)
+          break
+        default:
+          throw new Error('Unknown source')
       }
       setResult(res)
       setPhase('done')
@@ -295,9 +309,7 @@ export default function ImportPanel() {
 
   const isLoading = phase === 'inspecting' || phase === 'importing'
   const canRun =
-    !!file &&
-    !!siteId &&
-    (source !== 'sqlite' || phase !== 'mapping' || !!mapping.table)
+    !!file && !!siteId && (source !== 'sqlite' || phase !== 'mapping' || !!mapping.table)
 
   return (
     <div class="import-panel">
@@ -311,7 +323,7 @@ export default function ImportPanel() {
         <div class="import-done">
           <div class="done-header">Import complete</div>
           <ResultCard result={result} />
-          <button class="btn btn-primary" style="margin-top:1.25rem" onClick={reset}>
+          <button type="button" class="btn btn-primary" style="margin-top:1.25rem" onClick={reset}>
             Import another
           </button>
         </div>
@@ -320,20 +332,29 @@ export default function ImportPanel() {
       {phase === 'error' && (
         <div class="import-error-wrap">
           <div class="error-msg">{error}</div>
-          <button class="btn" onClick={reset}>Back</button>
+          <button type="button" class="btn" onClick={reset}>
+            Back
+          </button>
         </div>
       )}
 
-      {(phase === 'configure' || phase === 'inspecting' || phase === 'importing' || phase === 'mapping') && (
+      {(phase === 'configure' ||
+        phase === 'inspecting' ||
+        phase === 'importing' ||
+        phase === 'mapping') && (
         <div class="import-form">
           {/* Source */}
           <Section title="1. Source format">
             <div class="source-grid">
               {(Object.keys(SOURCE_LABELS) as Source[]).map((s) => (
                 <button
+                  type="button"
                   key={s}
                   class={`source-btn ${source === s ? 'active' : ''}`}
-                  onClick={() => { setSource(s); reset() }}
+                  onClick={() => {
+                    setSource(s)
+                    reset()
+                  }}
                   disabled={isLoading}
                 >
                   {SOURCE_LABELS[s]}
@@ -346,11 +367,13 @@ export default function ImportPanel() {
           {/* Site */}
           <Section title="2. Target site">
             {sites.length === 0 ? (
-              <p class="import-hint">No sites found. <a href="/dashboard/sites">Create a site</a> first.</p>
+              <p class="import-hint">
+                No sites found. <a href="/dashboard/sites">Create a site</a> first.
+              </p>
             ) : (
               <SelectDropdown
                 value={siteId}
-                options={sites.map(s => ({ value: s.id, label: s.domain }))}
+                options={sites.map((s) => ({ value: s.id, label: s.domain }))}
                 onChange={setSiteId}
                 disabled={isLoading}
               />
@@ -358,7 +381,13 @@ export default function ImportPanel() {
           </Section>
 
           {/* File */}
-          <Section title={source === 'sqlite' && phase === 'mapping' ? '3. File (re-upload for import)' : '3. File'}>
+          <Section
+            title={
+              source === 'sqlite' && phase === 'mapping'
+                ? '3. File (re-upload for import)'
+                : '3. File'
+            }
+          >
             <FileInput accept={acceptForSource()} onFile={setFile} file={file} />
           </Section>
 
@@ -378,6 +407,7 @@ export default function ImportPanel() {
               </div>
             ) : phase === 'mapping' ? (
               <button
+                type="button"
                 class="btn btn-primary"
                 disabled={!canRun || !file || !mapping.table}
                 onClick={runImport}
@@ -385,11 +415,15 @@ export default function ImportPanel() {
                 Run import
               </button>
             ) : (
-              <button class="btn btn-primary" disabled={!canRun} onClick={handleRun}>
+              <button type="button" class="btn btn-primary" disabled={!canRun} onClick={handleRun}>
                 {source === 'sqlite' ? 'Inspect file' : 'Import'}
               </button>
             )}
-            {error && phase !== 'error' && <div class="error-msg" style="margin-top:0.75rem">{error}</div>}
+            {error && (
+              <div class="error-msg" style="margin-top:0.75rem">
+                {error}
+              </div>
+            )}
           </div>
         </div>
       )}

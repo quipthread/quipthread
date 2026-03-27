@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { deleteComment } from './api'
 import { CommentForm } from './CommentForm'
-import type { Comment, User } from './types'
 import type { useTranslations } from './i18n'
+import type { Comment, User } from './types'
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -50,13 +50,14 @@ interface CommentBodyProps {
   comment: Comment
   user: User | null
   t: ReturnType<typeof useTranslations>
-  size?: 'normal' | 'small'
   siteId: string
   pageId: string
   pageUrl?: string
   pageTitle?: string
   onDelete?: (id: string) => void
   onReplySuccess?: (comment: Comment) => void
+  onVote?: (id: string) => void
+  onFlag?: (id: string) => void
   showReply?: boolean
 }
 
@@ -64,19 +65,20 @@ function CommentBody({
   comment,
   user,
   t,
-  size = 'normal',
   siteId,
   pageId,
   pageUrl,
   pageTitle,
   onDelete,
   onReplySuccess,
+  onVote,
+  onFlag,
   showReply = true,
 }: CommentBodyProps) {
   const [showReplyForm, setShowReplyForm] = useState(false)
 
   const authorName = comment.author_name || comment.disqus_author || 'Anonymous'
-  const avatarSrc = comment.author_avatar || undefined
+  const _avatarSrc = comment.author_avatar || undefined
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this comment?')) return
@@ -98,11 +100,24 @@ function CommentBody({
       </div>
       <div
         className="qt-comment-content"
-        // Content is Tiptap HTML (safe subset) and must be approved before display.
-        // The Link extension rejects non-http(s) hrefs at authoring time.
+        // Content is Tiptap HTML (safe subset) approved before display; Link extension
+        // rejects non-http(s) hrefs at authoring time.
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: intentional — server-approved Tiptap HTML
         dangerouslySetInnerHTML={{ __html: comment.content }}
       />
       <div className="qt-comment-actions">
+        <button
+          type="button"
+          className={`qt-btn qt-vote-btn${comment.user_voted ? ' voted' : ''}`}
+          onClick={() => onVote?.(comment.id)}
+          title={user ? (comment.user_voted ? 'Remove upvote' : 'Upvote') : 'Sign in to vote'}
+          aria-pressed={comment.user_voted}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 4l8 16H4z" />
+          </svg>
+          {comment.upvotes > 0 && <span className="qt-vote-count">{comment.upvotes}</span>}
+        </button>
         {showReply && user && !showReplyForm && (
           <button
             type="button"
@@ -113,12 +128,19 @@ function CommentBody({
           </button>
         )}
         {isOwner && (
+          <button type="button" className="qt-btn qt-btn-danger-ghost" onClick={handleDelete}>
+            {t.deleteComment}
+          </button>
+        )}
+        {user && !isOwner && (
           <button
             type="button"
-            className="qt-btn qt-btn-danger-ghost"
-            onClick={handleDelete}
+            className={`qt-btn qt-flag-btn${comment.user_flagged ? ' flagged' : ''}`}
+            onClick={() => onFlag?.(comment.id)}
+            title={comment.user_flagged ? 'Remove flag' : 'Flag this comment'}
+            aria-pressed={comment.user_flagged}
           >
-            {t.deleteComment}
+            {comment.user_flagged ? t.flagged : t.flag}
           </button>
         )}
       </div>
@@ -154,6 +176,8 @@ interface CommentItemProps {
   pageTitle?: string
   onDelete: (id: string) => void
   onReplySuccess: (comment: Comment) => void
+  onVote?: (id: string) => void
+  onFlag?: (id: string) => void
 }
 
 export function CommentItem({
@@ -167,6 +191,8 @@ export function CommentItem({
   pageTitle,
   onDelete,
   onReplySuccess,
+  onVote,
+  onFlag,
 }: CommentItemProps) {
   const authorName = comment.author_name || comment.disqus_author || 'Anonymous'
   const avatarSrc = comment.author_avatar || undefined
@@ -185,6 +211,8 @@ export function CommentItem({
           pageTitle={pageTitle}
           onDelete={onDelete}
           onReplySuccess={onReplySuccess}
+          onVote={onVote}
+          onFlag={onFlag}
         />
         {replies.length > 0 && (
           <div className="qt-replies">
@@ -205,6 +233,8 @@ export function CommentItem({
                       pageTitle={pageTitle}
                       onDelete={onDelete}
                       onReplySuccess={onReplySuccess}
+                      onVote={onVote}
+                      onFlag={onFlag}
                       showReply={false}
                     />
                   </div>

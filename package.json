@@ -1,19 +1,29 @@
 {
   "name": "quipthread",
   "private": true,
-  "workspaces": ["apps/*", "packages/*", "embed"],
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "embed"
+  ],
   "scripts": {
+    "dev:backend": "cd backend && go run .",
     "dev:dashboard": "bun run --cwd apps/dashboard dev",
-    "dev:embed":     "bun run --cwd embed dev",
-    "dev:website":   "bun run --cwd apps/website dev",
+    "dev:embed": "bun run --cwd embed dev",
+    "dev:website": "bun run --cwd apps/website dev",
     "build:dashboard": "bun run --cwd apps/dashboard build",
-    "build:embed":     "bun run --cwd embed build",
-    "build:website":   "bun run --cwd apps/website build",
+    "build:embed": "bun run --cwd embed build",
+    "build:website": "bun run --cwd apps/website build",
     "build": "bun run build:embed && bun run build:dashboard && bun run build:website",
     "build:assets": "bun run build:embed && bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
     "build:assets:selfhosted": "bun run build:embed && PUBLIC_BUILD_TARGET=selfhosted bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
     "build:cli": "bun run --cwd packages/create-quipthread build",
     "dev:cli": "bun run --cwd packages/create-quipthread dev",
-    "test:backend": "cd backend && go test ./..."
+    "test:backend": "cd backend && go test ./...",
+    "check": "biome check .",
+    "check:fix": "biome check --write --unsafe ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.9"
   }
 }

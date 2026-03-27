@@ -3,7 +3,7 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,13 +13,16 @@ import (
 	"github.com/quipthread/quipthread/models"
 )
 
-const dispatchInterval = 5 * time.Minute
+const (
+	defaultNotifyInterval = 5 * time.Minute
+	tickInterval          = time.Minute
+)
 
 // StartDispatcher runs a background loop that checks for pending comments and
-// dispatches notification batches. It respects ctx cancellation for clean
-// shutdown. Call it in a goroutine from main.
+// dispatches notification batches per site. It respects ctx cancellation for
+// clean shutdown. Call it in a goroutine from main.
 func StartDispatcher(ctx context.Context, store db.Store, notifier Notifier, cfg *config.Config) {
-	ticker := time.NewTicker(dispatchInterval)
+	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
 
 	// Run once immediately on startup, then on each tick.
@@ -38,33 +41,41 @@ func StartDispatcher(ctx context.Context, store db.Store, notifier Notifier, cfg
 func runDispatch(ctx context.Context, store db.Store, notifier Notifier, cfg *config.Config) {
 	sites, err := store.ListSites()
 	if err != nil {
-		log.Printf("notifications dispatcher: list sites: %v", err)
+		slog.Error("notifications dispatcher: list sites", "error", err)
 		return
 	}
-
-	cooldown := time.Duration(cfg.NotifyCooldownHrs) * time.Hour
 
 	for _, site := range sites {
 		if err := ctx.Err(); err != nil {
 			return
 		}
 
-		count, err := store.CountPendingComments(site.ID)
+		interval := siteInterval(site, cfg)
+
+		// Determine the cutoff: only consider pending comments created after
+		// the last notification. This prevents re-notifying for the same
+		// comments on every subsequent dispatch cycle.
+		var since time.Time
+		if site.LastNotifiedAt != nil {
+			since = *site.LastNotifiedAt
+		}
+
+		count, err := store.CountPendingComments(site.ID, since)
 		if err != nil {
-			log.Printf("notifications dispatcher: count pending for site %s: %v", site.ID, err)
+			slog.Error("notifications dispatcher: count pending", "site", site.ID, "error", err)
 			continue
 		}
 		if count == 0 {
 			continue
 		}
 
-		if !shouldNotify(site, count, cfg.NotifyBatchSize, cooldown) {
+		if !shouldNotify(site, count, cfg.NotifyBatchSize, interval) {
 			continue
 		}
 
-		comments, err := store.ListPendingComments(site.ID)
+		comments, err := store.ListPendingComments(site.ID, since)
 		if err != nil {
-			log.Printf("notifications dispatcher: list pending for site %s: %v", site.ID, err)
+			slog.Error("notifications dispatcher: list pending", "site", site.ID, "error", err)
 			continue
 		}
 		if len(comments) == 0 {
@@ -73,7 +84,7 @@ func runDispatch(ctx context.Context, store db.Store, notifier Notifier, cfg *co
 
 		approveURLs, rejectURLs, err := generateTokenURLs(store, comments, cfg.BaseURL)
 		if err != nil {
-			log.Printf("notifications dispatcher: generate tokens for site %s: %v", site.ID, err)
+			slog.Error("notifications dispatcher: generate tokens", "site", site.ID, "error", err)
 			continue
 		}
 
@@ -85,24 +96,34 @@ func runDispatch(ctx context.Context, store db.Store, notifier Notifier, cfg *co
 		}
 
 		if err := notifier.NotifyBatch(ctx, batch); err != nil {
-			log.Printf("notifications dispatcher: notify site %s: %v", site.ID, err)
+			slog.Error("notifications dispatcher: notify", "site", site.ID, "error", err)
 			continue
 		}
 
 		if err := store.UpdateSiteLastNotifiedAt(site.ID, time.Now()); err != nil {
-			log.Printf("notifications dispatcher: update last_notified_at for site %s: %v", site.ID, err)
+			slog.Error("notifications dispatcher: update last_notified_at", "site", site.ID, "error", err)
 		}
 	}
 }
 
-func shouldNotify(site *models.Site, count, batchSize int, cooldown time.Duration) bool {
+// siteInterval returns the notification dispatch interval for a site.
+// In non-cloud (self-hosted) builds, always returns the 5-min default.
+// In cloud builds, uses site.NotifyInterval if set; otherwise the default.
+func siteInterval(site *models.Site, cfg *config.Config) time.Duration {
+	if !cfg.CloudMode || site.NotifyInterval == nil {
+		return defaultNotifyInterval
+	}
+	return time.Duration(*site.NotifyInterval) * time.Second
+}
+
+func shouldNotify(site *models.Site, count, batchSize int, interval time.Duration) bool {
 	if count >= batchSize {
 		return true
 	}
 	if site.LastNotifiedAt == nil {
 		return true
 	}
-	return time.Since(*site.LastNotifiedAt) >= cooldown
+	return time.Since(*site.LastNotifiedAt) >= interval
 }
 
 func generateTokenURLs(

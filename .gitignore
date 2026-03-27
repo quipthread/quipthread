@@ -20,6 +20,7 @@ node_modules/
 embed/dist/
 apps/*/dist/
 apps/*/.astro/
+backend/static/
 
 # macOS
 .DS_Store

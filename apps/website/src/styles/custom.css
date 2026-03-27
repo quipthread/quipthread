@@ -6,58 +6,58 @@
    Starlight sets data-theme="dark" by default, so this selector
    always matches in dark mode. */
 :root:not([data-theme="light"]) {
-  --sl-color-accent:        #E07F32;
-  --sl-color-accent-high:   #F0A06A;
-  --sl-color-accent-low:    #2a1508;
+  --sl-color-accent: #e07f32;
+  --sl-color-accent-high: #f0a06a;
+  --sl-color-accent-low: #2a1508;
 
-  --sl-color-bg:            #0F0F0F;
-  --sl-color-bg-sidebar:    #1A1A1A;
-  --sl-color-bg-inline-code:#1A1A1A;
+  --sl-color-bg: #0f0f0f;
+  --sl-color-bg-sidebar: #1a1a1a;
+  --sl-color-bg-inline-code: #1a1a1a;
 
-  --sl-color-text:          #E8E3DC;
-  --sl-color-text-accent:   #E07F32;
+  --sl-color-text: #e8e3dc;
+  --sl-color-text-accent: #e07f32;
 
   /* Gray scale: 1 = lightest (most readable on dark), 6 = darkest */
-  --sl-color-gray-1:        #E8E3DC;
-  --sl-color-gray-2:        #B0A89E;
-  --sl-color-gray-3:        #2A2A2A;
-  --sl-color-gray-4:        #1A1A1A;
-  --sl-color-gray-5:        #141414;
-  --sl-color-gray-6:        #0F0F0F;
-  --sl-color-hairline:      #2A2A2A;
+  --sl-color-gray-1: #e8e3dc;
+  --sl-color-gray-2: #b0a89e;
+  --sl-color-gray-3: #2a2a2a;
+  --sl-color-gray-4: #1a1a1a;
+  --sl-color-gray-5: #141414;
+  --sl-color-gray-6: #0f0f0f;
+  --sl-color-hairline: #2a2a2a;
 
-  --sl-font: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --sl-font: "DM Sans", system-ui, -apple-system, sans-serif;
 }
 
 /* ── Light mode ─────────────────────────────────────────
    Quipthread Paper palette — warm off-white with amber accent. */
 [data-theme="light"] {
-  --sl-color-accent:        #C06020;
-  --sl-color-accent-high:   #9A4A15;
-  --sl-color-accent-low:    #F5E0CE;
+  --sl-color-accent: #c06020;
+  --sl-color-accent-high: #9a4a15;
+  --sl-color-accent-low: #f5e0ce;
 
-  --sl-color-bg:            #F7F4EF;
-  --sl-color-bg-sidebar:    #EEEBE4;
-  --sl-color-bg-inline-code:#E6E1D8;
+  --sl-color-bg: #f7f4ef;
+  --sl-color-bg-sidebar: #eeebe4;
+  --sl-color-bg-inline-code: #e6e1d8;
 
-  --sl-color-text:          #1A1714;
-  --sl-color-text-accent:   #C06020;
+  --sl-color-text: #1a1714;
+  --sl-color-text-accent: #c06020;
 
   /* Gray scale: 1 = darkest (most readable on light), 6 = lightest */
-  --sl-color-gray-1:        #1A1714;
-  --sl-color-gray-2:        #3D3833;
-  --sl-color-gray-3:        #D9D4CB;
-  --sl-color-gray-4:        #EEEBE4;
-  --sl-color-gray-5:        #F3F0EA;
-  --sl-color-gray-6:        #F7F4EF;
-  --sl-color-hairline:      #D9D4CB;
+  --sl-color-gray-1: #1a1714;
+  --sl-color-gray-2: #3d3833;
+  --sl-color-gray-3: #d9d4cb;
+  --sl-color-gray-4: #eeebe4;
+  --sl-color-gray-5: #f3f0ea;
+  --sl-color-gray-6: #f7f4ef;
+  --sl-color-hairline: #d9d4cb;
 
-  --sl-font: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --sl-font: "DM Sans", system-ui, -apple-system, sans-serif;
 }
 
 /* ── Site title — match homepage wordmark ───────────────── */
 .site-title {
-  font-family: 'Syne', system-ui, sans-serif !important;
+  font-family: "Syne", system-ui, sans-serif !important;
   font-size: 1.05rem !important;
   font-weight: 700 !important;
   letter-spacing: -0.02em !important;
@@ -72,10 +72,44 @@
 }
 
 /* ── Heading sizes ─────────────────────────────────────── */
-.sl-markdown-content h1 { font-size: 1.75rem !important; line-height: 1.2; }
-.sl-markdown-content h2 { font-size: 1.375rem !important; line-height: 1.25; }
-.sl-markdown-content h3 { font-size: 1.125rem !important; }
-.sl-markdown-content h4 { font-size: 1rem !important; }
+/* Override heading element sizes. */
+.sl-markdown-content h1 {
+  font-size: 1.75rem !important;
+  line-height: 1.2;
+}
+.sl-markdown-content h2 {
+  font-size: 1.375rem !important;
+  line-height: 1.25;
+}
+.sl-markdown-content h3 {
+  font-size: 1.125rem !important;
+}
+.sl-markdown-content h4 {
+  font-size: 1rem !important;
+}
+
+/* Starlight wraps each heading in .sl-heading-wrapper and sizes the anchor icon with `em`
+   relative to the wrapper's font-size (set via --sl-text-hX vars). Without matching overrides
+   on the wrapper, the icon resolves against Starlight's larger default sizes and appears
+   oversized next to our custom heading text. */
+.sl-markdown-content .sl-heading-wrapper.level-h1 {
+  font-size: 1.75rem !important;
+}
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+  font-size: 1.375rem !important;
+}
+.sl-markdown-content .sl-heading-wrapper.level-h3 {
+  font-size: 1.125rem !important;
+}
+.sl-markdown-content .sl-heading-wrapper.level-h4 {
+  font-size: 1rem !important;
+}
+
+/* Slightly reduce the icon size and increase the gap so it sits neatly after the heading text. */
+.sl-markdown-content .sl-heading-wrapper {
+  --sl-anchor-icon-size: 0.65em;
+  --sl-anchor-icon-gap: 0.4em;
+}
 
 /* ── Social icons — use text color, gold only on hover ─── */
 .social-icons a {

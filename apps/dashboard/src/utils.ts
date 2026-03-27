@@ -16,5 +16,5 @@ export function stripHtml(html: string): string {
 
 export function truncate(str: string, len: number): string {
   if (str.length <= len) return str
-  return str.slice(0, len) + '…'
+  return `${str.slice(0, len)}…`
 }

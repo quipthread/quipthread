@@ -95,7 +95,7 @@ func TestBlockedTerms_CRUD(t *testing.T) {
 		t.Fatalf("ListBlockedTerms (empty): got %d, want 0", len(terms))
 	}
 
-	added, err := store.AddBlockedTerm("spam")
+	added, err := store.AddBlockedTerm("spam", false)
 	if err != nil {
 		t.Fatalf("AddBlockedTerm: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestBlockedTerms_CRUD(t *testing.T) {
 	}
 
 	// Duplicate insert is idempotent — same ID returned.
-	dup, err := store.AddBlockedTerm("spam")
+	dup, err := store.AddBlockedTerm("spam", false)
 	if err != nil {
 		t.Fatalf("AddBlockedTerm duplicate: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestBlockedTerms_CRUD(t *testing.T) {
 func TestBulkAddBlockedTerms(t *testing.T) {
 	store := newTestStore(t)
 
-	if _, err := store.AddBlockedTerm("existing"); err != nil {
+	if _, err := store.AddBlockedTerm("existing", false); err != nil {
 		t.Fatalf("AddBlockedTerm seed: %v", err)
 	}
 

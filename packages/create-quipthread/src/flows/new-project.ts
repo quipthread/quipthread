@@ -1,7 +1,7 @@
-import { text, password, multiselect, confirm, isCancel, cancel, log, note } from '@clack/prompts'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { randomBytes } from 'crypto'
+import { randomBytes } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { cancel, confirm, isCancel, log, multiselect, note, password, text } from '@clack/prompts'
 import { dockerCompose, dotEnv, gitignore, type ProjectConfig } from '../templates/project.js'
 
 export async function newProjectFlow(): Promise<void> {
@@ -9,9 +9,14 @@ export async function newProjectFlow(): Promise<void> {
     message: 'Project directory name',
     placeholder: 'my-quipthread',
     defaultValue: 'my-quipthread',
-    validate: (v) => { if (!v.trim()) return 'Directory name is required' },
+    validate: (v) => {
+      if (!v.trim()) return 'Directory name is required'
+    },
   })
-  if (isCancel(rawName)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(rawName)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
   const projectName = (rawName as string).trim()
 
   const rawBaseUrl = await text({
@@ -19,10 +24,17 @@ export async function newProjectFlow(): Promise<void> {
     placeholder: 'https://comments.example.com',
     validate: (v) => {
       if (!v.trim()) return 'Base URL is required'
-      try { new URL(v) } catch { return 'Enter a valid URL (e.g. https://comments.example.com)' }
+      try {
+        new URL(v)
+      } catch {
+        return 'Enter a valid URL (e.g. https://comments.example.com)'
+      }
     },
   })
-  if (isCancel(rawBaseUrl)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(rawBaseUrl)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
   const baseUrl = (rawBaseUrl as string).trim().replace(/\/$/, '')
 
   const providers = await multiselect({
@@ -34,7 +46,10 @@ export async function newProjectFlow(): Promise<void> {
     ],
     required: true,
   })
-  if (isCancel(providers)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(providers)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
   const enabledProviders = providers as string[]
 
   let githubClientId = ''
@@ -42,16 +57,26 @@ export async function newProjectFlow(): Promise<void> {
   if (enabledProviders.includes('github')) {
     const id = await text({
       message: 'GitHub OAuth Client ID',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(id)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(id)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     githubClientId = (id as string).trim()
 
     const secret = await password({
       message: 'GitHub OAuth Client Secret',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(secret)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(secret)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     githubClientSecret = (secret as string).trim()
   }
 
@@ -60,16 +85,26 @@ export async function newProjectFlow(): Promise<void> {
   if (enabledProviders.includes('google')) {
     const id = await text({
       message: 'Google OAuth Client ID',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(id)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(id)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     googleClientId = (id as string).trim()
 
     const secret = await password({
       message: 'Google OAuth Client Secret',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(secret)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(secret)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     googleClientSecret = (secret as string).trim()
   }
 
@@ -85,15 +120,23 @@ export async function newProjectFlow(): Promise<void> {
     message: 'Configure SMTP for email notifications and verification?',
     initialValue: emailAuthEnabled,
   })
-  if (isCancel(wantSmtp)) { cancel('Cancelled.'); process.exit(0) }
+  if (isCancel(wantSmtp)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
 
   if (wantSmtp) {
     const host = await text({
       message: 'SMTP host',
       placeholder: 'smtp.example.com',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(host)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(host)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     smtpHost = (host as string).trim()
 
     const port = await text({
@@ -101,28 +144,46 @@ export async function newProjectFlow(): Promise<void> {
       placeholder: '587',
       defaultValue: '587',
     })
-    if (isCancel(port)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(port)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     smtpPort = (port as string).trim()
 
     const user = await text({
       message: 'SMTP username',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(user)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(user)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     smtpUser = (user as string).trim()
 
     const pass = await password({
       message: 'SMTP password',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(pass)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(pass)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     smtpPass = (pass as string).trim()
 
     const from = await text({
       message: 'From address (e.g. Quipthread <noreply@example.com>)',
-      validate: (v) => { if (!v.trim()) return 'Required' },
+      validate: (v) => {
+        if (!v.trim()) return 'Required'
+      },
     })
-    if (isCancel(from)) { cancel('Cancelled.'); process.exit(0) }
+    if (isCancel(from)) {
+      cancel('Cancelled.')
+      process.exit(0)
+    }
     smtpFrom = (from as string).trim()
   }
 
@@ -168,6 +229,6 @@ export async function newProjectFlow(): Promise<void> {
       '',
       'Keep .env out of version control — it contains your JWT secret.',
     ].join('\n'),
-    'Next steps'
+    'Next steps',
   )
 }

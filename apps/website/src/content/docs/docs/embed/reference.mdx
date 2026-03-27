@@ -63,6 +63,24 @@ The `async` attribute is recommended. The script defers mounting until `DOMConte
   The `src` origin is captured synchronously during script evaluation. If you load the script via a bundler or inject it dynamically after page load, the API base URL detection may not work correctly. Use a standard `<script>` tag in HTML.
 </Aside>
 
+## Voting
+
+Readers can upvote comments. Voting is a toggle — clicking the upvote button again removes the vote. A user must be signed in to vote; the button is rendered for all users but requires authentication to submit.
+
+The vote count and the current user's vote state are included in every comment load response. No additional configuration is needed.
+
+## Comment sort order
+
+The widget displays comments sorted by **newest first** by default. Readers can switch between three sort modes using the sort bar above the comment list:
+
+| Mode | Description |
+|---|---|
+| Newest | Most recently posted comments first (default) |
+| Oldest | Chronological order, oldest first |
+| Top | Sorted by upvote count, descending |
+
+Sort preference is not persisted — it resets to newest on page reload.
+
 ## Browser compatibility
 
 The widget targets modern browsers (ES2020+). It uses `createRoot` from React 19, `MutationObserver`, and `fetch`. It does not support IE11 or other legacy environments.

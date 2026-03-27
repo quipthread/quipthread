@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 
 interface Option {
   value: string
@@ -16,7 +16,7 @@ export default function SelectDropdown({ value, options, onChange, disabled }: P
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const selected = options.find(o => o.value === value)
+  const selected = options.find((o) => o.value === value)
 
   useEffect(() => {
     if (!open) return
@@ -30,11 +30,14 @@ export default function SelectDropdown({ value, options, onChange, disabled }: P
   }, [open])
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block', alignSelf: 'flex-start' }}>
+    <div
+      ref={ref}
+      style={{ position: 'relative', display: 'inline-block', alignSelf: 'flex-start' }}
+    >
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -51,39 +54,59 @@ export default function SelectDropdown({ value, options, onChange, disabled }: P
           outline: 'none',
           transition: 'border-color 0.15s, box-shadow 0.15s',
           whiteSpace: 'nowrap' as const,
-          ...(open ? {
-            borderColor: 'var(--amber)',
-            boxShadow: '0 0 0 3px var(--amber-bg)',
-          } : {}),
+          ...(open
+            ? {
+                borderColor: 'var(--amber)',
+                boxShadow: '0 0 0 3px var(--amber-bg)',
+              }
+            : {}),
         }}
       >
         <span>{selected?.label ?? value}</span>
         <svg
-          width="12" height="12" viewBox="0 0 12 12" fill="none"
-          style={{ flexShrink: 0, transition: 'transform 150ms', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          style={{
+            flexShrink: 0,
+            transition: 'transform 150ms',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}
         >
-          <path d="M2 4.5l4 4 4-4" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <path
+            d="M2 4.5l4 4 4-4"
+            stroke="var(--muted)"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 4px)',
-          left: 0,
-          zIndex: 200,
-          minWidth: '100%',
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-          overflow: 'hidden',
-        }}>
-          {options.map(o => (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 200,
+            minWidth: '100%',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            overflow: 'hidden',
+          }}
+        >
+          {options.map((o) => (
             <button
               key={o.value}
               type="button"
-              onClick={() => { onChange(o.value); setOpen(false) }}
+              onClick={() => {
+                onChange(o.value)
+                setOpen(false)
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -102,10 +125,19 @@ export default function SelectDropdown({ value, options, onChange, disabled }: P
               }}
             >
               <svg
-                width="12" height="12" viewBox="0 0 12 12" fill="none"
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
                 style={{ flexShrink: 0, opacity: o.value === value ? 1 : 0 }}
               >
-                <path d="M2 6.5l3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M2 6.5l3 3 5-6"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
               {o.label}
             </button>

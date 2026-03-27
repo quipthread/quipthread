@@ -44,16 +44,16 @@ func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFromReq(r)
 	user, err := store.GetUser(claims.Sub)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get user")
+		writeError(w, r, http.StatusInternalServerError, "failed to get user")
 		return
 	}
 	if user == nil {
-		writeError(w, http.StatusNotFound, "user not found")
+		writeError(w, r, http.StatusNotFound, "user not found")
 		return
 	}
 	identities, err := store.ListUserIdentities(claims.Sub)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get identities")
+		writeError(w, r, http.StatusInternalServerError, "failed to get identities")
 		return
 	}
 	providers := make([]string, 0, len(identities))
@@ -92,11 +92,11 @@ func (h *AccountHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		DisplayName string `json:"display_name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.DisplayName == "" {
-		writeError(w, http.StatusBadRequest, "display_name is required")
+		writeError(w, r, http.StatusBadRequest, "display_name is required")
 		return
 	}
 	if err := store.UpdateUserDisplayName(claims.Sub, req.DisplayName); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update profile")
+		writeError(w, r, http.StatusInternalServerError, "failed to update profile")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -111,33 +111,33 @@ func (h *AccountHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) 
 		NewPassword     string `json:"new_password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request")
+		writeError(w, r, http.StatusBadRequest, "invalid request")
 		return
 	}
 	if len(req.NewPassword) < 8 {
-		writeError(w, http.StatusBadRequest, "new password must be at least 8 characters")
+		writeError(w, r, http.StatusBadRequest, "new password must be at least 8 characters")
 		return
 	}
 	identity, err := store.GetIdentityByUser(claims.Sub, "email")
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, http.StatusBadRequest, "no email/password login found for this account")
+			writeError(w, r, http.StatusBadRequest, "no email/password login found for this account")
 		} else {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeError(w, r, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(identity.PasswordHash), []byte(req.CurrentPassword)); err != nil {
-		writeError(w, http.StatusUnauthorized, "current password is incorrect")
+		writeError(w, r, http.StatusUnauthorized, "current password is incorrect")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
+		writeError(w, r, http.StatusInternalServerError, "failed to hash password")
 		return
 	}
 	if err := store.UpdatePasswordHashByUser(claims.Sub, "email", string(hash)); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update password")
+		writeError(w, r, http.StatusInternalServerError, "failed to update password")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -150,15 +150,15 @@ func (h *AccountHandler) DisconnectIdentity(w http.ResponseWriter, r *http.Reque
 	provider := chi.URLParam(r, "provider")
 	identities, err := store.ListUserIdentities(claims.Sub)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get identities")
+		writeError(w, r, http.StatusInternalServerError, "failed to get identities")
 		return
 	}
 	if len(identities) <= 1 {
-		writeError(w, http.StatusBadRequest, "cannot disconnect your only login method")
+		writeError(w, r, http.StatusBadRequest, "cannot disconnect your only login method")
 		return
 	}
 	if err := store.DeleteUserIdentity(claims.Sub, provider); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to disconnect")
+		writeError(w, r, http.StatusInternalServerError, "failed to disconnect")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -187,7 +187,7 @@ func (h *AccountHandler) UpdateSecurity(w http.ResponseWriter, r *http.Request) 
 	if h.cfg.CloudMode {
 		sub, err := middleware.GetCachedSubscription(middleware.AccountIDFromRequest(r), store)
 		if err != nil || middleware.PlanRank[sub.Plan] < middleware.PlanRank["starter"] {
-			writeError(w, http.StatusPaymentRequired, "plan_upgrade_required")
+			writeError(w, r, http.StatusPaymentRequired, "plan_upgrade_required")
 			return
 		}
 	}
@@ -196,7 +196,7 @@ func (h *AccountHandler) UpdateSecurity(w http.ResponseWriter, r *http.Request) 
 		TurnstileSecretKey *string `json:"turnstile_secret_key"` // nil = preserve existing
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request")
+		writeError(w, r, http.StatusBadRequest, "invalid request")
 		return
 	}
 	secretKey := ""
@@ -207,7 +207,7 @@ func (h *AccountHandler) UpdateSecurity(w http.ResponseWriter, r *http.Request) 
 		secretKey = *req.TurnstileSecretKey
 	}
 	if err := store.SetTurnstileKeys(req.TurnstileSiteKey, secretKey); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update security settings")
+		writeError(w, r, http.StatusInternalServerError, "failed to update security settings")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

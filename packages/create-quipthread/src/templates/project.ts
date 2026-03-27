@@ -107,7 +107,7 @@ export function dotEnv(cfg: ProjectConfig): string {
   lines.push('# Set to true if running behind a reverse proxy (Caddy, nginx, etc.)')
   lines.push('# TRUST_PROXY=true')
 
-  return lines.join('\n') + '\n'
+  return `${lines.join('\n')}\n`
 }
 
 export function gitignore(): string {

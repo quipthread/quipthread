@@ -158,10 +158,12 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
           borderBottom: '1px solid var(--border)',
           marginBottom: 0,
           overflowX: 'auto' as const,
+          scrollbarWidth: 'none' as const,
         }}
       >
-        {TABS.map(t => (
+        {TABS.map((t) => (
           <button
+            type="button"
             key={t.id}
             className="embed-tab-btn"
             onClick={() => setTab(t.id)}
@@ -198,6 +200,7 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
         }}
       >
         <button
+          type="button"
           onClick={copy}
           style={{
             position: 'absolute',
@@ -218,30 +221,51 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
         >
           {copied ? (
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Copied">
-              <path d="M2.5 7l3 3 6-6" stroke="#86efac" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M2.5 7l3 3 6-6"
+                stroke="#86efac"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           ) : (
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Copy">
-              <rect x="5" y="5" width="7.5" height="7.5" rx="1.5" stroke="currentColor" stroke-width="1.4" />
-              <path d="M9 5V3a1.5 1.5 0 0 0-1.5-1.5H3A1.5 1.5 0 0 0 1.5 3v4.5A1.5 1.5 0 0 0 3 9h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+              <rect
+                x="5"
+                y="5"
+                width="7.5"
+                height="7.5"
+                rx="1.5"
+                stroke="currentColor"
+                stroke-width="1.4"
+              />
+              <path
+                d="M9 5V3a1.5 1.5 0 0 0-1.5-1.5H3A1.5 1.5 0 0 0 1.5 3v4.5A1.5 1.5 0 0 0 3 9h2"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+              />
             </svg>
           )}
         </button>
 
-        <pre
-          style={{
-            margin: 0,
-            padding: '1.25rem 1.25rem',
-            overflowX: 'auto',
-            fontSize: '0.8125rem',
-            lineHeight: 1.65,
-            color: 'rgba(247, 244, 239, 0.88)',
-            fontFamily: 'var(--f-mono)',
-            whiteSpace: 'pre',
-          }}
-        >
-          <code>{snippet}</code>
-        </pre>
+        <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+          <pre
+            style={{
+              margin: 0,
+              padding: '1.25rem 1.25rem',
+              overflow: 'visible',
+              fontSize: '0.8125rem',
+              lineHeight: 1.65,
+              color: 'rgba(247, 244, 239, 0.88)',
+              fontFamily: 'var(--f-mono)',
+              whiteSpace: 'pre',
+            }}
+          >
+            <code>{snippet}</code>
+          </pre>
+        </div>
       </div>
 
       {/* CLI hint */}

@@ -36,7 +36,7 @@ func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	siteID := q.Get("siteId")
 	if siteID == "" {
-		writeError(w, http.StatusBadRequest, "siteId is required")
+		writeError(w, r, http.StatusBadRequest, "siteId is required")
 		return
 	}
 
@@ -54,7 +54,7 @@ func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	case "all":
 		// zero value = no lower bound
 	default:
-		writeError(w, http.StatusBadRequest, "range must be 7d, 30d, or all")
+		writeError(w, r, http.StatusBadRequest, "range must be 7d, 30d, or all")
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if h.cfg.CloudMode {
 		sub, err := middleware.GetCachedSubscription(middleware.AccountIDFromRequest(r), store)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to check plan")
+			writeError(w, r, http.StatusInternalServerError, "failed to check plan")
 			return
 		}
 		switch sub.Plan {
@@ -76,7 +76,7 @@ func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		}
 		// hobby has no analytics access — frontend gates this, but enforce here too.
 		if sub.Plan == "hobby" {
-			writeError(w, http.StatusPaymentRequired, "plan_upgrade_required")
+			writeError(w, r, http.StatusPaymentRequired, "plan_upgrade_required")
 			return
 		}
 	}
@@ -85,7 +85,7 @@ func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	storeSiteID := siteID
 	if siteID == "all" {
 		if tier < 2 {
-			writeError(w, http.StatusPaymentRequired, "plan_upgrade_required")
+			writeError(w, r, http.StatusPaymentRequired, "plan_upgrade_required")
 			return
 		}
 		storeSiteID = "" // empty = no site filter in the store
@@ -94,7 +94,7 @@ func (h *AnalyticsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	result, err := store.GetAnalytics(storeSiteID, from, 10, tier)
 	if err != nil {
 		log.Printf("analytics error: %v", err)
-		writeError(w, http.StatusInternalServerError, "failed to fetch analytics")
+		writeError(w, r, http.StatusInternalServerError, "failed to fetch analytics")
 		return
 	}
 

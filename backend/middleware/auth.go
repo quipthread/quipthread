@@ -58,6 +58,22 @@ func RequireAdmin(jwtSecret string) func(http.Handler) http.Handler {
 	}
 }
 
+// InjectAuth tries to parse the session JWT and, if valid, attaches claims to
+// the request context. Unlike RequireAuth it never rejects the request — callers
+// check for nil claims to distinguish authenticated from anonymous users.
+func InjectAuth(jwtSecret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if cookie, err := r.Cookie(session.CookieName); err == nil {
+				if claims, err := session.Parse(jwtSecret, cookie.Value); err == nil {
+					r = r.WithContext(context.WithValue(r.Context(), session.UserKey, claims))
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite" // register modernc/sqlite driver
 )
 
@@ -22,9 +23,12 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 
-	store := &SQLiteStore{sqlStore{db: db}}
+	store := &SQLiteStore{sqlStore{db: db, dialect: goose.DialectSQLite3}}
 	if err := store.migrate(); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	if err := store.ensureColumns(); err != nil {
+		return nil, fmt.Errorf("ensure columns: %w", err)
 	}
 
 	return store, nil

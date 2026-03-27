@@ -17,6 +17,8 @@ linters:
     - revive
     - gosec
     - bodyclose
+    - errorlint
+    - nilerr
   settings:
     revive:
       rules:

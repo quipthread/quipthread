@@ -22,26 +22,26 @@ func (h *AdminHandler) importFromReader(
 	store := h.db(r)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil { //nolint:gosec // G120: 32MB limit is intentional
-		writeError(w, http.StatusBadRequest, "invalid multipart form")
+		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
 	siteID := r.FormValue("siteId") //nolint:gosec // G120: ParseMultipartForm(32MB) called on line above; body already limited
 	if siteID == "" {
-		writeError(w, http.StatusBadRequest, "siteId is required")
+		writeError(w, r, http.StatusBadRequest, "siteId is required")
 		return
 	}
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file is required")
+		writeError(w, r, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer file.Close() //nolint:errcheck // deferred close; multipart file handle
 
 	result, err := parse(file)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "parse error: "+err.Error())
+		writeError(w, r, http.StatusUnprocessableEntity, "parse error: "+err.Error())
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *AdminHandler) importFromReader(
 
 	commentsInserted, err := store.ImportComments(siteID, result.Comments)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "import failed: "+err.Error())
+		writeError(w, r, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}
 
@@ -119,26 +119,26 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 	store := h.db(r)
 
 	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit is intentional for SQLite database file uploads
-		writeError(w, http.StatusBadRequest, "invalid multipart form")
+		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
 	siteID := r.FormValue("siteId") //nolint:gosec // G120: ParseMultipartForm(128MB) called on line above; body already limited
 	if siteID == "" {
-		writeError(w, http.StatusBadRequest, "siteId is required")
+		writeError(w, r, http.StatusBadRequest, "siteId is required")
 		return
 	}
 
 	path, err := saveTempFile(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file is required")
+		writeError(w, r, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer os.Remove(path) //nolint:errcheck // best-effort cleanup of temp file
 
 	result, err := importer.ImportQuipthreadDB(path)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "import error: "+err.Error())
+		writeError(w, r, http.StatusUnprocessableEntity, "import error: "+err.Error())
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 
 	commentsInserted, err := store.ImportComments(siteID, result.Comments)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "import failed: "+err.Error())
+		writeError(w, r, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}
 
@@ -160,20 +160,20 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 // Accepts a SQLite file and returns the schema of every table with sample values.
 func (h *AdminHandler) ImportSQLiteInspect(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit intentional for SQLite database file uploads
-		writeError(w, http.StatusBadRequest, "invalid multipart form")
+		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
 	path, err := saveTempFile(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file is required")
+		writeError(w, r, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer os.Remove(path) //nolint:errcheck // best-effort cleanup of temp file
 
 	tables, err := importer.InspectSQLite(path)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "inspect error: "+err.Error())
+		writeError(w, r, http.StatusUnprocessableEntity, "inspect error: "+err.Error())
 		return
 	}
 
@@ -187,36 +187,36 @@ func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 
 	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit intentional for SQLite database file uploads
-		writeError(w, http.StatusBadRequest, "invalid multipart form")
+		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
 
 	siteID := r.FormValue("siteId") //nolint:gosec // G120: ParseMultipartForm(128MB) called on line above; body already limited
 	if siteID == "" {
-		writeError(w, http.StatusBadRequest, "siteId is required")
+		writeError(w, r, http.StatusBadRequest, "siteId is required")
 		return
 	}
 
 	mappingJSON := r.FormValue("mapping") //nolint:gosec // G120: ParseMultipartForm(128MB) called on line above
 	if mappingJSON == "" {
-		writeError(w, http.StatusBadRequest, "mapping is required")
+		writeError(w, r, http.StatusBadRequest, "mapping is required")
 		return
 	}
 
 	var mapping importer.ColumnMapping
 	if err := json.Unmarshal([]byte(mappingJSON), &mapping); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid mapping JSON: "+err.Error())
+		writeError(w, r, http.StatusBadRequest, "invalid mapping JSON: "+err.Error())
 		return
 	}
 
 	if mapping.Table == "" {
-		writeError(w, http.StatusBadRequest, "mapping.table is required")
+		writeError(w, r, http.StatusBadRequest, "mapping.table is required")
 		return
 	}
 
 	path, err := saveTempFile(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file is required")
+		writeError(w, r, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer os.Remove(path) //nolint:errcheck // best-effort cleanup of temp file
@@ -224,7 +224,7 @@ func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 	// Build the allowedCols whitelist from the actual schema before running.
 	tables, err := importer.InspectSQLite(path)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "inspect error: "+err.Error())
+		writeError(w, r, http.StatusUnprocessableEntity, "inspect error: "+err.Error())
 		return
 	}
 	allowedCols := make(map[string]bool)
@@ -239,7 +239,7 @@ func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 
 	result, err := importer.ImportMappedSQLite(path, mapping, allowedCols)
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "import error: "+err.Error())
+		writeError(w, r, http.StatusUnprocessableEntity, "import error: "+err.Error())
 		return
 	}
 
@@ -247,7 +247,7 @@ func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 
 	commentsInserted, err := store.ImportComments(siteID, result.Comments)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "import failed: "+err.Error())
+		writeError(w, r, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}
 

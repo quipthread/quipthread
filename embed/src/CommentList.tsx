@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
-import { listComments } from './api'
+import { useCallback, useEffect, useState } from 'react'
+import { flagComment, listComments, toggleVote } from './api'
 import { CommentItem } from './CommentItem'
-import type { Comment, User } from './types'
 import type { useTranslations } from './i18n'
+import type { Comment, SortOrder, User } from './types'
 
 const PAGE_SIZE = 20
 
@@ -19,6 +19,7 @@ function buildTree(comments: Comment[]): TreeNode[] {
   const rootId = (c: Comment): string => {
     let current = c
     while (current.parent_id && byId.has(current.parent_id)) {
+      // biome-ignore lint/style/noNonNullAssertion: has() guarantees get() is non-null
       current = byId.get(current.parent_id)!
     }
     return current.id
@@ -65,13 +66,14 @@ export function CommentList({
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [sort, setSort] = useState<SortOrder>('newest')
 
   const fetchComments = useCallback(
-    async (p: number) => {
+    async (p: number, s: SortOrder) => {
       setLoading(true)
       setError(null)
       try {
-        const res = await listComments(siteId, pageId, p, PAGE_SIZE)
+        const res = await listComments(siteId, pageId, p, PAGE_SIZE, s)
         setComments(res.comments ?? [])
         setTotal(res.total)
         setPage(p)
@@ -84,9 +86,15 @@ export function CommentList({
     [siteId, pageId, t.loadError],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is a re-fetch trigger, not used inside the effect body
   useEffect(() => {
-    fetchComments(1)
-  }, [fetchComments, refreshKey])
+    fetchComments(1, sort)
+  }, [fetchComments, sort, refreshKey])
+
+  const handleSortChange = (s: SortOrder) => {
+    setSort(s)
+    fetchComments(1, s)
+  }
 
   const handleDelete = (id: string) => {
     setComments((prev) => prev.filter((c) => c.id !== id))
@@ -98,6 +106,26 @@ export function CommentList({
     setTotal((prev) => prev + 1)
   }
 
+  const handleVote = async (id: string) => {
+    if (!user) return
+    try {
+      const { upvotes, user_voted } = await toggleVote(id)
+      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, upvotes, user_voted } : c)))
+    } catch {
+      // Silently fail — the UI stays as-is
+    }
+  }
+
+  const handleFlag = async (id: string) => {
+    if (!user) return
+    try {
+      const { user_flagged } = await flagComment(id)
+      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, user_flagged } : c)))
+    } catch {
+      // Silently fail — the UI stays as-is
+    }
+  }
+
   if (loading) return <div className="qt-loading">Loading…</div>
   if (error) return <div className="qt-error">{error}</div>
 
@@ -106,6 +134,20 @@ export function CommentList({
 
   return (
     <>
+      {total > 0 && (
+        <div className="qt-sort-bar">
+          {(['newest', 'oldest', 'top'] as SortOrder[]).map((s) => (
+            <button
+              type="button"
+              key={s}
+              className={`qt-sort-btn${sort === s ? ' active' : ''}`}
+              onClick={() => handleSortChange(s)}
+            >
+              {s === 'newest' ? 'Newest' : s === 'oldest' ? 'Oldest' : 'Top'}
+            </button>
+          ))}
+        </div>
+      )}
       {tree.length === 0 ? (
         <div className="qt-empty">{t.noComments}</div>
       ) : (
@@ -123,6 +165,8 @@ export function CommentList({
               pageTitle={pageTitle}
               onDelete={handleDelete}
               onReplySuccess={handleReplySuccess}
+              onVote={handleVote}
+              onFlag={handleFlag}
             />
           ))}
         </ul>
@@ -130,9 +174,10 @@ export function CommentList({
       {totalPages > 1 && (
         <div className="qt-pagination">
           <button
+            type="button"
             className="qt-btn qt-btn-secondary"
             disabled={page <= 1}
-            onClick={() => fetchComments(page - 1)}
+            onClick={() => fetchComments(page - 1, sort)}
           >
             ←
           </button>
@@ -140,9 +185,10 @@ export function CommentList({
             {page} / {totalPages}
           </span>
           <button
+            type="button"
             className="qt-btn qt-btn-secondary"
             disabled={page >= totalPages}
-            onClick={() => fetchComments(page + 1)}
+            onClick={() => fetchComments(page + 1, sort)}
           >
             →
           </button>

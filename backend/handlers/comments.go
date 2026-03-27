@@ -2,17 +2,23 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/middleware"
 	"github.com/quipthread/quipthread/models"
+	"github.com/quipthread/quipthread/sanitize"
 	"github.com/quipthread/quipthread/session"
 )
+
+const dedupWindow = 5 * time.Minute
 
 type CommentsHandler struct {
 	store               db.Store
@@ -37,13 +43,14 @@ func (h *CommentsHandler) db(r *http.Request) db.Store {
 	return h.store
 }
 
-// GET /api/comments?siteId=&pageId=&page=1&limit=10
+// GET /api/comments?siteId=&pageId=&page=1&limit=10&sort=newest|oldest|top
 func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
-	siteID := r.URL.Query().Get("siteId")
-	pageID := r.URL.Query().Get("pageId")
+	q := r.URL.Query()
+	siteID := q.Get("siteId")
+	pageID := q.Get("pageId")
 	if siteID == "" || pageID == "" {
-		writeError(w, http.StatusBadRequest, "siteId and pageId are required")
+		writeError(w, r, http.StatusBadRequest, "siteId and pageId are required")
 		return
 	}
 
@@ -53,9 +60,23 @@ func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 
-	comments, total, err := store.ListComments(siteID, pageID, page, limit)
+	sort := q.Get("sort")
+	switch sort {
+	case "oldest", "top":
+		// valid
+	default:
+		sort = "newest"
+	}
+
+	// Populate user_voted when a valid session is present.
+	var userID string
+	if claims := claimsFromContext(r); claims != nil {
+		userID = claims.Sub
+	}
+
+	comments, total, err := store.ListComments(siteID, pageID, sort, userID, page, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list comments")
+		writeError(w, r, http.StatusInternalServerError, "failed to list comments")
 		return
 	}
 
@@ -64,6 +85,73 @@ func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 		"total":    total,
 		"page":     page,
 		"limit":    limit,
+	})
+}
+
+// POST /api/comments/:id/vote — toggles an upvote; requires auth.
+func (h *CommentsHandler) Vote(w http.ResponseWriter, r *http.Request) {
+	store := h.db(r)
+	claims := claimsFromContext(r)
+	if claims == nil {
+		writeError(w, r, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	comment, err := store.GetComment(id)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if comment == nil {
+		writeError(w, r, http.StatusNotFound, "comment not found")
+		return
+	}
+
+	upvotes, voted, err := store.ToggleVote(id, claims.Sub)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to record vote")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"upvotes":    upvotes,
+		"user_voted": voted,
+	})
+}
+
+// POST /api/comments/:id/flag — toggles a flag; requires auth.
+func (h *CommentsHandler) Flag(w http.ResponseWriter, r *http.Request) {
+	store := h.db(r)
+	claims := claimsFromContext(r)
+	if claims == nil {
+		writeError(w, r, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	comment, err := store.GetComment(id)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if comment == nil {
+		writeError(w, r, http.StatusNotFound, "comment not found")
+		return
+	}
+	if comment.UserID == claims.Sub {
+		writeError(w, r, http.StatusForbidden, "cannot flag your own comment")
+		return
+	}
+
+	_, flagged, err := store.ToggleFlag(id, claims.Sub)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to record flag")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"user_flagged": flagged,
 	})
 }
 
@@ -82,23 +170,29 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 	claims := claimsFromContext(r)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		writeError(w, r, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	var req createCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.SiteID == "" || req.PageID == "" || req.Content == "" {
-		writeError(w, http.StatusBadRequest, "site_id, page_id, and content are required")
+		writeError(w, r, http.StatusBadRequest, "site_id, page_id, and content are required")
+		return
+	}
+
+	req.Content = sanitize.CommentHTML(req.Content)
+	if req.Content == "" {
+		writeError(w, r, http.StatusBadRequest, "comment content is empty after sanitization")
 		return
 	}
 
 	if req.PageID == "__preview__" {
-		writeError(w, http.StatusForbidden, "preview_mode")
+		writeError(w, r, http.StatusForbidden, "preview_mode")
 		return
 	}
 
@@ -114,7 +208,7 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		ip := middleware.RealIP(r)
 		ok, err := verifyTurnstile(r.Context(), turnstileSecret, req.TurnstileToken, ip)
 		if err != nil || !ok {
-			writeError(w, http.StatusForbidden, "bot check failed")
+			writeError(w, r, http.StatusForbidden, "bot check failed")
 			return
 		}
 	}
@@ -140,11 +234,25 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-approve if user has previously approved comments on this site.
-	status := "pending"
-	count, err := store.CountApprovedCommentsByUser(claims.Sub, req.SiteID)
-	if err == nil && count > 0 {
+	// Duplicate detection: if identical content was posted by the same user to
+	// the same page within the dedup window, return the existing comment silently.
+	if existing, err := store.FindDuplicateComment(claims.Sub, req.PageID, req.Content, time.Now().Add(-dedupWindow)); err == nil && existing != nil {
+		writeJSON(w, http.StatusCreated, existing)
+		return
+	}
+
+	// Shadow-banned users: always store as approved so they see their comment,
+	// but ListComments filters them out for all other users.
+	var status string
+	if u, err := store.GetUser(claims.Sub); err == nil && u != nil && u.ShadowBanned {
 		status = "approved"
+	} else {
+		// Auto-approve if user has previously approved comments on this site.
+		status = "pending"
+		count, err := store.CountApprovedCommentsByUser(claims.Sub, req.SiteID)
+		if err == nil && count > 0 {
+			status = "approved"
+		}
 	}
 
 	comment := &models.Comment{
@@ -159,7 +267,7 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := store.CreateComment(comment); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create comment")
+		writeError(w, r, http.StatusInternalServerError, "failed to create comment")
 		return
 	}
 
@@ -171,27 +279,27 @@ func (h *CommentsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 	claims := claimsFromContext(r)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+		writeError(w, r, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	id := chi.URLParam(r, "id")
 	comment, err := store.GetComment(id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, r, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if comment == nil {
-		writeError(w, http.StatusNotFound, "comment not found")
+		writeError(w, r, http.StatusNotFound, "comment not found")
 		return
 	}
 	if comment.UserID != claims.Sub && claims.Role != "admin" {
-		writeError(w, http.StatusForbidden, "forbidden")
+		writeError(w, r, http.StatusForbidden, "forbidden")
 		return
 	}
 
 	if err := store.DeleteComment(id); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete comment")
+		writeError(w, r, http.StatusInternalServerError, "failed to delete comment")
 		return
 	}
 
@@ -227,6 +335,10 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	json.NewEncoder(w).Encode(v) //nolint:errcheck,gosec // error response; connection may already be broken
 }
 
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+func writeError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	reqID := chimiddleware.GetReqID(r.Context())
+	if status >= 500 {
+		slog.ErrorContext(r.Context(), "request error", "request_id", reqID, "status", status, "error", msg, "path", r.URL.Path)
+	}
+	writeJSON(w, status, map[string]string{"error": msg, "request_id": reqID})
 }

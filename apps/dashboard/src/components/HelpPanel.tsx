@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
-import type { BillingStatus } from '../types'
 import { IS_SELF_HOSTED } from '../lib/env'
+import type { BillingStatus } from '../types'
 
 const FAQ_ITEMS = [
   {
@@ -11,7 +11,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do I embed Quipthread on my site?',
-    a: 'Go to the Preview page — select your site, copy the snippet for your framework, and paste it into your page template. The Preview page also shows installation detection once you\'ve deployed.',
+    a: "Go to the Preview page — select your site, copy the snippet for your framework, and paste it into your page template. The Preview page also shows installation detection once you've deployed.",
     gate: null,
   },
   {
@@ -47,8 +47,9 @@ export default function HelpPanel() {
 
   useEffect(() => {
     if (!IS_SELF_HOSTED) {
-      api.billing.status()
-        .then(status => {
+      api.billing
+        .status()
+        .then((status) => {
           setBilling(status)
         })
         .catch(() => {})
@@ -57,10 +58,10 @@ export default function HelpPanel() {
   }, [])
 
   function toggleFaq(i: number) {
-    setOpenFaq(prev => prev.map((v, idx) => idx === i ? !v : v))
+    setOpenFaq((prev) => prev.map((v, idx) => (idx === i ? !v : v)))
   }
 
-  const visibleFaq = FAQ_ITEMS.filter(item => {
+  const visibleFaq = FAQ_ITEMS.filter((item) => {
     if (item.gate === 'billing') return !IS_SELF_HOSTED && billing !== null
     return true
   })
@@ -74,15 +75,17 @@ export default function HelpPanel() {
       {/* ── Quick Start ──────────────────────────────────── */}
       <section style={{ marginBottom: '2.5rem' }}>
         <h2 style={sectionHeadingStyle}>Add Quipthread to your site</h2>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.875rem',
-          padding: '1rem 1.25rem',
-          background: 'var(--amber-bg)',
-          border: '1px solid var(--amber-border)',
-          borderRadius: 8,
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.875rem',
+            padding: '1rem 1.25rem',
+            background: 'var(--amber-bg)',
+            border: '1px solid var(--amber-border)',
+            borderRadius: 8,
+          }}
+        >
           <span style={{ fontSize: '1.125rem', lineHeight: 1 }}>→</span>
           <span style={{ fontSize: '0.9375rem', color: 'var(--text)' }}>
             Get your embed snippet, pick a theme, and verify installation on the{' '}
@@ -112,11 +115,14 @@ export default function HelpPanel() {
                 }}
               >
                 <button
+                  type="button"
                   onClick={() => toggleFaq(FAQ_ITEMS.indexOf(item))}
                   style={faqButtonStyle}
                   aria-expanded={isOpen}
                 >
-                  <span style={{ fontWeight: 500, color: 'var(--text)', textAlign: 'left' as const }}>
+                  <span
+                    style={{ fontWeight: 500, color: 'var(--text)', textAlign: 'left' as const }}
+                  >
                     {item.q}
                   </span>
                   <span
@@ -144,9 +150,7 @@ export default function HelpPanel() {
                   }}
                 >
                   <div style={{ overflow: 'hidden' }}>
-                    <div style={faqAnswerStyle}>
-                      {item.a}
-                    </div>
+                    <div style={faqAnswerStyle}>{item.a}</div>
                   </div>
                 </div>
               </div>
@@ -161,7 +165,10 @@ export default function HelpPanel() {
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.625rem' }}>
           <ResourceLink href="/docs/" label="Documentation" />
           <ResourceLink href="https://github.com/quipthread/quipthread" label="GitHub" />
-          <ResourceLink href="https://github.com/quipthread/quipthread/issues" label="Report an issue" />
+          <ResourceLink
+            href="https://github.com/quipthread/quipthread/issues"
+            label="Report an issue"
+          />
         </div>
       </section>
     </div>
@@ -207,7 +214,7 @@ function ResourceLink({ href, label }: { href: string; label: string }) {
 
 // ── Style objects ────────────────────────────────────────
 
-const sectionHeadingStyle: object = {
+const sectionHeadingStyle = {
   margin: '0 0 1rem',
   fontFamily: 'var(--f-display)',
   fontSize: '1.0625rem',
@@ -216,8 +223,7 @@ const sectionHeadingStyle: object = {
   color: 'var(--text)',
 }
 
-
-const faqButtonStyle: object = {
+const faqButtonStyle = {
   width: '100%',
   display: 'flex',
   alignItems: 'center',
@@ -232,7 +238,7 @@ const faqButtonStyle: object = {
   transition: 'background 0.1s',
 }
 
-const faqAnswerStyle: object = {
+const faqAnswerStyle = {
   padding: '0 1.125rem 0.875rem',
   fontSize: '0.9375rem',
   lineHeight: 1.7,

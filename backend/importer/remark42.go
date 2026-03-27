@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/quipthread/quipthread/models"
+	"github.com/quipthread/quipthread/sanitize"
 )
 
 type remark42Comment struct {
@@ -65,7 +66,7 @@ func ParseRemark42(r io.Reader) (*Result, error) {
 			PageURL:      c.Locator.URL,
 			ParentID:     parentID,
 			UserID:       userID,
-			Content:      c.Text,
+			Content:      sanitize.CommentHTML(c.Text),
 			Status:       "approved",
 			Imported:     true,
 			DisqusAuthor: c.User.Name,

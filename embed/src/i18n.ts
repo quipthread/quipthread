@@ -19,6 +19,8 @@ const strings = {
     commentingAs: 'Commenting as',
     close: 'Close',
     deleteComment: 'Delete',
+    flag: 'Flag',
+    flagged: 'Flagged',
   },
 } as const
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	neturl "net/url"
 	"os"
@@ -31,8 +32,25 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Structured logging. LOG_FORMAT=json for machine-readable output (production);
+	// default is human-readable text for dev. In Go 1.21+, slog.SetDefault also
+	// redirects log.Print* calls through slog so existing log.Printf calls are included.
+	logLevel := slog.LevelInfo
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		logLevel = slog.LevelDebug
+	}
+	var logHandler slog.Handler
+	if os.Getenv("LOG_FORMAT") == "json" {
+		logHandler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})
+	} else {
+		logHandler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})
+	}
+	slog.SetDefault(slog.New(logHandler))
+	log.SetFlags(0) // timestamps are handled by slog; avoid duplication
+
 	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
+		slog.Error("JWT_SECRET environment variable is required")
+		os.Exit(1)
 	}
 
 	store, err := openStore(cfg)
@@ -60,6 +78,20 @@ func main() {
 	}
 
 	tenantCache := middleware.NewStoreCache()
+
+	// Startup config summary — sanitized (no secrets). Helps self-hosters and
+	// cloud operators quickly confirm the running configuration.
+	slog.Info("quipthread starting",
+		"port", cfg.Port,
+		"base_url", cfg.BaseURL,
+		"cloud_mode", cfg.CloudMode,
+		"email_auth", cfg.EmailAuthEnabled,
+		"github_oauth", cfg.GitHubClientID != "",
+		"google_oauth", cfg.GoogleClientID != "",
+		"turnstile", cfg.TurnstileSecretKey != "",
+		"trust_proxy", cfg.TrustProxy,
+		"database", sanitizeDBURL(cfg.DatabaseURL),
+	)
 
 	// Notification dispatcher — runs in background, cancelled on shutdown.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -92,7 +124,7 @@ func main() {
 
 	// Global middleware
 	r.Use(chimiddleware.Logger)
-	r.Use(chimiddleware.Recoverer)
+	r.Use(middleware.Recovery)
 	r.Use(chimiddleware.RequestID)
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 	if cfg.CloudMode && cloudStore != nil {
@@ -130,7 +162,8 @@ func main() {
 
 	// --- Public API routes --------------------------------------------------
 	r.Get("/api/config", configHandler.PublicConfig)
-	r.Get("/api/comments", commentsHandler.List)
+	// InjectAuth is optional — populates user_voted when a session cookie is present.
+	r.With(middleware.InjectAuth(cfg.JWTSecret)).Get("/api/comments", commentsHandler.List)
 
 	// Approval page (server-rendered, no dashboard login required) — M7
 	r.Get("/approve/{token}", handlers.HandleApprovalPage(store))
@@ -227,8 +260,27 @@ func main() {
 	}
 
 	// Health check — required by Fly.io deployment checks.
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	// Returns JSON with DB reachability so operators can diagnose degraded state.
+	serverStart := time.Now()
+	r.Get("/health", func(w http.ResponseWriter, req *http.Request) {
+		_, dbErr := store.CountSites()
+		dbOK := dbErr == nil
+
+		status := http.StatusOK
+		dbStatus := "ok"
+		if !dbOK {
+			status = http.StatusServiceUnavailable
+			dbStatus = "error"
+			slog.ErrorContext(req.Context(), "health check: database unreachable", "error", dbErr)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		fmt.Fprintf(w, `{"status":%q,"database":%q,"uptime_seconds":%d}`, //nolint:errcheck // ResponseWriter.Write errors are not actionable
+			map[bool]string{true: "ok", false: "degraded"}[dbOK],
+			dbStatus,
+			int(time.Since(serverStart).Seconds()),
+		)
 	})
 
 	// Root redirects to the dashboard.
@@ -248,6 +300,8 @@ func main() {
 
 		r.With(middleware.RateLimit(commentsRL, ipFn), middleware.EnforceCommentQuota(store, cfg)).Post("/api/comments", commentsHandler.Create)
 		r.Delete("/api/comments/{id}", commentsHandler.Delete)
+		r.Post("/api/comments/{id}/vote", commentsHandler.Vote)
+		r.With(middleware.RequirePlan(store, cfg, "starter")).Post("/api/comments/{id}/flag", commentsHandler.Flag)
 	})
 
 	// --- Admin routes -------------------------------------------------------
@@ -323,6 +377,17 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
+}
+
+// sanitizeDBURL strips auth tokens from database URLs before logging.
+func sanitizeDBURL(u string) string {
+	if strings.HasPrefix(u, "libsql://") || strings.HasPrefix(u, "https://") {
+		if parsed, err := neturl.Parse(u); err == nil {
+			parsed.RawQuery = "" // strip authToken= query param
+			return parsed.String()
+		}
+	}
+	return u
 }
 
 func openStore(cfg *config.Config) (db.Store, error) {

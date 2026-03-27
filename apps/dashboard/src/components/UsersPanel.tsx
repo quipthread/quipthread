@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'preact/hooks'
+import { useCallback, useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
-import { relativeTime } from '../utils'
 import type { User } from '../types'
+import { relativeTime } from '../utils'
 
 const PAGE_SIZE = 20
 
@@ -15,7 +15,10 @@ export default function UsersPanel() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    api.me().then(me => setCurrentUserId(me.id)).catch(() => {})
+    api
+      .me()
+      .then((me) => setCurrentUserId(me.id))
+      .catch(() => {})
   }, [])
 
   const fetchUsers = useCallback(async (p: number) => {
@@ -33,13 +36,27 @@ export default function UsersPanel() {
     }
   }, [])
 
-  useEffect(() => { fetchUsers(1) }, [fetchUsers])
+  useEffect(() => {
+    fetchUsers(1)
+  }, [fetchUsers])
 
   const toggleBan = async (user: User) => {
     setActing(user.id)
     try {
-      const updated = await api.users.update(user.id, { banned: !user.banned }) as User
-      setUsers(prev => prev.map(u => u.id === user.id ? updated : u))
+      const updated = (await api.users.update(user.id, { banned: !user.banned })) as User
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)))
+    } finally {
+      setActing(null)
+    }
+  }
+
+  const toggleShadowBan = async (user: User) => {
+    setActing(user.id)
+    try {
+      const updated = (await api.users.update(user.id, {
+        shadow_banned: !user.shadow_banned,
+      })) as User
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)))
     } finally {
       setActing(null)
     }
@@ -49,8 +66,8 @@ export default function UsersPanel() {
     const next = user.role === 'admin' ? 'user' : 'admin'
     setActing(user.id)
     try {
-      const updated = await api.users.update(user.id, { role: next }) as User
-      setUsers(prev => prev.map(u => u.id === user.id ? updated : u))
+      const updated = (await api.users.update(user.id, { role: next })) as User
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)))
     } finally {
       setActing(null)
     }
@@ -85,29 +102,48 @@ export default function UsersPanel() {
                   <th>Actions</th>
                 </tr>
               </thead>
-              {users.map(u => (
+              {users.map((u) => (
                 <tbody key={u.id}>
                   <tr>
                     <td data-label="Name" style={{ fontWeight: 500 }}>
                       {u.display_name || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
-                    <td data-label="Email" style={{ color: 'var(--muted)', fontSize: '0.8125rem', wordBreak: 'break-all' }}>
+                    <td
+                      data-label="Email"
+                      style={{
+                        color: 'var(--muted)',
+                        fontSize: '0.8125rem',
+                        wordBreak: 'break-all',
+                      }}
+                    >
                       {u.email || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
                     <td data-label="Role">
-                      <span className={`badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}`}>
+                      <span
+                        className={`badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}`}
+                      >
                         {u.role}
                       </span>
                     </td>
                     <td data-label="Status">
-                      {u.banned ? <span className="badge badge-banned">Banned</span> : <span style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>—</span>}
+                      {u.banned ? (
+                        <span className="badge badge-banned">Banned</span>
+                      ) : u.shadow_banned ? (
+                        <span className="badge badge-shadow">Shadow Banned</span>
+                      ) : (
+                        <span style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>—</span>
+                      )}
                     </td>
-                    <td data-label="Joined" style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}>
+                    <td
+                      data-label="Joined"
+                      style={{ color: 'var(--muted)', fontSize: '0.8125rem' }}
+                    >
                       {relativeTime(u.created_at)}
                     </td>
                     <td data-label="Actions">
                       <div className="actions">
                         <button
+                          type="button"
                           className="btn"
                           disabled={acting === u.id || u.id === currentUserId}
                           onClick={() => toggleAdmin(u)}
@@ -115,11 +151,21 @@ export default function UsersPanel() {
                           {u.role === 'admin' ? 'Demote' : 'Make Admin'}
                         </button>
                         <button
+                          type="button"
                           className={`btn${u.banned ? '' : ' btn-reject'}`}
                           disabled={acting === u.id || u.id === currentUserId}
                           onClick={() => toggleBan(u)}
                         >
                           {u.banned ? 'Unban' : 'Ban'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={acting === u.id || u.id === currentUserId || u.banned}
+                          onClick={() => toggleShadowBan(u)}
+                          title={u.banned ? 'Cannot shadow ban an already-banned user' : undefined}
+                        >
+                          {u.shadow_banned ? 'Unshadow' : 'Shadow Ban'}
                         </button>
                       </div>
                     </td>
@@ -132,14 +178,18 @@ export default function UsersPanel() {
           {totalPages > 1 && (
             <div className="pagination">
               <button
+                type="button"
                 className="btn"
                 disabled={page <= 1}
                 onClick={() => fetchUsers(page - 1)}
               >
                 ←
               </button>
-              <span>{page} / {totalPages}</span>
+              <span>
+                {page} / {totalPages}
+              </span>
               <button
+                type="button"
                 className="btn"
                 disabled={page >= totalPages}
                 onClick={() => fetchUsers(page + 1)}

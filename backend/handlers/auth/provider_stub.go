@@ -26,6 +26,9 @@ func (h *Handler) cloudHandleLinkCallback(_ http.ResponseWriter, _ *http.Request
 	return false
 }
 
-// cloudUpsertAndIssueToken is a no-op stub; never called in non-cloud builds.
-func (h *Handler) cloudUpsertAndIssueToken(_ http.ResponseWriter, _ *http.Request, _ *UserInfo) {
+// cloudUpsertAndIssueToken is a no-op stub that returns false so the caller
+// falls through to the self-hosted login path. Reached only when CLOUD_MODE=true
+// is set at runtime but the binary was built without the cloud tag.
+func (h *Handler) cloudUpsertAndIssueToken(_ http.ResponseWriter, _ *http.Request, _ *UserInfo) bool {
+	return false
 }
