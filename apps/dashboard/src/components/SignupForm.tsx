@@ -187,6 +187,17 @@ export default function SignupForm() {
           </button>
         </form>
 
+        <p class="auth-footer" style={{ marginTop: '0.75rem' }}>
+          By creating an account, you agree to our{' '}
+          <a href="https://quipthread.com/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a href="https://quipthread.com/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+          .
+        </p>
         <p class="auth-footer">
           Already have an account? <a href="/login">Sign in</a>
         </p>

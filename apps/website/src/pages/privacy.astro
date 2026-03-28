@@ -1,0 +1,140 @@
+---
+import Layout from '../layouts/Layout.astro'
+
+const backendUrl = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:8080'
+const loginUrl = `${backendUrl}/login`
+const year = new Date().getFullYear()
+---
+
+<Layout
+  loginUrl={loginUrl}
+  year={year}
+  title="Privacy Policy — Quipthread"
+  description="How Quipthread collects, uses, and protects your information."
+>
+  <div class="legal-content">
+    <h1>Privacy Policy</h1>
+    <p class="legal-meta">Last updated: March 27, 2025</p>
+
+    <p>
+      Quipthread LLC ("Quipthread", "we", "our", or "us") operates the Quipthread cloud comment
+      platform at <a href="https://quipthread.com">quipthread.com</a> and
+      <a href="https://app.quipthread.com">app.quipthread.com</a>. This Privacy Policy explains
+      what information we collect, how we use it, and your rights regarding that information.
+    </p>
+
+    <h2>1. Information We Collect</h2>
+    <p>We collect information you provide directly and information generated through your use of the service:</p>
+    <ul>
+      <li>
+        <strong>Account information</strong> — your name, email address, and profile avatar when
+        you sign up via email or OAuth (GitHub, Google). OAuth providers only share what you
+        authorize; we never see your OAuth password.
+      </li>
+      <li>
+        <strong>Comment content</strong> — comments posted through the Quipthread embed widget on
+        your site or sites you moderate.
+      </li>
+      <li>
+        <strong>Usage and analytics</strong> — comment volume, page-level stats, and activity
+        patterns to power the dashboard analytics feature.
+      </li>
+      <li>
+        <strong>Billing information</strong> — subscription and payment processing is handled
+        entirely by Stripe. We store your Stripe customer ID and subscription status; raw card
+        numbers never touch our servers.
+      </li>
+      <li>
+        <strong>Technical data</strong> — IP addresses and user-agent strings collected for spam
+        prevention and rate limiting. These are not sold or used for advertising.
+      </li>
+    </ul>
+
+    <h2>2. How We Use Your Information</h2>
+    <ul>
+      <li>To create and manage your account and deliver the service.</li>
+      <li>
+        To send transactional emails: email verification, password resets, and comment
+        notification digests. We do not send marketing email without your opt-in.
+      </li>
+      <li>To process payments and manage your subscription via Stripe.</li>
+      <li>To detect and prevent spam, abuse, and unauthorized access.</li>
+      <li>To generate the aggregated analytics shown in your dashboard.</li>
+    </ul>
+
+    <h2>3. Data Sharing</h2>
+    <p>We do not sell your personal data. We share information only with:</p>
+    <ul>
+      <li>
+        <strong>Stripe</strong> — for payment processing. Stripe's privacy policy is at
+        <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">stripe.com/privacy</a>.
+      </li>
+      <li>
+        <strong>Email delivery provider</strong> — to send transactional emails on our behalf.
+        Only your email address and the content of the message are shared.
+      </li>
+      <li>
+        <strong>Legal requirements</strong> — if required by law, court order, or to protect the
+        rights, property, or safety of Quipthread or others.
+      </li>
+    </ul>
+
+    <h2>4. Data Retention</h2>
+    <p>
+      We retain your account data for as long as your account is active. If you delete your
+      account, we will purge your personal data within 30 days, except where retention is
+      required by law (e.g., billing records).
+    </p>
+
+    <h2>5. Cookies</h2>
+    <p>
+      We use a single session cookie: an HttpOnly, first-party JWT used to authenticate your
+      dashboard session. We do not use advertising cookies, tracking pixels, or third-party
+      analytics scripts.
+    </p>
+
+    <h2>6. Your Rights</h2>
+    <p>
+      Depending on your location, you may have rights under GDPR, CCPA, or similar laws,
+      including the right to access, correct, or delete your personal data. To exercise any of
+      these rights, email us at{' '}
+      <a href="mailto:legal@quipthread.com">legal@quipthread.com</a>. We will respond within 30
+      days.
+    </p>
+
+    <h2>7. Self-Hosted Instances</h2>
+    <p>
+      Quipthread is open-source software available for self-hosting under the AGPL-3.0 license.
+      When you deploy your own instance, you — not Quipthread LLC — are the data controller for
+      your users' information. This Privacy Policy applies only to the cloud service operated by
+      Quipthread LLC.
+    </p>
+
+    <h2>8. Children's Privacy</h2>
+    <p>
+      The Quipthread service is not directed at children under 13. We do not knowingly collect
+      personal information from children under 13. If you believe we have inadvertently collected
+      such information, contact us and we will delete it promptly.
+    </p>
+
+    <h2>9. Changes to This Policy</h2>
+    <p>
+      We may update this Privacy Policy from time to time. For material changes, we will notify
+      you by email at least 30 days before the change takes effect. Continued use of the service
+      after that date constitutes acceptance of the updated policy.
+    </p>
+
+    <h2>10. Governing Law</h2>
+    <p>
+      This Privacy Policy is governed by the laws of the State of Delaware, USA, without regard
+      to conflict-of-law principles.
+    </p>
+
+    <h2>11. Contact</h2>
+    <p>
+      Questions or requests regarding this Privacy Policy should be directed to:<br />
+      Quipthread LLC<br />
+      <a href="mailto:legal@quipthread.com">legal@quipthread.com</a>
+    </p>
+  </div>
+</Layout>
