@@ -6,6 +6,7 @@ interface Feature {
 
 interface Props {
   tier: string
+  plan: string
   price: string
   period?: string
   description: string
@@ -19,6 +20,7 @@ interface Props {
 
 const {
   tier,
+  plan,
   price,
   period,
   description,
@@ -60,6 +62,6 @@ const {
     ))}
   </ul>
   <footer>
-    <a href={ctaHref} class={`button${ctaPrimary ? '' : ' outline'} w-full`}>{ctaText}</a>
+    <a href={ctaHref} data-plan={plan} class={`button${ctaPrimary ? '' : ' outline'} w-full`}>{ctaText}</a>
   </footer>
 </article>

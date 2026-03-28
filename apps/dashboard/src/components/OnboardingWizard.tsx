@@ -115,7 +115,14 @@ export default function OnboardingWizard() {
   useEffect(() => {
     api
       .me()
-      .then(() => setStep('site'))
+      .then(() => api.sites.list())
+      .then(({ sites }) => {
+        if (sites.length > 0) {
+          window.location.href = '/dashboard/comments'
+        } else {
+          setStep('site')
+        }
+      })
       .catch(() => {
         setAuthError(true)
         window.location.href = '/login'

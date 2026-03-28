@@ -50,3 +50,35 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeMenu()
 })
+
+// Login state detection via indicator cookie
+const appUrl =
+  (import.meta.env.PUBLIC_BACKEND_URL as string | undefined) || 'https://app.quipthread.com'
+
+function getCookie(name: string): string | null {
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+if (getCookie('qt_logged_in') === '1') {
+  const navLogin = document.querySelector<HTMLAnchorElement>('.nav-login')
+  if (navLogin) {
+    navLogin.textContent = 'Dashboard'
+    navLogin.href = `${appUrl}/dashboard/comments`
+  }
+  const mobileLogin = document.querySelector<HTMLAnchorElement>('.mobile-login')
+  if (mobileLogin) {
+    mobileLogin.textContent = 'Dashboard'
+    mobileLogin.href = `${appUrl}/dashboard/comments`
+  }
+
+  document.querySelectorAll<HTMLAnchorElement>('[data-plan]').forEach((el) => {
+    if (el.dataset.plan === 'hobby') {
+      el.href = `${appUrl}/dashboard/comments`
+      el.textContent = 'Open dashboard'
+    } else {
+      el.href = `${appUrl}/dashboard/billing`
+      el.textContent = 'Go to billing'
+    }
+  })
+}

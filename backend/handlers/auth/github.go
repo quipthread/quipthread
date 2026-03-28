@@ -177,13 +177,13 @@ func (h *Handler) GithubCallback(w http.ResponseWriter, r *http.Request) {
 
 	state := r.URL.Query().Get("state")
 	if !validateStateCookie(r, state) {
-		writeError(w, r, http.StatusBadRequest, "invalid state")
+		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
 		return
 	}
 	clearStateCookie(w)
 
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		writeError(w, r, http.StatusBadRequest, errParam)
+		http.Redirect(w, r, h.config.BaseURL+"/login?error=oauth_denied", http.StatusSeeOther)
 		return
 	}
 

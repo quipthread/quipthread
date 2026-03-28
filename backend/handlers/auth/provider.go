@@ -92,6 +92,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 // Logout clears the session cookie.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session.ClearCookie(w)
+	session.ClearIndicatorCookie(w, h.config.CookieDomain)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck,gosec // error response; connection may already be broken
 }

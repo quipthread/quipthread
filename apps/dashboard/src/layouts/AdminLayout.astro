@@ -2,6 +2,7 @@
 import { ClientRouter, fade } from 'astro:transitions'
 import NavPlanSync from '../components/NavPlanSync'
 import CheckoutSuccessModal from '../components/CheckoutSuccessModal'
+import SiteGuard from '../components/SiteGuard'
 
 interface Props {
   title: string
@@ -114,6 +115,7 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
     </div>
     {!isSelfHosted && <NavPlanSync client:load />}
     {!isSelfHosted && <CheckoutSuccessModal client:load />}
+    {!isSelfHosted && <SiteGuard client:load />}
     <script>
       // Idle session timeout — runs once as a module script, persists across navigations
       const IDLE_MS = 45 * 60 * 1000

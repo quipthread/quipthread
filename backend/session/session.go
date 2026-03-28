@@ -80,3 +80,29 @@ func ClearCookie(w http.ResponseWriter) {
 		MaxAge:   -1,
 	})
 }
+
+// SetIndicatorCookie sets a non-HttpOnly cookie that marketing pages can read
+// to detect login state cross-origin. Contains no sensitive data.
+func SetIndicatorCookie(w http.ResponseWriter, domain string, secure bool) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "qt_logged_in",
+		Value:    "1",
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		Domain:   domain,
+		MaxAge:   30 * 24 * 60 * 60,
+	})
+}
+
+// ClearIndicatorCookie removes the login indicator cookie.
+func ClearIndicatorCookie(w http.ResponseWriter, domain string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:   "qt_logged_in",
+		Value:  "",
+		Path:   "/",
+		Domain: domain,
+		MaxAge: -1,
+	})
+}

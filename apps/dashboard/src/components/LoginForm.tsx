@@ -1,5 +1,13 @@
-import { useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { API } from '../api'
+
+function getOAuthError(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('error')
+  if (code === 'session_expired') return 'Your login session expired — please try again.'
+  if (code === 'oauth_denied') return 'Sign-in was cancelled.'
+  return null
+}
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -9,6 +17,11 @@ export default function LoginForm() {
   const [unverified, setUnverified] = useState(false)
   const [resendSent, setResendSent] = useState(false)
   const [resending, setResending] = useState(false)
+
+  useEffect(() => {
+    const msg = getOAuthError()
+    if (msg) setError(msg)
+  }, [])
 
   const handleResend = async () => {
     setResending(true)

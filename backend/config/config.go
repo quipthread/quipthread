@@ -67,6 +67,9 @@ type Config struct {
 	// Turso provisioning (cloud Pro/Business)
 	TursoAPIToken     string // TURSO_API_TOKEN — Turso Platform API management token
 	TursoOrganization string // TURSO_ORGANIZATION — Turso org slug for DB provisioning
+
+	// Cross-origin login indicator cookie
+	CookieDomain string // COOKIE_DOMAIN — e.g. ".quipthread.com" in production; empty in self-hosted
 }
 
 type StripePrices struct {
@@ -151,6 +154,8 @@ func Load() *Config {
 
 		TursoAPIToken:     os.Getenv("TURSO_API_TOKEN"),
 		TursoOrganization: os.Getenv("TURSO_ORGANIZATION"),
+
+		CookieDomain: os.Getenv("COOKIE_DOMAIN"),
 	}
 }
 

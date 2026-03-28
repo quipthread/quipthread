@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks'
-import { API } from '../api'
+import { useEffect, useState } from 'preact/hooks'
+import { API, api } from '../api'
 
 export default function SignupForm() {
   const [name, setName] = useState('')
@@ -9,6 +9,15 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    api
+      .me()
+      .then(() => {
+        window.location.href = '/dashboard/billing'
+      })
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
