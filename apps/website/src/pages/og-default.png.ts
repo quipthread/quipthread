@@ -1,13 +1,10 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { Resvg } from '@resvg/resvg-js'
 import type { APIRoute } from 'astro'
 import satori from 'satori'
 
-// Fetch the Syne 700 font from Google Fonts CDN at build time.
-// This runs once during `astro build` — not at runtime.
-const fontRes = await fetch(
-  'https://fonts.gstatic.com/s/syne/v22/8vIS7w4qzmVxsWxjBZRjr0FKM_04uQ6.woff2',
-)
-const fontData = await fontRes.arrayBuffer()
+const fontData = await readFile(join(process.cwd(), 'public', 'fonts', 'syne-700.ttf'))
 
 export const GET: APIRoute = async () => {
   const svg = await satori(
