@@ -91,6 +91,7 @@ html {
 body {
   background: var(--ink);
   color: var(--off-white);
+  font-family: var(--font-sans);
   overflow-x: hidden;
 }
 
