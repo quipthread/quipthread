@@ -3,6 +3,9 @@ import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
 import type { AccountInfo, BillingStatus, SecuritySettings } from '../types'
+import InlineMsg from './shared/InlineMsg'
+import InputField from './shared/InputField'
+import PageHeader from './shared/PageHeader'
 import UpgradeGate from './UpgradeGate'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
@@ -94,34 +97,6 @@ function SectionHeading({ children }: { children: ComponentChildren }) {
   )
 }
 
-function InlineMsg({ type, children }: { type: 'success' | 'error'; children: ComponentChildren }) {
-  const styles: Record<string, object> = {
-    success: {
-      color: 'var(--green-text)',
-      background: 'var(--green-bg)',
-      border: '1px solid var(--green-border)',
-    },
-    error: {
-      color: 'var(--red-text)',
-      background: 'var(--red-bg)',
-      border: '1px solid var(--red-border)',
-    },
-  }
-  return (
-    <div
-      style={{
-        borderRadius: 6,
-        padding: '0.5rem 0.875rem',
-        fontSize: '0.8125rem',
-        marginTop: '0.75rem',
-        ...styles[type],
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
 // ---- Profile section --------------------------------------------------------
 
 function ProfileSection({
@@ -181,36 +156,28 @@ function ProfileSection({
       </div>
 
       <div style={{ marginBottom: '0.875rem' }}>
-        <label
-          htmlFor="account-display-name"
-          style={{
-            display: 'block',
-            fontSize: '0.8125rem',
-            fontWeight: 500,
-            color: 'var(--muted)',
-            marginBottom: '0.375rem',
-          }}
-        >
-          Display name
-        </label>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <input
-            id="account-display-name"
-            type="text"
-            value={displayName}
-            onInput={(e) => setDisplayName((e.target as HTMLInputElement).value)}
-            style={{ flex: 1, maxWidth: 320 }}
-            disabled={saving}
-          />
-          <button
-            type="button"
-            class="btn btn-primary"
-            onClick={save}
-            disabled={saving || !displayName.trim() || displayName.trim() === account.display_name}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        <InputField label="Display name" htmlFor="account-display-name">
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              id="account-display-name"
+              type="text"
+              value={displayName}
+              onInput={(e) => setDisplayName((e.target as HTMLInputElement).value)}
+              style={{ flex: 1, maxWidth: 320 }}
+              disabled={saving}
+            />
+            <button
+              type="button"
+              class="btn btn-primary"
+              onClick={save}
+              disabled={
+                saving || !displayName.trim() || displayName.trim() === account.display_name
+              }
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </InputField>
         {msg && <InlineMsg type={msg.type}>{msg.text}</InlineMsg>}
       </div>
     </SectionCard>
@@ -417,19 +384,7 @@ function PasswordSection() {
     <SectionCard>
       <SectionHeading>Change Password</SectionHeading>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 360 }}>
-        <div>
-          <label
-            htmlFor="account-current-password"
-            style={{
-              display: 'block',
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'var(--muted)',
-              marginBottom: '0.375rem',
-            }}
-          >
-            Current password
-          </label>
+        <InputField label="Current password" htmlFor="account-current-password">
           <input
             id="account-current-password"
             type="password"
@@ -438,28 +393,18 @@ function PasswordSection() {
             style={{ width: '100%' }}
             disabled={saving}
           />
-        </div>
+        </InputField>
         <div>
-          <label
-            htmlFor="account-new-password"
-            style={{
-              display: 'block',
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'var(--muted)',
-              marginBottom: '0.375rem',
-            }}
-          >
-            New password
-          </label>
-          <input
-            id="account-new-password"
-            type="password"
-            value={newPw}
-            onInput={(e) => setNewPw((e.target as HTMLInputElement).value)}
-            style={{ width: '100%' }}
-            disabled={saving}
-          />
+          <InputField label="New password" htmlFor="account-new-password">
+            <input
+              id="account-new-password"
+              type="password"
+              value={newPw}
+              onInput={(e) => setNewPw((e.target as HTMLInputElement).value)}
+              style={{ width: '100%' }}
+              disabled={saving}
+            />
+          </InputField>
           <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
             {newPw.length} / 8 characters minimum
           </div>
@@ -554,19 +499,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 420 }}>
-          <div>
-            <label
-              htmlFor="account-turnstile-site-key"
-              style={{
-                display: 'block',
-                fontSize: '0.8125rem',
-                fontWeight: 500,
-                color: 'var(--muted)',
-                marginBottom: '0.375rem',
-              }}
-            >
-              Site key
-            </label>
+          <InputField label="Site key" htmlFor="account-turnstile-site-key">
             <input
               id="account-turnstile-site-key"
               type="text"
@@ -576,32 +509,22 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
               disabled={saving}
               placeholder="0x4AAAAAAA..."
             />
-          </div>
+          </InputField>
           <div>
-            <label
-              htmlFor="account-turnstile-secret-key"
-              style={{
-                display: 'block',
-                fontSize: '0.8125rem',
-                fontWeight: 500,
-                color: 'var(--muted)',
-                marginBottom: '0.375rem',
-              }}
-            >
-              Secret key
-            </label>
-            <input
-              id="account-turnstile-secret-key"
-              type="password"
-              value={secretKey}
-              onInput={(e) => {
-                setSecretKey((e.target as HTMLInputElement).value)
-                setSecretChanged(true)
-              }}
-              style={{ width: '100%' }}
-              disabled={saving}
-              placeholder={security?.has_turnstile_secret ? '••••••••' : ''}
-            />
+            <InputField label="Secret key" htmlFor="account-turnstile-secret-key">
+              <input
+                id="account-turnstile-secret-key"
+                type="password"
+                value={secretKey}
+                onInput={(e) => {
+                  setSecretKey((e.target as HTMLInputElement).value)
+                  setSecretChanged(true)
+                }}
+                style={{ width: '100%' }}
+                disabled={saving}
+                placeholder={security?.has_turnstile_secret ? '••••••••' : ''}
+              />
+            </InputField>
             {security?.has_turnstile_secret && !secretChanged && (
               <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                 Secret key is set — enter a new value to replace it.
@@ -662,9 +585,7 @@ export default function AccountPanel() {
 
   return (
     <div>
-      <div class="page-header">
-        <h1>Account</h1>
-      </div>
+      <PageHeader title="Account" />
 
       <ProfileSection
         account={account}

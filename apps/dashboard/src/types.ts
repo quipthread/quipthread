@@ -66,6 +66,7 @@ export interface BillingStatus {
   trial_ends_at: string | null
   current_period_end: string | null
   interval: string
+  trial_eligible: boolean
   comments_this_month: number
   comments_limit: number
   sites_count: number

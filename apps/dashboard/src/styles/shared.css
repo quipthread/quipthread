@@ -1,0 +1,515 @@
+/* ── Page header ──────────────────────────────────────── */
+
+.page-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.page-count {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* ── Status tabs ──────────────────────────────────────── */
+
+.status-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.status-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 1rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: var(--f-ui);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition: color 0.12s;
+}
+
+.status-tabs button:hover {
+  color: var(--text);
+}
+
+.status-tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--amber);
+}
+
+/* ── Pagination ───────────────────────────────────────── */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  justify-content: flex-end;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* ── Feedback states ──────────────────────────────────── */
+
+.loading,
+.empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.error-msg {
+  color: var(--red-text);
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Badges ───────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge-approved {
+  background: var(--green-bg);
+  color: var(--green-text);
+}
+.badge-rejected {
+  background: var(--red-bg);
+  color: var(--red-text);
+}
+.badge-admin {
+  background: var(--purple-bg);
+  color: var(--purple-text);
+}
+.badge-user {
+  background: var(--surface);
+  color: var(--muted);
+}
+.badge-banned {
+  background: var(--red-bg);
+  color: var(--red-text);
+}
+.badge-shadow {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Buttons ──────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3125rem 0.75rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--f-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background 0.1s,
+    border-color 0.1s,
+    color 0.1s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2d2d2d;
+  border-color: #2d2d2d;
+}
+
+.btn-approve {
+  background: var(--green-bg);
+  color: var(--green-text);
+  border-color: var(--green-border);
+}
+
+.btn-approve:hover:not(:disabled) {
+  background: #bbf7d0;
+}
+
+.btn-reject {
+  background: var(--red-bg);
+  color: var(--red-text);
+  border-color: var(--red-border);
+}
+
+.btn-reject:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Data table ───────────────────────────────────────── */
+
+.table-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th {
+  text-align: left;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.875rem;
+  border-bottom: 1px solid var(--surface);
+  vertical-align: middle;
+  font-size: 0.875rem;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr:hover td {
+  background: rgba(238, 235, 228, 0.35);
+}
+
+/* ── Form elements ────────────────────────────────────── */
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+textarea,
+select {
+  font-family: var(--f-ui);
+  font-size: 0.875rem;
+  color: var(--text);
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5l4 4 4-4' stroke='%238A8480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  cursor: pointer;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-bg);
+}
+
+input:disabled,
+textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--amber);
+  cursor: pointer;
+}
+
+/* ── Input utility class (for className="input") ─────── */
+
+.input {
+  font-family: var(--f-ui);
+  font-size: 0.875rem;
+  color: var(--text);
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.input:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-bg);
+}
+
+select.input {
+  padding-right: 2rem;
+}
+
+/* ── Dark mode overrides for shared components ────────── */
+
+@media (prefers-color-scheme: dark) {
+  .badge-pending {
+    background: rgba(120, 53, 15, 0.4);
+    color: #fcd34d;
+  }
+
+  tbody tr:hover td {
+    background: rgba(28, 27, 25, 0.8);
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5l4 4 4-4' stroke='%23706C68' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+  }
+
+  .btn-primary {
+    background: var(--amber);
+    color: var(--ink);
+    border-color: var(--amber);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--amber-hi);
+    border-color: var(--amber-hi);
+  }
+}
+
+/* ── Responsive: tablet / mobile (768px) ─────────────── */
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.125rem;
+  }
+
+  .status-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .status-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .status-tabs button {
+    flex-shrink: 0;
+    min-height: 44px;
+    padding: 0.625rem 1rem;
+  }
+
+  td {
+    padding: 0.625rem 0.75rem;
+  }
+
+  th {
+    padding: 0.375rem 0.75rem;
+  }
+
+  .table-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-card table {
+    min-width: 520px;
+  }
+
+  .pagination .btn {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  /* Buttons — 44px minimum height */
+  .btn {
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Inputs — 44px minimum height; selects excluded */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea {
+    min-height: 44px;
+    padding: 0.625rem 0.75rem;
+    font-size: 1rem;
+  }
+
+  select {
+    font-size: 1rem;
+  }
+}
+
+/* ── Responsive: phone card layout (600px) ───────────── */
+
+@media (max-width: 600px) {
+  .table-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow-x: visible;
+  }
+
+  .table-card table {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .table-card thead {
+    display: none;
+  }
+
+  .table-card tbody {
+    display: block;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 0.625rem;
+  }
+
+  .table-card tbody tr {
+    display: block;
+  }
+
+  .table-card td {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--surface);
+    min-height: 0;
+    vertical-align: initial;
+  }
+
+  .table-card td:last-child {
+    border-bottom: none;
+  }
+
+  .table-card td .badge {
+    width: fit-content;
+  }
+
+  .table-card td[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    align-self: flex-start;
+    padding-top: 0.1875rem;
+    line-height: 1.3;
+  }
+
+  .table-card tbody tr.table-accordion-row td {
+    display: block;
+    padding: 0.875rem;
+    background: var(--surface);
+  }
+
+  .table-card tbody tr.table-accordion-row td::before {
+    display: none;
+  }
+
+  .table-card tbody tr:hover td {
+    background: rgba(238, 235, 228, 0.35);
+  }
+
+  .table-card tbody tr.table-accordion-row:hover td {
+    background: var(--surface);
+  }
+}

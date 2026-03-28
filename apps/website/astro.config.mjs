@@ -26,6 +26,26 @@ export default defineConfig({
         },
         {
           tag: 'link',
+          attrs: { rel: 'manifest', href: '/manifest.webmanifest' },
+        },
+        {
+          tag: 'meta',
+          attrs: { name: 'theme-color', content: '#1A1A1A' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'apple-touch-icon', href: '/icon-192.png' },
+        },
+        {
+          tag: 'meta',
+          attrs: { property: 'og:image', content: 'https://quipthread.com/og-default.png' },
+        },
+        {
+          tag: 'meta',
+          attrs: { name: 'twitter:card', content: 'summary_large_image' },
+        },
+        {
+          tag: 'link',
           attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         },
         {

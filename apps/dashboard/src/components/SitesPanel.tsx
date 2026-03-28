@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks'
 import { api, buildExportURL } from '../api'
 import type { Site } from '../types'
 import { relativeTime } from '../utils'
+import PageHeader from './shared/PageHeader'
 
 const THEME_LABEL: Record<string, string> = {
   auto: 'Auto',
@@ -150,19 +151,21 @@ export default function SitesPanel() {
 
   return (
     <>
-      <div className="page-header">
-        <h1>Sites</h1>
-        <button
-          type="button"
-          className={adding ? 'btn' : 'btn btn-primary'}
-          onClick={() => {
-            setAdding((v) => !v)
-            setCreateError(null)
-          }}
-        >
-          {adding ? 'Cancel' : '+ Add Site'}
-        </button>
-      </div>
+      <PageHeader
+        title="Sites"
+        action={
+          <button
+            type="button"
+            className={adding ? 'btn' : 'btn btn-primary'}
+            onClick={() => {
+              setAdding((v) => !v)
+              setCreateError(null)
+            }}
+          >
+            {adding ? 'Cancel' : '+ Add Site'}
+          </button>
+        }
+      />
 
       {adding && (
         <form

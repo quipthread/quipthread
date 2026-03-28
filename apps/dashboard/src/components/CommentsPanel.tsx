@@ -3,6 +3,7 @@ import { api } from '../api'
 import type { Comment } from '../types'
 import { relativeTime, stripHtml, truncate } from '../utils'
 import ModerationQueue from './ModerationQueue'
+import PageHeader from './shared/PageHeader'
 
 const STATUSES = ['pending', 'approved', 'rejected'] as const
 type Status = (typeof STATUSES)[number]
@@ -67,10 +68,12 @@ export default function CommentsPanel() {
 
   return (
     <>
-      <div className="page-header">
-        <h1>Comments</h1>
-        {status !== 'pending' && <span className="page-count">{total} total</span>}
-      </div>
+      <PageHeader
+        title="Comments"
+        action={
+          status !== 'pending' ? <span className="page-count">{total} total</span> : undefined
+        }
+      />
 
       <div className="status-tabs">
         {STATUSES.map((s) => (

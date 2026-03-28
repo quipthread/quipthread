@@ -1,0 +1,65 @@
+---
+interface Feature {
+  text: string
+  muted?: boolean
+}
+
+interface Props {
+  tier: string
+  price: string
+  period?: string
+  description: string
+  features: Feature[]
+  ctaText: string
+  ctaHref: string
+  ctaPrimary?: boolean
+  featured?: boolean
+  billingNote?: string
+}
+
+const {
+  tier,
+  price,
+  period,
+  description,
+  features,
+  ctaText,
+  ctaHref,
+  ctaPrimary = false,
+  featured = false,
+  billingNote,
+} = Astro.props
+---
+
+<article class={`card pricing-card${featured ? ' featured-card' : ''}`}>
+  <header>
+    {featured ? (
+      <div class="featured-row">
+        <span class="badge outline tier-badge">{tier}</span>
+        <span class="badge warning">Most popular</span>
+      </div>
+    ) : (
+      <span class="badge outline tier-badge">{tier}</span>
+    )}
+    <div class="price-block">
+      <span class="price-amount">{price}</span>
+      {period && <span class="price-period">{period}</span>}
+    </div>
+    <p class="tier-desc">{description}</p>
+    {billingNote && <p class="billing-note">{billingNote}</p>}
+  </header>
+  <ul class="tier-features">
+    {features.map((f) => (
+      <li>
+        {f.muted
+          ? <span class="badge outline muted-badge">–</span>
+          : <span class="badge success">✓</span>
+        }
+        {' '}{f.text}
+      </li>
+    ))}
+  </ul>
+  <footer>
+    <a href={ctaHref} class={`button${ctaPrimary ? '' : ' outline'} w-full`}>{ctaText}</a>
+  </footer>
+</article>

@@ -1,91 +1,135 @@
 ---
 import '@knadh/oat/oat.min.css'
+import Layout from '../layouts/Layout.astro'
+import FeatureCard from '../components/FeatureCard.astro'
+import PricingCard from '../components/PricingCard.astro'
+import HeroWidget from '../components/HeroWidget.astro'
+
 const backendUrl = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:8080'
 const loginUrl = `${backendUrl}/login`
 const signupUrl = `${backendUrl}/signup`
 const year = new Date().getFullYear()
+
+const monthlyPlans = [
+  {
+    tier: 'Hobby',
+    price: 'Free',
+    description: 'Personal blogs and portfolio sites.',
+    features: [
+      { text: '1 site' },
+      { text: '1,000 comments / month' },
+      { text: 'All auth providers' },
+      { text: 'Comment approval flows' },
+      { text: 'Email notifications' },
+      { text: 'Quick-approve via email' },
+      { text: 'Moderation dashboard', muted: true },
+      { text: 'Comment export', muted: true },
+      { text: 'Analytics', muted: true },
+    ],
+    ctaText: 'Get started',
+    ctaHref: signupUrl,
+  },
+  {
+    tier: 'Starter',
+    price: '$9',
+    period: '/ month',
+    description: 'Indie developers and content creators.',
+    features: [
+      { text: '5 sites' },
+      { text: '10,000 comments / month' },
+      { text: 'All Hobby features included' },
+      { text: 'Moderation dashboard' },
+      { text: 'Comment export (JSON, CSV)' },
+      { text: 'Import (Disqus, WordPress, Remark42)' },
+      { text: 'Basic analytics' },
+      { text: 'Email support (48h)' },
+      { text: 'Moderation rules engine', muted: true },
+    ],
+    ctaText: 'Start free trial',
+    ctaHref: signupUrl,
+  },
+  {
+    tier: 'Pro',
+    price: '$24',
+    period: '/ month',
+    description: 'Professional developers and small teams.',
+    features: [
+      { text: '20 sites' },
+      { text: '50,000 comments / month' },
+      { text: 'All Starter features included' },
+      { text: 'Moderation rules engine' },
+      { text: 'Advanced analytics' },
+      { text: 'Notification channels (Slack, Discord, Telegram, webhooks)' },
+      { text: 'Priority support (24h)' },
+    ],
+    ctaText: 'Start free trial',
+    ctaHref: signupUrl,
+    ctaPrimary: true,
+    featured: true,
+  },
+  {
+    tier: 'Business',
+    price: '$79',
+    period: '/ month',
+    description: 'Agencies and platforms embedding comments into products.',
+    features: [
+      { text: 'Unlimited sites' },
+      { text: '250,000 comments / month' },
+      { text: 'All Pro features included' },
+      { text: 'Dedicated DB per site' },
+      { text: 'Dedicated support (4h SLA)' },
+    ],
+    ctaText: 'Start free trial',
+    ctaHref: signupUrl,
+  },
+]
+
+const annualPlans = [
+  {
+    tier: 'Hobby',
+    price: 'Free',
+    description: 'Personal blogs and portfolio sites.',
+    billingNote: 'Always free',
+    features: monthlyPlans[0].features,
+    ctaText: 'Get started',
+    ctaHref: signupUrl,
+  },
+  {
+    tier: 'Starter',
+    price: '$7.50',
+    period: '/ month',
+    description: 'Indie developers and content creators.',
+    billingNote: '$90 / year — 2 months free',
+    features: monthlyPlans[1].features,
+    ctaText: 'Start free trial',
+    ctaHref: signupUrl,
+  },
+  {
+    tier: 'Pro',
+    price: '$19',
+    period: '/ month',
+    description: 'Professional developers and small teams.',
+    billingNote: '$228 / year — 2 months free',
+    features: monthlyPlans[2].features,
+    ctaText: 'Start free trial',
+    ctaHref: signupUrl,
+    ctaPrimary: true,
+    featured: true,
+  },
+  {
+    tier: 'Business',
+    price: '$62.50',
+    period: '/ month',
+    description: 'Agencies and platforms embedding comments into products.',
+    billingNote: '$750 / year',
+    features: monthlyPlans[3].features,
+    ctaText: 'Start free trial',
+    ctaHref: signupUrl,
+  },
+]
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quipthread — The comment system your readers will actually use</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <meta name="description" content="The comment platform your readers will actually use. Up and running in minutes — no server required. Free plan available. Open core and self-hostable." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Syne:wght@700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
-  <!-- Prevent flash of wrong theme -->
-  <script is:inline>
-    (function () {
-      var s = localStorage.getItem('qt-theme');
-      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (s === 'light' || (!s && !dark)) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
-</head>
-<body>
-
-  <!-- Grain texture overlay -->
-  <div class="grain" aria-hidden="true"></div>
-
-  <nav>
-    <a href="/" class="wordmark">Quipthread</a>
-    <div class="nav-links">
-      <a href="#pricing">Pricing</a>
-      <a href="/docs/">Docs</a>
-      <a href="https://github.com/quipthread/quipthread" target="_blank" rel="noopener noreferrer">GitHub</a>
-    </div>
-    <a href={loginUrl} class="button ghost nav-login">Log in</a>
-    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
-      <!-- Shown in dark mode; clicking switches to light -->
-      <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="5"/>
-        <line x1="12" y1="1" x2="12" y2="3"/>
-        <line x1="12" y1="21" x2="12" y2="23"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="1" y1="12" x2="3" y2="12"/>
-        <line x1="21" y1="12" x2="23" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <!-- Shown in light mode; clicking switches to dark -->
-      <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
-    <button class="menu-toggle" id="menu-toggle" data-variant="icon" aria-label="Toggle menu" aria-expanded="false">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-    <!-- Mobile nav drawer (absolutely positioned below sticky nav) -->
-    <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
-      <a href="#pricing">Pricing</a>
-      <a href="/docs/">Docs</a>
-      <a href="https://github.com/quipthread/quipthread" target="_blank" rel="noopener noreferrer">GitHub</a>
-      <div class="mobile-menu-footer">
-        <a href={loginUrl} class="button outline mobile-login">Log in</a>
-        <button class="theme-toggle" id="menu-theme-toggle" aria-label="Toggle light/dark mode">
-          <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </nav>
+<Layout loginUrl={loginUrl} year={year}>
 
   <!-- ── Hero ─────────────────────────────────────── -->
   <section class="hero">
@@ -108,86 +152,7 @@ const year = new Date().getFullYear()
           </div>
         </div>
         <div class="hero-visual">
-          <div class="hw-shell">
-            <div class="hw-chrome">
-              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-              <span class="hw-label">quipthread</span>
-            </div>
-            <div class="hw-root">
-              <div class="hw-header">
-                <h2 class="hw-title">3 Comments</h2>
-                <div class="hw-user-bar">
-                  <span class="hw-av hw-av-lg hw-av-you">SK</span>
-                  <span class="hw-user-name">Sarah K.</span>
-                  <button class="hw-btn-ghost">Sign out</button>
-                </div>
-              </div>
-              <ul class="hw-comment-list">
-                <li class="hw-comment">
-                  <span class="hw-av hw-av-lg hw-av-blue">AM</span>
-                  <div class="hw-comment-body">
-                    <div class="hw-comment-meta">
-                      <span class="hw-author">Alex M.</span>
-                      <span class="hw-ts">2 hours ago</span>
-                    </div>
-                    <div class="hw-content">The new dark mode looks fantastic. Really appreciate the attention to detail on the color transitions.</div>
-                    <div class="hw-actions">
-                      <button class="hw-btn-ghost hw-action-btn">Reply</button>
-                    </div>
-                    <div class="hw-replies">
-                      <div class="hw-reply">
-                        <span class="hw-av hw-av-sm hw-av-you">SK</span>
-                        <div class="hw-comment-body">
-                          <div class="hw-comment-meta">
-                            <span class="hw-author">Sarah K.</span>
-                            <span class="hw-ts">1 hour ago</span>
-                          </div>
-                          <div class="hw-content">Thanks! Getting the contrast ratio right was the tricky part.</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-                <li class="hw-comment">
-                  <span class="hw-av hw-av-lg hw-av-green">JP</span>
-                  <div class="hw-comment-body">
-                    <div class="hw-comment-meta">
-                      <span class="hw-author">Jordan P.</span>
-                      <span class="hw-ts">yesterday</span>
-                    </div>
-                    <div class="hw-content">Switched from Disqus last week. Import worked flawlessly — readers haven't noticed a thing.</div>
-                    <div class="hw-actions">
-                      <button class="hw-btn-ghost hw-action-btn">Reply</button>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-              <div class="hw-new-comment">
-                <div class="hw-new-header">
-                  <span class="hw-new-label">Leave a comment</span>
-                </div>
-                <div class="hw-editor-wrapper">
-                  <div class="hw-toolbar">
-                    <button class="hw-tb-btn"><strong>B</strong></button>
-                    <button class="hw-tb-btn"><em>I</em></button>
-                    <button class="hw-tb-btn"><s>S</s></button>
-                    <div class="hw-tb-sep"></div>
-                    <button class="hw-tb-btn">≡</button>
-                    <button class="hw-tb-btn">№</button>
-                    <div class="hw-tb-sep"></div>
-                    <button class="hw-tb-btn">&lt;&gt;</button>
-                    <button class="hw-tb-btn">↗</button>
-                  </div>
-                  <div class="hw-editor-content">
-                    <p class="hw-placeholder">What are your thoughts?</p>
-                  </div>
-                </div>
-                <div class="hw-form-actions">
-                  <button class="hw-btn-primary">Comment</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <HeroWidget />
         </div>
       </div>
     </div>
@@ -198,50 +163,26 @@ const year = new Date().getFullYear()
     <div class="container">
       <p class="section-eyebrow">Why Quipthread</p>
       <div class="row">
-        <div class="col-3">
-          <article class="card feature-card">
-            <div class="feature-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-              </svg>
-            </div>
-            <h3>Open Core</h3>
-            <p>The comment engine, embed widget, and admin dashboard are fully open source (AGPL). Inspect the code, fork it, self-host it. No vendor lock-in.</p>
-          </article>
-        </div>
-        <div class="col-3">
-          <article class="card feature-card">
-            <div class="feature-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-            </div>
-            <h3>Your Data</h3>
-            <p>No ad targeting. No data brokering. Comments belong to you — export everything as JSON or CSV at any time.</p>
-          </article>
-        </div>
-        <div class="col-3">
-          <article class="card feature-card">
-            <div class="feature-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            </div>
-            <h3>Rich Comments</h3>
-            <p>Markdown, threading, GitHub/Google/email auth, and email notifications. Everything readers need, nothing they don't.</p>
-          </article>
-        </div>
-        <div class="col-3">
-          <article class="card feature-card">
-            <div class="feature-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 .78 1.63L14 12.41V19a1 1 0 0 1-.55.89l-4 2A1 1 0 0 1 8 21v-8.59L3.22 5.63A1 1 0 0 1 3 5V4z"/>
-              </svg>
-            </div>
-            <h3>Spam Protection</h3>
-            <p>Rate limiting, heuristic content analysis, Cloudflare Turnstile support, and a keyword blocklist keep your comments clean without moderator effort.</p>
-          </article>
-        </div>
+        <FeatureCard title="Open Core" description="The comment engine, embed widget, and admin dashboard are fully open source (AGPL). Inspect the code, fork it, self-host it. No vendor lock-in.">
+          <svg slot="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+          </svg>
+        </FeatureCard>
+        <FeatureCard title="Your Data" description="No ad targeting. No data brokering. Comments belong to you — export everything as JSON or CSV at any time.">
+          <svg slot="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </FeatureCard>
+        <FeatureCard title="Rich Comments" description="Markdown, threading, GitHub/Google/email auth, and email notifications. Everything readers need, nothing they don't.">
+          <svg slot="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </FeatureCard>
+        <FeatureCard title="Spam Protection" description="Rate limiting, heuristic content analysis, Cloudflare Turnstile support, and a keyword blocklist keep your comments clean without moderator effort.">
+          <svg slot="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 .78 1.63L14 12.41V19a1 1 0 0 1-.55.89l-4 2A1 1 0 0 1 8 21v-8.59L3.22 5.63A1 1 0 0 1 3 5V4z"/>
+          </svg>
+        </FeatureCard>
       </div>
     </div>
   </section>
@@ -298,200 +239,18 @@ const year = new Date().getFullYear()
         <!-- Monthly -->
         <div role="tabpanel" class="monthly-panel">
           <div class="pricing-grid">
-              <article class="card pricing-card">
-                <header>
-                  <span class="badge outline tier-badge">Hobby</span>
-                  <div class="price-block">
-                    <span class="price-amount">Free</span>
-                  </div>
-                  <p class="tier-desc">Personal blogs and portfolio sites.</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> 1 site</li>
-                  <li><span class="badge success">✓</span> 1,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All auth providers</li>
-                  <li><span class="badge success">✓</span> Comment approval flows</li>
-                  <li><span class="badge success">✓</span> Email notifications</li>
-                  <li><span class="badge success">✓</span> Quick-approve via email</li>
-                  <li><span class="badge outline muted-badge">–</span> Moderation dashboard</li>
-                  <li><span class="badge outline muted-badge">–</span> Comment export</li>
-                  <li><span class="badge outline muted-badge">–</span> Analytics</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button outline w-full">Get started</a>
-                </footer>
-              </article>
-              <article class="card pricing-card">
-                <header>
-                  <span class="badge outline tier-badge">Starter</span>
-                  <div class="price-block">
-                    <span class="price-amount">$9</span>
-                    <span class="price-period">/ month</span>
-                  </div>
-                  <p class="tier-desc">Indie developers and content creators.</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> 5 sites</li>
-                  <li><span class="badge success">✓</span> 10,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All Hobby features included</li>
-                  <li><span class="badge success">✓</span> Moderation dashboard</li>
-                  <li><span class="badge success">✓</span> Comment export (JSON, CSV)</li>
-                  <li><span class="badge success">✓</span> Import (Disqus, WordPress, Remark42)</li>
-                  <li><span class="badge success">✓</span> Basic analytics</li>
-                  <li><span class="badge success">✓</span> Email support (48h)</li>
-                  <li><span class="badge outline muted-badge">–</span> Moderation rules engine</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button outline w-full">Start free trial</a>
-                </footer>
-              </article>
-              <article class="card pricing-card featured-card">
-                <header>
-                  <div class="featured-row">
-                    <span class="badge outline tier-badge">Pro</span>
-                    <span class="badge warning">Most popular</span>
-                  </div>
-                  <div class="price-block">
-                    <span class="price-amount">$24</span>
-                    <span class="price-period">/ month</span>
-                  </div>
-                  <p class="tier-desc">Professional developers and small teams.</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> 20 sites</li>
-                  <li><span class="badge success">✓</span> 50,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All Starter features included</li>
-                  <li><span class="badge success">✓</span> Moderation rules engine</li>
-                  <li><span class="badge success">✓</span> Advanced analytics</li>
-                  <li><span class="badge success">✓</span> Notification channels (Slack, Discord, Telegram, webhooks)</li>
-                  <li><span class="badge success">✓</span> Priority support (24h)</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button w-full">Start free trial</a>
-                </footer>
-              </article>
-              <article class="card pricing-card">
-                <header>
-                  <span class="badge outline tier-badge">Business</span>
-                  <div class="price-block">
-                    <span class="price-amount">$79</span>
-                    <span class="price-period">/ month</span>
-                  </div>
-                  <p class="tier-desc">Agencies and platforms embedding comments into products.</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> Unlimited sites</li>
-                  <li><span class="badge success">✓</span> 250,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All Pro features included</li>
-                  <li><span class="badge success">✓</span> Dedicated DB per site</li>
-                  <li><span class="badge success">✓</span> Dedicated support (4h SLA)</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button outline w-full">Start free trial</a>
-                </footer>
-              </article>
+            {monthlyPlans.map((plan) => (
+              <PricingCard {...plan} />
+            ))}
           </div>
         </div>
 
         <!-- Annual -->
         <div role="tabpanel" class="annual-panel">
           <div class="pricing-grid">
-              <article class="card pricing-card">
-                <header>
-                  <span class="badge outline tier-badge">Hobby</span>
-                  <div class="price-block">
-                    <span class="price-amount">Free</span>
-                  </div>
-                  <p class="tier-desc">Personal blogs and portfolio sites.</p>
-                  <p class="billing-note">Always free</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> 1 site</li>
-                  <li><span class="badge success">✓</span> 1,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All auth providers</li>
-                  <li><span class="badge success">✓</span> Comment approval flows</li>
-                  <li><span class="badge success">✓</span> Email notifications</li>
-                  <li><span class="badge success">✓</span> Quick-approve via email</li>
-                  <li><span class="badge outline muted-badge">–</span> Moderation dashboard</li>
-                  <li><span class="badge outline muted-badge">–</span> Comment export</li>
-                  <li><span class="badge outline muted-badge">–</span> Analytics</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button outline w-full">Get started</a>
-                </footer>
-              </article>
-              <article class="card pricing-card">
-                <header>
-                  <span class="badge outline tier-badge">Starter</span>
-                  <div class="price-block">
-                    <span class="price-amount">$7.50</span>
-                    <span class="price-period">/ month</span>
-                  </div>
-                  <p class="tier-desc">Indie developers and content creators.</p>
-                  <p class="billing-note">$90 / year — 2 months free</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> 5 sites</li>
-                  <li><span class="badge success">✓</span> 10,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All Hobby features included</li>
-                  <li><span class="badge success">✓</span> Moderation dashboard</li>
-                  <li><span class="badge success">✓</span> Comment export (JSON, CSV)</li>
-                  <li><span class="badge success">✓</span> Import (Disqus, WordPress, Remark42)</li>
-                  <li><span class="badge success">✓</span> Basic analytics</li>
-                  <li><span class="badge success">✓</span> Email support (48h)</li>
-                  <li><span class="badge outline muted-badge">–</span> Moderation rules engine</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button outline w-full">Start free trial</a>
-                </footer>
-              </article>
-              <article class="card pricing-card featured-card">
-                <header>
-                  <div class="featured-row">
-                    <span class="badge outline tier-badge">Pro</span>
-                    <span class="badge warning">Most popular</span>
-                  </div>
-                  <div class="price-block">
-                    <span class="price-amount">$19</span>
-                    <span class="price-period">/ month</span>
-                  </div>
-                  <p class="tier-desc">Professional developers and small teams.</p>
-                  <p class="billing-note">$228 / year — 2 months free</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> 20 sites</li>
-                  <li><span class="badge success">✓</span> 50,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All Starter features included</li>
-                  <li><span class="badge success">✓</span> Moderation rules engine</li>
-                  <li><span class="badge success">✓</span> Advanced analytics</li>
-                  <li><span class="badge success">✓</span> Notification channels (Slack, Discord, Telegram, webhooks)</li>
-                  <li><span class="badge success">✓</span> Priority support (24h)</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button w-full">Start free trial</a>
-                </footer>
-              </article>
-              <article class="card pricing-card">
-                <header>
-                  <span class="badge outline tier-badge">Business</span>
-                  <div class="price-block">
-                    <span class="price-amount">$62.50</span>
-                    <span class="price-period">/ month</span>
-                  </div>
-                  <p class="tier-desc">Agencies and platforms embedding comments into products.</p>
-                  <p class="billing-note">$750 / year</p>
-                </header>
-                <ul class="tier-features">
-                  <li><span class="badge success">✓</span> Unlimited sites</li>
-                  <li><span class="badge success">✓</span> 250,000 comments / month</li>
-                  <li><span class="badge success">✓</span> All Pro features included</li>
-                  <li><span class="badge success">✓</span> Dedicated DB per site</li>
-                  <li><span class="badge success">✓</span> Dedicated support (4h SLA)</li>
-                </ul>
-                <footer>
-                  <a href={signupUrl} class="button outline w-full">Start free trial</a>
-                </footer>
-              </article>
+            {annualPlans.map((plan) => (
+              <PricingCard {...plan} />
+            ))}
           </div>
         </div>
       </ot-tabs>
@@ -601,1107 +360,4 @@ const year = new Date().getFullYear()
     </div>
   </section>
 
-  <footer>
-    <div class="container footer-inner">
-      <span>© {year} Quipthread.</span>
-      <a href="https://github.com/quipthread/quipthread" target="_blank" rel="noopener noreferrer" class="gh-link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-        </svg>
-        GitHub
-      </a>
-    </div>
-  </footer>
-
-<script>
-  import '@knadh/oat';
-
-  const html = document.documentElement;
-
-  function applyThemeToggle() {
-    const isLight = html.getAttribute('data-theme') === 'light';
-    if (isLight) {
-      html.removeAttribute('data-theme');
-      localStorage.setItem('qt-theme', 'dark');
-    } else {
-      html.setAttribute('data-theme', 'light');
-      localStorage.setItem('qt-theme', 'light');
-    }
-  }
-
-  document.getElementById('theme-toggle')?.addEventListener('click', applyThemeToggle);
-  document.getElementById('menu-theme-toggle')?.addEventListener('click', applyThemeToggle);
-
-  // Hamburger menu
-  const menuToggle = document.getElementById('menu-toggle');
-  const mobileMenu = document.getElementById('mobile-menu');
-  const nav = menuToggle?.closest('nav');
-
-  function closeMenu() {
-    nav?.removeAttribute('data-open');
-    menuToggle?.setAttribute('aria-expanded', 'false');
-    mobileMenu?.setAttribute('aria-hidden', 'true');
-  }
-
-  menuToggle?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = nav?.hasAttribute('data-open');
-    if (isOpen) {
-      closeMenu();
-    } else {
-      nav?.setAttribute('data-open', '');
-      menuToggle.setAttribute('aria-expanded', 'true');
-      mobileMenu?.setAttribute('aria-hidden', 'false');
-    }
-  });
-
-  // Close on any link inside the menu
-  mobileMenu?.querySelectorAll('a').forEach(link => {
-    link.addEventListener('click', closeMenu);
-  });
-
-  // Close on outside click
-  document.addEventListener('click', (e) => {
-    if (nav && !nav.contains(e.target as Node)) closeMenu();
-  });
-
-  // Close on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeMenu();
-  });
-</script>
-</body>
-</html>
-
-<style is:global>
-  /* ── Palette: dark (default) ────────────────────────── */
-  :root {
-    color-scheme: dark;
-
-    --background:           #0F0F0F;
-    --foreground:           #E8E3DC;
-    --card:                 #161616;
-    --card-foreground:      #E8E3DC;
-    --primary:              #E07F32;
-    --primary-foreground:   #0F0F0F;
-    --secondary:            #1A1A1A;
-    --secondary-foreground: #E8E3DC;
-    --muted:                #1A1A1A;
-    --muted-foreground:     #8A8480;
-    --border:               #2A2A2A;
-    --input:                #2A2A2A;
-    --ring:                 #E07F32;
-    --success:              #4a8c3f;
-    --success-foreground:   #E8E3DC;
-    --warning:              #E07F32;
-    --warning-foreground:   #0F0F0F;
-    --radius-large:         10px;
-    --radius-medium:        6px;
-
-    --font-sans:    'DM Sans', system-ui, sans-serif;
-    --font-mono:    'JetBrains Mono', ui-monospace, monospace;
-    --font-display: 'Syne', system-ui, sans-serif;
-    --font-heading: 'Bricolage Grotesque', system-ui, sans-serif;
-
-    /* local shorthands */
-    --gold:       #E07F32;
-    --gold-dim:   #C06825;
-    --stone:      #8A8480;
-    --ink:        #0F0F0F;
-    --ink-light:  #1A1A1A;
-    --off-white:  #E8E3DC;
-    --br:         #2A2A2A;
-
-    /* Nav/UI link color — more visible than --stone on dark bg */
-    --nav-link:   rgba(232, 227, 220, 0.72);
-    /* Inactive tab color */
-    --tab-muted:  rgba(232, 227, 220, 0.5);
-  }
-
-  /* ── Palette: light ─────────────────────────────────── */
-  [data-theme="light"] {
-    color-scheme: light;
-
-    --background:           #F7F4EF;
-    --foreground:           #1A1714;
-    --card:                 #EEEBE4;
-    --card-foreground:      #1A1714;
-    --primary:              #C06020;
-    --primary-foreground:   #F7F4EF;
-    --secondary:            #EEEBE4;
-    --secondary-foreground: #1A1714;
-    --muted:                #EEEBE4;
-    --muted-foreground:     #7A7570;
-    --border:               #D9D4CB;
-    --input:                #D9D4CB;
-    --ring:                 #C06020;
-    --success:              #3a7035;
-    --success-foreground:   #F7F4EF;
-    --warning:              #C06020;
-    --warning-foreground:   #F7F4EF;
-
-    --gold:       #C06020;
-    --gold-dim:   #9A4A15;
-    --stone:      #7A7570;
-    --ink:        #F7F4EF;
-    --ink-light:  #EEEBE4;
-    --off-white:  #1A1714;
-    --br:         #D9D4CB;
-
-    /* Nav/UI link color — readable on light nav bg */
-    --nav-link:   rgba(26, 23, 20, 0.65);
-    /* Inactive tab color */
-    --tab-muted:  rgba(26, 23, 20, 0.45);
-  }
-
-  /* ── Reset / base ───────────────────────────────────── */
-  *, *::before, *::after { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-
-  body { background: var(--ink); color: var(--off-white); overflow-x: hidden; }
-
-  a { color: inherit; text-decoration: none; }
-  a:hover { color: inherit; }
-
-  h1, h2, h3, h4 { margin: 0; font-family: var(--font-heading); }
-
-  ul, ol { list-style: none; padding: 0; margin: 0; }
-  p { margin: 0; }
-
-  /* ── Grain texture ─────────────────────────────────── */
-  .grain {
-    position: fixed;
-    inset: -50%;
-    width: 200%;
-    height: 200%;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 256px 256px;
-    opacity: 0.028;
-    pointer-events: none;
-    z-index: 9999;
-  }
-  [data-theme="light"] .grain { opacity: 0.015; }
-
-  /* ── Nav ───────────────────────────────────────────── */
-  nav {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.875rem 2.5rem;
-    border-bottom: 1px solid var(--br);
-    background: rgba(15, 15, 15, 0.85);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-  [data-theme="light"] nav { background: rgba(247, 244, 239, 0.88); }
-
-  .wordmark {
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--off-white);
-    margin-right: auto;
-    transition: color 0.15s;
-  }
-  .wordmark:hover { color: var(--gold); }
-
-  .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 1.75rem;
-  }
-  .nav-links a {
-    font-size: 0.875rem;
-    color: var(--nav-link);
-    font-weight: 500;
-    transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--off-white); }
-
-  .nav-login {
-    font-size: 0.875rem !important;
-    padding: 0.375rem 0.875rem !important;
-    border: 1px solid var(--br) !important;
-    border-radius: var(--radius-medium) !important;
-    color: var(--nav-link) !important;
-    transition: color 0.15s, border-color 0.15s !important;
-  }
-  .nav-login:hover { color: var(--off-white) !important; border-color: #444 !important; }
-  [data-theme="light"] .nav-login:hover { border-color: #bbb !important; }
-
-  /* ── Theme toggle ──────────────────────────────────── */
-  .theme-toggle {
-    flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 1px solid var(--br);
-    border-radius: var(--radius-medium);
-    color: var(--stone);
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .theme-toggle:hover { color: var(--off-white); border-color: #444; }
-  [data-theme="light"] .theme-toggle {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: #FFFFFF;
-  }
-  [data-theme="light"] .theme-toggle:hover {
-    background: var(--gold-dim);
-    border-color: var(--gold-dim);
-    color: #FFFFFF;
-  }
-
-  /* Show sun in dark mode, moon in light mode */
-  .icon-moon { display: none; }
-  [data-theme="light"] .icon-sun  { display: none; }
-  [data-theme="light"] .icon-moon { display: block; }
-
-  /* ── Hamburger menu ────────────────────────────────── */
-  .menu-toggle {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    width: 2rem;
-    height: 2rem;
-    background: transparent !important;
-    border: 1px solid var(--br) !important;
-    border-radius: var(--radius-medium) !important;
-    padding: 0.4rem;
-    cursor: pointer;
-    flex-shrink: 0;
-    color: var(--stone) !important;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .menu-toggle:hover { color: var(--off-white) !important; border-color: #444 !important; }
-  [data-theme="light"] .menu-toggle:hover { border-color: #bbb !important; }
-
-  .bar {
-    display: block;
-    width: 100%;
-    height: 1.5px;
-    background: currentColor;
-    border-radius: 2px;
-    transition: transform 0.12s ease, opacity 0.12s ease;
-    transform-origin: center;
-  }
-
-  nav[data-open] .bar:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
-  nav[data-open] .bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
-  nav[data-open] .bar:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
-
-  /* Mobile drawer — absolutely positioned below sticky nav */
-  .mobile-menu {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: rgba(15, 15, 15, 0.97);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--br);
-    padding: 0.5rem 1.25rem 1.25rem;
-    gap: 0;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-6px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-  [data-theme="light"] .mobile-menu { background: rgba(247, 244, 239, 0.97); }
-
-  nav[data-open] .mobile-menu {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0);
-  }
-
-  .mobile-menu a:not(.button) {
-    font-size: 0.9375rem;
-    font-weight: 500;
-    color: var(--nav-link);
-    padding: 0.875rem 0;
-    border-bottom: 1px solid var(--br);
-    transition: color 0.15s;
-  }
-  .mobile-menu a:not(.button):hover { color: var(--off-white); }
-  [data-theme="light"] .mobile-menu a:not(.button):hover { color: var(--foreground); }
-
-  .mobile-menu-footer {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 1rem;
-  }
-  .mobile-menu-footer .mobile-login {
-    flex: 1;
-    justify-content: center;
-  }
-
-  /* ── Hero ──────────────────────────────────────────── */
-  .hero {
-    position: relative;
-    padding: 6rem 0 5rem;
-    border-bottom: 1px solid var(--br);
-    overflow: hidden;
-  }
-
-  .hero-glow {
-    position: absolute;
-    width: 700px;
-    height: 500px;
-    top: -100px;
-    left: -100px;
-    background: radial-gradient(ellipse at center, rgba(212, 168, 83, 0.055) 0%, transparent 65%);
-    pointer-events: none;
-  }
-  [data-theme="light"] .hero-glow {
-    background: radial-gradient(ellipse at center, rgba(184, 137, 46, 0.07) 0%, transparent 65%);
-  }
-
-  /* Two-column hero layout */
-  .hero-content {
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 4rem;
-    align-items: center;
-  }
-
-  .hero-eyebrow {
-    margin-bottom: 1.75rem;
-    animation: fadeUp 0.5s ease both;
-  }
-
-  .hero h1 {
-    font-size: clamp(2.4rem, 4.5vw, 4rem);
-    font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.035em;
-    color: var(--off-white);
-    margin-bottom: 1.375rem;
-    animation: fadeUp 0.55s 0.07s ease both;
-  }
-  .hero h1 em {
-    font-style: normal;
-    color: var(--gold);
-  }
-
-  .subhead {
-    font-size: 1.0625rem;
-    line-height: 1.7;
-    color: var(--stone);
-    margin-bottom: 2rem;
-    animation: fadeUp 0.55s 0.14s ease both;
-  }
-
-  .hero-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    animation: fadeUp 0.55s 0.21s ease both;
-  }
-
-  /* Right column — code block */
-  .hero-visual {
-    animation: fadeUp 0.6s 0.28s ease both;
-    min-width: 0;
-  }
-
-  /* ── Hero widget demo ──────────────────────────────── */
-  /* Faithfully mirrors the real embed widget's dark theme — always dark */
-  .hw-shell {
-    --hw-bg:         #0F0F0F;
-    --hw-bg-alt:     #1A1A1A;
-    --hw-text:       #E8E3DC;
-    --hw-muted:      #8A8480;
-    --hw-border:     #2E2E2E;
-    --hw-accent:     #E07F32;
-    --hw-r:          8px;
-    --hw-r-sm:       4px;
-    background: #161616;
-    border: 1px solid #2A2A2A;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(212,168,83,0.08), 0 24px 64px rgba(0,0,0,0.45);
-    color-scheme: dark;
-  }
-
-  .hw-chrome {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.625rem 1rem;
-    border-bottom: 1px solid #2A2A2A;
-    background: rgba(255,255,255,0.015);
-  }
-
-  .dot {
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: #2A2A2A;
-    display: inline-block;
-  }
-
-  .hw-label {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    color: #8A8480;
-    letter-spacing: 0.06em;
-  }
-
-  /* Widget root — matches .qt-root[data-theme="dark"] exactly, scaled down ~15% */
-  .hw-root {
-    background: var(--hw-bg);
-    color: var(--hw-text);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    padding: 1rem;
-  }
-
-  /* Header */
-  .hw-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.125rem;
-  }
-  .hw-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin: 0;
-    color: var(--hw-text);
-    font-family: system-ui, -apple-system, sans-serif;
-  }
-  .hw-user-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8125rem;
-    color: var(--hw-muted);
-  }
-  .hw-user-name { color: var(--hw-text); font-weight: 500; }
-
-  /* Avatars — matches .qt-avatar-placeholder / .qt-reply-avatar-placeholder */
-  .hw-av {
-    border-radius: 50%;
-    background: var(--hw-bg-alt);
-    border: 1px solid var(--hw-border);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    color: var(--hw-muted);
-    flex-shrink: 0;
-    text-transform: uppercase;
-  }
-  .hw-av-lg { width: 30px; height: 30px; font-size: 0.75rem; }
-  .hw-av-sm { width: 24px; height: 24px; font-size: 0.625rem; }
-  .hw-av-you   { background: #1e1610; border-color: rgba(224,127,50,0.3); color: #E07F32; }
-  .hw-av-blue  { background: #0f1620; border-color: #1a2535; color: #7eb8e8; }
-  .hw-av-green { background: #0d1810; border-color: #162214; color: #6bbd7f; }
-
-  /* Comment list */
-  .hw-comment-list {
-    list-style: none;
-    margin: 0; padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.875rem;
-  }
-  .hw-comment { display: flex; gap: 0.75rem; }
-  .hw-comment-body { flex: 1; min-width: 0; }
-  .hw-comment-meta {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
-  }
-  .hw-author { font-weight: 600; font-size: 0.8125rem; color: var(--hw-text); }
-  .hw-ts     { font-size: 0.6875rem; color: var(--hw-muted); }
-  .hw-content { font-size: 0.8125rem; color: var(--hw-text); line-height: 1.55; }
-  .hw-actions { display: flex; margin-top: 0.375rem; }
-
-  /* Replies — matches .qt-replies */
-  .hw-replies {
-    margin-top: 0.625rem;
-    padding-left: 0.75rem;
-    border-left: 2px solid var(--hw-border);
-    display: flex;
-    flex-direction: column;
-    gap: 0.875rem;
-  }
-  .hw-reply { display: flex; gap: 0.625rem; }
-
-  /* Buttons */
-  .hw-btn-ghost {
-    background: transparent;
-    color: var(--hw-muted);
-    border: 1px solid transparent;
-    border-radius: var(--hw-r);
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .hw-action-btn { font-size: 0.75rem; padding: 0.2rem 0.4rem; }
-  .hw-btn-primary {
-    background: var(--hw-accent);
-    color: #fff;
-    border: 1px solid var(--hw-accent);
-    border-radius: var(--hw-r);
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  /* New comment section — matches .qt-new-comment */
-  .hw-new-comment {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--hw-border);
-  }
-  .hw-new-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-  }
-  .hw-new-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--hw-muted);
-  }
-
-  /* Editor — matches .qt-editor-wrapper / .qt-toolbar / .qt-editor-content */
-  .hw-editor-wrapper {
-    border: 1px solid var(--hw-border);
-    border-radius: var(--hw-r);
-    overflow: hidden;
-    background: var(--hw-bg);
-  }
-  .hw-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 0.375rem 0.5rem;
-    border-bottom: 1px solid var(--hw-border);
-    background: var(--hw-bg-alt);
-  }
-  .hw-tb-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px; height: 28px;
-    border: none;
-    background: transparent;
-    border-radius: var(--hw-r-sm);
-    cursor: pointer;
-    color: var(--hw-muted);
-    font-family: system-ui, sans-serif;
-    font-size: 0.875rem;
-  }
-  .hw-tb-sep {
-    width: 1px;
-    background: var(--hw-border);
-    margin: 4px 2px;
-    align-self: stretch;
-  }
-  .hw-editor-content {
-    padding: 0.5rem 0.625rem;
-    min-height: 52px;
-  }
-  .hw-placeholder { color: var(--hw-muted); font-size: 0.8125rem; margin: 0; }
-  .hw-form-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 0.625rem;
-  }
-
-  /* ── Oat button overrides ──────────────────────────── */
-  .button, button {
-    font-family: var(--font-sans) !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.01em !important;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    transition: background 0.15s, border-color 0.15s, color 0.15s !important;
-  }
-
-  .button:not(.outline):not(.ghost):not([data-variant]),
-  button:not(.outline):not(.ghost):not([data-variant]) {
-    background: var(--gold) !important;
-    color: #FFFFFF !important;
-    border-color: var(--gold) !important;
-  }
-  .button:not(.outline):not(.ghost):not([data-variant]):hover,
-  button:not(.outline):not(.ghost):not([data-variant]):hover {
-    background: var(--gold-dim) !important;
-    border-color: var(--gold-dim) !important;
-    color: #FFFFFF !important;
-  }
-  /* Light mode: white text on amber background, consistent with dark mode */
-
-  /* Outline buttons — off-white text (resolves to #1A1714 in light mode) */
-  .button.outline {
-    color: var(--off-white) !important;
-  }
-  .button.outline:hover {
-    color: var(--off-white) !important;
-  }
-
-  .w-full { width: 100%; justify-content: center; }
-
-  /* ── Sections ──────────────────────────────────────── */
-  .section {
-    padding: 6rem 0;
-    border-bottom: 1px solid var(--br);
-  }
-
-  .container {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 2rem;
-  }
-
-  .section-eyebrow {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--gold);
-    margin-bottom: 1.25rem;
-  }
-
-  .section h2 {
-    font-size: clamp(1.75rem, 3vw, 2.5rem);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    color: var(--off-white);
-    margin-bottom: 0.875rem;
-    line-height: 1.12;
-  }
-
-  .section-sub {
-    font-size: 0.9375rem;
-    line-height: 1.65;
-    color: var(--stone);
-    margin-bottom: 2.75rem;
-    max-width: 580px;
-  }
-
-  /* ── Oat grid ──────────────────────────────────────── */
-  .row {
-    --grid-gap: 1rem;
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: var(--grid-gap);
-  }
-
-  .col-3 { grid-column: span 3; }
-  .col-4 { grid-column: span 4; }
-
-  /* ── Feature cards ─────────────────────────────────── */
-  .features { padding-top: 5rem; }
-  .features .row { margin-top: 2rem; align-items: stretch; }
-
-  .feature-card {
-    height: 100%;
-    transition: border-color 0.2s, transform 0.2s;
-  }
-  .feature-card:hover {
-    border-color: #3a3a3a !important;
-    transform: translateY(-2px);
-  }
-
-  .feature-icon { color: var(--gold); margin-bottom: 1rem; }
-
-  .feature-card h3 {
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--off-white);
-    margin-bottom: 0.5rem;
-  }
-
-  .feature-card p { font-size: 0.875rem; line-height: 1.65; color: var(--stone); }
-
-  /* ── How It Works ──────────────────────────────────── */
-  .how-it-works h2 { margin-bottom: 3rem; }
-
-  .steps { display: flex; flex-direction: column; max-width: 680px; }
-
-  .step { display: flex; align-items: flex-start; gap: 1.5rem; }
-
-  .step-num {
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 50%;
-    border: 1px solid var(--br);
-    background: var(--ink-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--gold);
-  }
-
-  .step-connector {
-    width: 1px;
-    height: 2.25rem;
-    background: var(--br);
-    margin-left: calc(1.375rem - 0.5px);
-  }
-
-  .step-body { padding-top: 0.375rem; }
-
-  .step-body h4 {
-    font-size: 0.9375rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--off-white);
-    margin-bottom: 0.375rem;
-  }
-
-  .step-body p { font-size: 0.875rem; line-height: 1.65; color: var(--stone); }
-
-  /* ── Pricing ───────────────────────────────────────── */
-  .pricing h2 { margin-bottom: 0.75rem; }
-
-  .pricing-tabs { display: block; margin-bottom: 1.5rem; }
-
-  .pricing-tabs [role="tablist"] {
-    background: var(--ink-light) !important;
-    border: 1px solid var(--br) !important;
-    border-radius: 8px !important;
-    padding: 0.25rem !important;
-    margin-bottom: 2rem;
-    display: inline-flex !important;
-    gap: 0.25rem !important;
-  }
-
-  .pricing-tabs [role="tab"] {
-    background: transparent !important;
-    color: var(--tab-muted) !important;
-    border: none !important;
-    border-radius: 6px !important;
-    padding: 0.5rem 1rem !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 0.5rem !important;
-    transition: background 0.15s, color 0.15s !important;
-  }
-
-  .pricing-tabs [role="tab"][aria-selected="true"] {
-    background: var(--br) !important;
-    color: var(--off-white) !important;
-    font-weight: 600 !important;
-  }
-  [data-theme="light"] .pricing-tabs [role="tab"][aria-selected="true"] {
-    background: var(--gold) !important;
-    color: #FFFFFF !important;
-  }
-
-  .pricing-tabs [role="tabpanel"] { padding: 0 !important; }
-
-  /* Subgrid layout: 4 columns, 3 shared row tracks (header / features / footer).
-     All four cards inherit the same row tracks, guaranteeing cross-card alignment. */
-  .pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: auto auto auto;
-    column-gap: 1.5rem;
-    row-gap: 0;
-  }
-
-  .tab-badge {
-    font-size: 0.65rem !important;
-    padding: 0.1rem 0.4rem !important;
-    background: var(--gold-dim) !important;
-    color: #FFFFFF !important;
-    border-color: #FFFFFF !important;
-  }
-  [data-theme="light"] .tab-badge {
-    background: var(--gold-dim) !important;
-    color: #FFFFFF !important;
-    border-color: #FFFFFF !important;
-  }
-
-  .pricing-card {
-    display: grid;
-    grid-template-rows: subgrid;
-    grid-row: span 3;
-  }
-
-  .pricing-card header { border-bottom: none !important; margin-bottom: 1.25rem; }
-  .pricing-card header > * + * { margin-top: 0.5rem; }
-
-  .tier-badge {
-    font-size: 0.65rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.1em !important;
-    text-transform: uppercase !important;
-    margin-bottom: 0.625rem;
-    display: inline-flex !important;
-  }
-
-  .featured-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.625rem;
-  }
-  /* Reset inherited margin-bottom from .tier-badge so it aligns with the Most Popular badge */
-  .featured-row .tier-badge { margin-bottom: 0; }
-  .featured-row .badge.warning {
-    background: linear-gradient(90deg, #A7F3C4, #16A34A) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    color: transparent !important;
-  }
-  [data-theme="light"] .featured-row .badge.warning {
-    background: linear-gradient(90deg, #22C55E, #14532D) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    color: transparent !important;
-  }
-
-  .featured-card {
-    border-color: var(--gold) !important;
-    background: #160d04 !important;
-  }
-  [data-theme="light"] .featured-card { background: #FBF0E4 !important; }
-
-  .price-block { display: flex; align-items: baseline; gap: 0.2rem; }
-
-  .price-amount {
-    font-family: var(--font-heading);
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    color: var(--off-white);
-  }
-
-  .price-period { font-size: 0.8rem; color: var(--stone); }
-
-  .tier-desc { font-size: 0.8125rem; color: var(--stone); line-height: 1.5; }
-
-  .tier-features {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .tier-features li {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--off-white);
-    line-height: 1.4;
-  }
-
-  .tier-features .badge {
-    flex-shrink: 0;
-    font-size: 0.6rem !important;
-    width: 1.25rem;
-    height: 1.25rem;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    padding: 0 !important;
-    border-radius: 50% !important;
-  }
-
-  .muted-badge { opacity: 0.4; }
-  .tier-features li:has(.muted-badge) { color: var(--stone); }
-
-  .pricing-card footer {
-    border-top: none !important;
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
-  }
-
-  .billing-note { font-size: 0.75rem; color: var(--stone); margin-top: 0.125rem !important; }
-
-  .enterprise-card { margin-bottom: 1.25rem; }
-
-  .enterprise-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .enterprise-content strong {
-    display: block;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--off-white);
-    margin-bottom: 0.25rem;
-  }
-
-  .enterprise-content p { font-size: 0.8125rem; color: var(--stone); }
-
-  .self-host-note { font-size: 0.8125rem; color: var(--stone); text-align: center; }
-  .self-host-note a { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; }
-  .self-host-note a:hover { color: #F0A06A; }
-
-  /* ── Compare table ─────────────────────────────────── */
-  .compare h2 { margin-bottom: 0.75rem; }
-
-  .compare .table {
-    border: 1px solid var(--br);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  .compare table { font-size: 0.875rem; }
-
-  .compare thead th {
-    font-size: 0.7rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--stone);
-  }
-
-  .compare thead th:first-child { opacity: 0; }
-
-  .compare tbody td:first-child {
-    font-weight: 500;
-    color: var(--off-white);
-    white-space: nowrap;
-  }
-
-  /* ── CTA ───────────────────────────────────────────── */
-  .cta-section { border-bottom: 1px solid var(--br); }
-
-  .cta-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 1.25rem;
-  }
-
-  .cta-inner h2 {
-    font-size: clamp(1.75rem, 3.5vw, 2.75rem);
-    letter-spacing: -0.035em;
-    max-width: 540px;
-  }
-
-  .cta-inner p { font-size: 0.9375rem; line-height: 1.65; color: var(--stone); }
-
-  .cta-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  /* ── Footer ────────────────────────────────────────── */
-  footer { padding: 1.75rem 0; }
-
-  .footer-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.8125rem;
-    color: var(--stone);
-  }
-
-  .gh-link {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    color: var(--stone);
-    transition: color 0.15s;
-  }
-  .gh-link:hover { color: var(--off-white); }
-
-  /* ── Animations ────────────────────────────────────── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ── Responsive ────────────────────────────────────── */
-  @media (max-width: 960px) {
-    .hero-content {
-      grid-template-columns: 1fr;
-      gap: 3rem;
-    }
-    .hero-visual { max-width: 560px; margin: 0 auto; width: 100%; }
-    .hero-text { max-width: 600px; margin: 0 auto; text-align: center; }
-    .hero-actions { justify-content: center; }
-    .subhead { font-size: 0.9375rem; }
-    .col-3 { grid-column: span 6; }
-    .col-3 { grid-column: span 12; }
-    .col-4 { grid-column: span 12; }
-
-    /* Pricing: 2-column layout — drop subgrid, use flex per card */
-    .pricing-grid {
-      grid-template-columns: repeat(2, 1fr);
-      row-gap: 1.5rem;
-    }
-    .pricing-card {
-      display: flex;
-      flex-direction: column;
-      grid-row: unset;
-    }
-    .tier-features { flex: 1; }
-    .pricing-card footer { margin-top: auto; }
-  }
-
-  @media (max-width: 640px) {
-    nav { padding: 0.875rem 1.25rem; }
-    .col-3 { grid-column: span 12; }
-    .hero { padding: 4rem 0 3.5rem; }
-    .section { padding: 4rem 0; }
-    /* Show hamburger, hide desktop nav items */
-    .menu-toggle { display: flex; }
-    .nav-links { display: none; }
-    .nav-login { display: none; }
-    nav > .theme-toggle { display: none; }
-
-    /* Hero heading — shrink floor on mobile */
-    .hero h1 { font-size: clamp(1.75rem, 7.5vw, 2.4rem); }
-    .subhead { font-size: 0.9375rem; }
-
-    /* Compare table: horizontal scroll, allow label wrapping */
-    .compare .table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .compare tbody td:first-child { white-space: normal; min-width: 6rem; }
-
-    /* Pricing: single-column stack */
-    .pricing-grid { grid-template-columns: 1fr; }
-    .pricing-tabs { text-align: center; }
-  }
-</style>
+</Layout>

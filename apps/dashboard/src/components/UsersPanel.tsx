@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import type { User } from '../types'
 import { relativeTime } from '../utils'
+import PageHeader from './shared/PageHeader'
 
 const PAGE_SIZE = 20
 
@@ -77,10 +78,7 @@ export default function UsersPanel() {
 
   return (
     <>
-      <div className="page-header">
-        <h1>Users</h1>
-        <span className="page-count">{total} total</span>
-      </div>
+      <PageHeader title="Users" action={<span className="page-count">{total} total</span>} />
 
       {loading ? (
         <div className="loading">Loading…</div>

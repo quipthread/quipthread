@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
 import type { BillingStatus } from '../types'
+import PageHeader from './shared/PageHeader'
 
 const FAQ_ITEMS = [
   {
@@ -68,9 +69,7 @@ export default function HelpPanel() {
 
   return (
     <div>
-      <div class="page-header">
-        <h1>Help</h1>
-      </div>
+      <PageHeader title="Help" />
 
       {/* ── Quick Start ──────────────────────────────────── */}
       <section style={{ marginBottom: '2.5rem' }}>

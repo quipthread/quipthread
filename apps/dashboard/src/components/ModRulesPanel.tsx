@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
 import type { BlockedTerm } from '../types'
+import PageHeader from './shared/PageHeader'
 import UpgradeGate from './UpgradeGate'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
@@ -132,9 +133,7 @@ export default function ModRulesPanel() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Moderation Rules</h1>
-      </div>
+      <PageHeader title="Moderation Rules" />
 
       <p
         style={{

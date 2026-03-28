@@ -2,7 +2,9 @@
   "name": "@quipthread/website",
   "dependencies": {
     "@astrojs/starlight": "^0.38.1",
-    "astro": "^6.0.6"
+    "@resvg/resvg-js": "^2.6.2",
+    "astro": "^6.0.6",
+    "satori": "^0.26.0"
   },
   "private": true,
   "scripts": {

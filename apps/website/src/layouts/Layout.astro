@@ -1,0 +1,91 @@
+---
+import '../styles/landing.css'
+import ThemeToggle from '../components/ThemeToggle.astro'
+import Footer from '../components/Footer.astro'
+
+interface Props {
+  loginUrl: string
+  year: number
+  title?: string
+  description?: string
+}
+
+const {
+  loginUrl,
+  year,
+  title = 'Quipthread — The comment system your readers will actually use',
+  description = 'The comment platform your readers will actually use. Up and running in minutes — no server required. Free plan available. Open core and self-hostable.',
+} = Astro.props
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#1A1A1A" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <meta name="description" content={description} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://quipthread.com" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content="https://quipthread.com/og-default.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://quipthread.com/og-default.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Syne:wght@700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <!-- Prevent flash of wrong theme -->
+  <script is:inline>
+    (function () {
+      var s = localStorage.getItem('qt-theme');
+      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (s === 'light' || (!s && !dark)) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Grain texture overlay -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <nav>
+    <a href="/" class="wordmark">Quipthread</a>
+    <div class="nav-links">
+      <a href="#pricing">Pricing</a>
+      <a href="/docs/">Docs</a>
+      <a href="https://github.com/quipthread/quipthread" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </div>
+    <a href={loginUrl} class="button ghost nav-login">Log in</a>
+    <ThemeToggle id="theme-toggle" />
+    <button class="menu-toggle" id="menu-toggle" data-variant="icon" aria-label="Toggle menu" aria-expanded="false">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+    <!-- Mobile nav drawer (absolutely positioned below sticky nav) -->
+    <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+      <a href="#pricing">Pricing</a>
+      <a href="/docs/">Docs</a>
+      <a href="https://github.com/quipthread/quipthread" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <div class="mobile-menu-footer">
+        <a href={loginUrl} class="button outline mobile-login">Log in</a>
+        <ThemeToggle id="menu-theme-toggle" />
+      </div>
+    </div>
+  </nav>
+
+  <slot />
+
+  <Footer year={year} />
+
+  <script src="../scripts/landing.ts"></script>
+
+</body>
+</html>
