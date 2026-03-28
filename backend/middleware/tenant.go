@@ -56,9 +56,14 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 			// block delivery, and so unauthenticated access never returns 500
 			// from a failed tenant lookup.
 			if strings.HasPrefix(r.URL.Path, "/_astro/") ||
+				strings.HasPrefix(r.URL.Path, "/auth/") ||
 				r.URL.Path == "/favicon.svg" ||
 				r.URL.Path == "/embed.js" ||
-				r.URL.Path == "/embed-preview" {
+				r.URL.Path == "/embed-preview" ||
+				r.URL.Path == "/login" ||
+				r.URL.Path == "/signup" ||
+				r.URL.Path == "/forgot-password" ||
+				r.URL.Path == "/health" {
 				next.ServeHTTP(w, r)
 				return
 			}
