@@ -4,7 +4,7 @@
 .env.example
 
 # Scripts (local tooling only, not pushed to either repo)
-scripts/
+/scripts/
 
 # Database
 backend/data/
