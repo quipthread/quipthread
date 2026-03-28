@@ -1,3 +1,12 @@
+/* ── Fonts ──────────────────────────────────────────── */
+@font-face {
+  font-family: "Syne";
+  src: url("/fonts/syne-700.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
 /* ── Palette: dark (default) ────────────────────────── */
 :root {
   color-scheme: dark;
@@ -86,12 +95,17 @@
 }
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 body {
   background: var(--ink);
   color: var(--off-white);
   font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
