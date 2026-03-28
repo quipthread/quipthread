@@ -87,10 +87,14 @@ func (h *Handler) EmailRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	role := "commenter"
+	if _, total, err := h.store.ListUsers(1, 1); err == nil && total == 0 {
+		role = "admin"
+	}
 	u := &models.User{
 		DisplayName: strings.TrimSpace(req.Name),
 		Email:       req.Email,
-		Role:        "commenter",
+		Role:        role,
 	}
 	if err := h.store.UpsertUser(u); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create user")
@@ -110,8 +114,20 @@ func (h *Handler) EmailRegister(w http.ResponseWriter, r *http.Request) {
 
 	sendVerificationEmail(h.store, h.config, u)
 
-	writeJSON(w, http.StatusCreated, map[string]string{
-		"message": "account created; check your email for a verification link",
+	pollToken := ""
+	pollTok := &models.EmailToken{
+		Token:     uuid.NewString(),
+		UserID:    u.ID,
+		Type:      "registration_poll",
+		ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+	}
+	if err := h.store.CreateEmailToken(pollTok); err == nil {
+		pollToken = pollTok.Token
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"message":    "account created; check your email for a verification link",
+		"poll_token": pollToken,
 	})
 }
 
@@ -149,7 +165,7 @@ func (h *Handler) EmailVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderEmailPage(w, "Email verified", "Your email address has been verified. You can now log in.", true)
+	renderEmailPage(w, "Email verified", "Please close this window and continue with onboarding in your original tab.", true)
 }
 
 type resendRequest struct {
@@ -197,6 +213,54 @@ func (h *Handler) EmailResend(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(ok))
+}
+
+// EmailPoll handles GET /auth/email/poll?token=<registration_poll_token>.
+// The signup page polls this endpoint after registration. Once the user has
+// clicked the verification link, this issues a session JWT and returns
+// {verified:true} so the original tab can redirect to onboarding.
+func (h *Handler) EmailPoll(w http.ResponseWriter, r *http.Request) {
+	if h.cloudEmailPoll(w, r) {
+		return
+	}
+	if h.email == nil {
+		writeJSON(w, http.StatusOK, map[string]bool{"verified": false})
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		writeJSON(w, http.StatusOK, map[string]bool{"verified": false})
+		return
+	}
+
+	et, err := h.store.GetEmailToken(token)
+	if err != nil || et == nil || et.Type != "registration_poll" {
+		writeJSON(w, http.StatusOK, map[string]bool{"verified": false})
+		return
+	}
+	if time.Now().After(et.ExpiresAt) {
+		_ = h.store.DeleteEmailToken(token)
+		writeJSON(w, http.StatusOK, map[string]bool{"verified": false})
+		return
+	}
+
+	user, err := h.store.GetUser(et.UserID)
+	if err != nil || user == nil || !user.EmailVerified {
+		writeJSON(w, http.StatusOK, map[string]bool{"verified": false})
+		return
+	}
+
+	_ = h.store.DeleteEmailToken(et.Token)
+
+	tokenStr, err := session.Issue(h.config.JWTSecret, user.ID, user.DisplayName, "email", user.Role, "")
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to issue session")
+		return
+	}
+
+	session.SetCookie(w, tokenStr, r.TLS != nil)
+	writeJSON(w, http.StatusOK, map[string]bool{"verified": true})
 }
 
 type loginRequest struct {

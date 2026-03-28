@@ -145,6 +145,7 @@ func main() {
 	r.With(middleware.RateLimit(authRL, ipFn)).Post("/auth/email/resend-verification", authHandler.EmailResend)
 	r.With(middleware.RateLimit(authRL, ipFn)).Post("/auth/email/login", authHandler.EmailLogin)
 	r.With(middleware.RateLimit(authRL, ipFn)).Post("/auth/email/forgot", authHandler.EmailForgot)
+	r.Get("/auth/email/poll", authHandler.EmailPoll)
 	r.Get("/auth/email/reset/{token}", authHandler.EmailResetPage)
 	r.Post("/auth/email/reset/{token}", authHandler.EmailReset)
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { API, api } from '../api'
 
 export default function SignupForm() {
@@ -9,6 +9,8 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [pollToken, setPollToken] = useState<string | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     api
@@ -18,6 +20,38 @@ export default function SignupForm() {
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!pollToken) return
+
+    let attempts = 0
+    const maxAttempts = 150 // ~5 minutes at 2s intervals
+
+    pollRef.current = setInterval(async () => {
+      attempts++
+      if (attempts > maxAttempts) {
+        if (pollRef.current) clearInterval(pollRef.current)
+        return
+      }
+      try {
+        const res = await fetch(`${API}/auth/email/poll?token=${pollToken}`, {
+          credentials: 'include',
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as { verified?: boolean }
+        if (data.verified) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          window.location.href = '/dashboard/onboarding'
+        }
+      } catch {
+        // network error — keep polling
+      }
+    }, 2000)
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [pollToken])
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
@@ -40,7 +74,11 @@ export default function SignupForm() {
         credentials: 'include',
         body: JSON.stringify({ name, email, password }),
       })
-      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string
+        message?: string
+        poll_token?: string
+      }
       if (!res.ok) {
         if (res.status === 409) {
           setError('An account with that email already exists.')
@@ -49,6 +87,7 @@ export default function SignupForm() {
         }
         return
       }
+      if (data.poll_token) setPollToken(data.poll_token)
       setSuccess(true)
     } catch {
       setError('Network error — please try again.')

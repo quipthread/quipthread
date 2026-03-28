@@ -18,3 +18,4 @@ func (h *Handler) cloudEmailRegister(_ http.ResponseWriter, _ *http.Request) boo
 func (h *Handler) cloudEmailLogin(_ http.ResponseWriter, _ *http.Request) bool    { return false }
 func (h *Handler) cloudForgot(_ http.ResponseWriter, _ *http.Request) bool        { return false }
 func (h *Handler) cloudEmailResend(_ http.ResponseWriter, _ *http.Request) bool   { return false }
+func (h *Handler) cloudEmailPoll(_ http.ResponseWriter, _ *http.Request) bool     { return false }
