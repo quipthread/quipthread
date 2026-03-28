@@ -83,7 +83,7 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 			}
 
 			acc, err := cloudStore.GetAccountByID(claims.AccountID)
-			if err != nil {
+			if err != nil || acc == nil {
 				// Do not fall through to the global store — that would expose
 				// other tenants' data to an authenticated but unresolvable account.
 				http.Error(w, `{"error":"tenant resolution failed"}`, http.StatusInternalServerError)
