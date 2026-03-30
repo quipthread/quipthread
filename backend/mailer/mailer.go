@@ -112,3 +112,15 @@ func WelcomeEmailBody(displayName string) string {
 `, displayName)
 	return emailShell(body)
 }
+
+// InviteEmailBody returns the HTML body for a team member invitation.
+func InviteEmailBody(inviterEmail, acceptURL string) string {
+	body := fmt.Sprintf(`
+    <p>Hi,</p>
+    <p>%s has invited you to join their Quipthread workspace as a team member.</p>
+    <p><a class="btn" href="%s">Accept Invitation</a></p>
+    <p class="url">Or copy this link: %s</p>
+    <p>If you weren't expecting this invitation, you can safely ignore this email.</p>
+`, inviterEmail, acceptURL, acceptURL)
+	return emailShell(body)
+}

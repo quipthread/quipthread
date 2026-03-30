@@ -2,6 +2,17 @@ package cloud
 
 import "time"
 
+type TeamMember struct {
+	ID          string
+	AccountID   string // owner's account ID
+	Email       string
+	Role        string // "admin"
+	InviteToken string
+	Accepted    bool
+	InvitedAt   time.Time
+	AcceptedAt  *time.Time
+}
+
 type Account struct {
 	ID               string
 	Email            string
@@ -47,4 +58,14 @@ type Store interface {
 	CreateEmailToken(tok *EmailToken) error
 	GetEmailToken(token string) (*EmailToken, error)
 	DeleteEmailToken(token string) error
+
+	// Team members (Business+ cloud feature)
+	CreateTeamMember(m *TeamMember) error
+	ListTeamMembers(accountID string) ([]*TeamMember, error)
+	GetTeamMemberByToken(token string) (*TeamMember, error)
+	GetTeamMemberByEmail(accountID, email string) (*TeamMember, error)
+	GetAcceptedInviteByEmail(email string) (*TeamMember, error)
+	AcceptTeamMember(token string) error
+	DeleteTeamMember(accountID, memberID string) error
+	CountTeamMembers(accountID string) (int, error)
 }

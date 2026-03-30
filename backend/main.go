@@ -127,6 +127,7 @@ func main() {
 	r.Use(middleware.Recovery)
 	r.Use(chimiddleware.RequestID)
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
+	r.Use(middleware.SecurityHeaders)
 	if cfg.CloudMode && cloudStore != nil {
 		r.Use(middleware.InjectTenantStore(cloudStore, tenantCache, cfg))
 	}
@@ -157,6 +158,9 @@ func main() {
 
 	// Billing routes (public webhook + admin-protected status/checkout/portal).
 	handlers.RegisterBillingRoutes(r, store, cfg, cloudStore, tenantCache)
+
+	// Invitation routes (cloud-only; no-op stub in non-cloud builds).
+	handlers.RegisterInvitationRoutes(r, cfg, store, cloudStore)
 
 	// Embed preview page — public, no auth, safe to iframe from the dashboard.
 	r.Get("/embed-preview", handlers.HandleEmbedPreview)
@@ -258,6 +262,18 @@ func main() {
 		}
 		r.Handle("/dashboard", http.RedirectHandler("/dashboard/", http.StatusMovedPermanently))
 		r.Handle("/dashboard/*", requireSessionOrLogin(http.StripPrefix("/dashboard", dashFileServer)))
+
+		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprint(w, `{"error":"not_found"}`) //nolint:errcheck // ResponseWriter.Write errors are not actionable
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, notFoundPage) //nolint:errcheck // ResponseWriter.Write errors are not actionable
+		})
 	}
 
 	// Health check — required by Fly.io deployment checks.
@@ -420,6 +436,31 @@ func buildRateLimiter(spec string, defaultCount int, defaultPeriod time.Duration
 	}
 	return middleware.NewMemoryRateLimiter(count, period)
 }
+
+const notFoundPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 — Quipthread</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f0f; color: #e8e3dc; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .wrap { text-align: center; padding: 2rem; }
+    .code { font-size: 5rem; font-weight: 700; color: #e07f32; line-height: 1; }
+    h1 { font-size: 1.25rem; font-weight: 500; margin: 0.75rem 0 1.5rem; opacity: 0.6; }
+    a { color: #e07f32; text-decoration: none; font-size: 0.9375rem; border-bottom: 1px solid transparent; }
+    a:hover { border-bottom-color: #e07f32; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="code">404</div>
+    <h1>Page not found</h1>
+    <a href="https://app.quipthread.com">Go home</a>
+  </div>
+</body>
+</html>`
 
 const devTestPage = `<!DOCTYPE html>
 <html lang="en">

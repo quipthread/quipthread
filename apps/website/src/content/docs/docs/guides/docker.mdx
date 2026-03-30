@@ -5,9 +5,9 @@ description: Deploy Quipthread using Docker Compose with automatic TLS via Caddy
 
 import { Aside } from '@astrojs/starlight/components';
 
-The repository includes a production-ready Docker Compose setup with:
+The repository ships a production-ready Docker Compose setup that pulls a pre-built image from the GitHub Container Registry. No local build toolchain required.
 
-- **Multi-stage Dockerfile** — builds the dashboard, embed widget, and Go binary in a single `docker compose up --build`
+- **Pre-built image** — `ghcr.io/quipthread/quipthread:latest`, published automatically on every release
 - **Caddy** — automatic HTTPS via Let's Encrypt
 - **Litestream** — optional continuous SQLite backup to S3 or any S3-compatible bucket (Cloudflare R2, MinIO, etc.)
 
@@ -56,10 +56,11 @@ Caddy automatically obtains and renews a TLS certificate from Let's Encrypt. You
 ### 4. Deploy
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-The first build takes a few minutes (installs npm deps, compiles the dashboard and embed widget, builds the Go binary). Subsequent builds are fast thanks to layer caching.
+`docker compose pull` fetches the latest pre-built image. The container starts in seconds — no build step needed on your server.
 
 Navigate to `https://comments.example.com/login`. The first user to sign in is promoted to admin automatically.
 
@@ -67,7 +68,7 @@ Navigate to `https://comments.example.com/login`. The first user to sign in is p
 
 ## Local testing (no domain required)
 
-To test the full Docker build locally without a domain or TLS:
+To test locally without a domain or TLS:
 
 1. Start only the app service and expose port 8080 directly:
 
@@ -84,7 +85,7 @@ services:
       - "8080:8080"
 ```
 
-Then `docker compose up --build app` and access `http://localhost:8080`.
+Then `docker compose up app` and access `http://localhost:8080`.
 
 ---
 
@@ -131,8 +132,8 @@ This overlay starts a MinIO container so you can test Litestream replication loc
 ## Upgrading
 
 ```bash
-git pull
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 The Go binary runs database migrations automatically on startup — no manual schema changes needed.

@@ -15,11 +15,12 @@ type contextKey string
 const UserKey contextKey = "session_user"
 
 type Claims struct {
-	Sub         string `json:"sub"`
-	DisplayName string `json:"display_name"`
-	Provider    string `json:"provider"`
-	Role        string `json:"role"`
-	AccountID   string `json:"account_id,omitempty"`
+	Sub          string `json:"sub"`
+	DisplayName  string `json:"display_name"`
+	Provider     string `json:"provider"`
+	Role         string `json:"role"`
+	AccountID    string `json:"account_id,omitempty"`
+	IsTeamMember bool   `json:"is_team_member,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -30,6 +31,27 @@ func Issue(secret, userID, displayName, provider, role, accountID string) (strin
 		Provider:    provider,
 		Role:        role,
 		AccountID:   accountID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+// IssueTeamMember issues a JWT for a team member. The AccountID field is set to
+// the owner's account ID so that InjectTenantStore routes requests to the owner's
+// tenant database. IsTeamMember distinguishes them from account owners.
+func IssueTeamMember(secret, userID, displayName, provider, ownerAccountID string) (string, error) {
+	claims := Claims{
+		Sub:          userID,
+		DisplayName:  displayName,
+		Provider:     provider,
+		Role:         "admin",
+		AccountID:    ownerAccountID,
+		IsTeamMember: true,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

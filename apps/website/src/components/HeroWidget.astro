@@ -92,12 +92,28 @@
     --hw-accent: #E07F32;
     --hw-r:      8px;
     --hw-r-sm:   4px;
-    background: #161616;
-    border: 1px solid #2A2A2A;
+    --hw-shell-bg:     #161616;
+    --hw-shell-border: #2A2A2A;
+    --hw-shell-shadow: 0 0 0 1px rgba(212,168,83,0.08), 0 24px 64px rgba(0,0,0,0.45);
+    color-scheme: dark;
+    background: var(--hw-shell-bg);
+    border: 1px solid var(--hw-shell-border);
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(212,168,83,0.08), 0 24px 64px rgba(0,0,0,0.45);
-    color-scheme: dark;
+    box-shadow: var(--hw-shell-shadow);
+  }
+
+  :global([data-theme="light"]) .hw-shell {
+    --hw-bg:     #f7f4ef;
+    --hw-bg-alt: #eeebe4;
+    --hw-text:   #1a1714;
+    --hw-muted:  #7a7570;
+    --hw-border: #d9d4cb;
+    --hw-accent: #c06020;
+    --hw-shell-bg:     #eeebe4;
+    --hw-shell-border: #d9d4cb;
+    --hw-shell-shadow: 0 0 0 1px rgba(192,96,32,0.08), 0 24px 64px rgba(0,0,0,0.12);
+    color-scheme: light;
   }
 
   .hw-chrome {

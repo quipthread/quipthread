@@ -21,11 +21,11 @@ cd quipthread
 
 # Build the dashboard and embed widget, then copy assets into backend/static/
 bun install
-bun run build:assets
+bun run build:assets:selfhosted
 
 # Build the Go binary with embedded assets
 cd backend
-go build -tags=production -o quipthread .
+go build -tags=selfhosted,production -o quipthread .
 ```
 
 The resulting `quipthread` binary includes the dashboard and embed widget — no separate static file server needed.

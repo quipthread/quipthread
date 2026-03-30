@@ -1,9 +1,11 @@
+import sitemap from '@astrojs/sitemap'
 import starlight from '@astrojs/starlight'
 import { defineConfig } from 'astro/config'
 
 const backendUrl = process.env.PUBLIC_BACKEND_URL ?? 'http://localhost:8080'
 
 export default defineConfig({
+  site: 'https://quipthread.com',
   vite: {
     server: {
       proxy: {
@@ -13,7 +15,16 @@ export default defineConfig({
     },
   },
   integrations: [
+    sitemap(),
     starlight({
+      expressiveCode: {
+        defaultProps: {
+          // Suppress the empty frame header bar on code blocks that have no
+          // title — by default expressive-code renders a header regardless,
+          // producing a dark strip above the code content.
+          frame: 'none',
+        },
+      },
       title: 'Quipthread Documentation',
       components: {
         SiteTitle: './src/components/SiteTitle.astro',

@@ -63,6 +63,7 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 				r.URL.Path == "/login" ||
 				r.URL.Path == "/signup" ||
 				r.URL.Path == "/forgot-password" ||
+				r.URL.Path == "/accept-invite" ||
 				r.URL.Path == "/health" {
 				next.ServeHTTP(w, r)
 				return

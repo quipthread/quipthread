@@ -2,7 +2,7 @@ import type { ComponentChildren, JSX } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
-import type { AccountInfo, BillingStatus, SecuritySettings } from '../types'
+import type { AccountInfo, BillingStatus, SecuritySettings, TeamMember } from '../types'
 import InlineMsg from './shared/InlineMsg'
 import InputField from './shared/InputField'
 import PageHeader from './shared/PageHeader'
@@ -543,6 +543,157 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
   )
 }
 
+// ---- Team members section ---------------------------------------------------
+
+function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [email, setEmail] = useState('')
+  const [sending, setSending] = useState(false)
+  const [removing, setRemoving] = useState<Record<string, boolean>>({})
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const planIndex = billing ? PLAN_ORDER.indexOf(billing.plan) : PLAN_ORDER.indexOf('business')
+  const canAccess = IS_SELF_HOSTED || planIndex >= PLAN_ORDER.indexOf('business')
+
+  useEffect(() => {
+    if (!canAccess) return
+    api.invitations
+      .list()
+      .then((r) => setMembers(r.members))
+      .catch(() => {})
+  }, [canAccess])
+
+  async function invite() {
+    if (!email.trim()) return
+    setSending(true)
+    setMsg(null)
+    try {
+      const member = await api.invitations.create(email.trim())
+      setMembers((m) => {
+        const existing = m.findIndex((x) => x.id === member.id)
+        return existing >= 0 ? m.map((x, i) => (i === existing ? member : x)) : [member, ...m]
+      })
+      setEmail('')
+      setMsg({ type: 'success', text: `Invitation sent to ${member.email}.` })
+    } catch (e) {
+      setMsg({ type: 'error', text: (e as Error).message ?? 'Failed to send invitation.' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function remove(id: string) {
+    setRemoving((r) => ({ ...r, [id]: true }))
+    try {
+      await api.invitations.delete(id)
+      setMembers((m) => m.filter((x) => x.id !== id))
+    } catch {
+      // ignore
+    } finally {
+      setRemoving((r) => ({ ...r, [id]: false }))
+    }
+  }
+
+  return (
+    <SectionCard>
+      <SectionHeading>Team Members</SectionHeading>
+      <p
+        style={{
+          fontSize: '0.875rem',
+          color: 'var(--muted)',
+          margin: '0 0 1.25rem',
+          lineHeight: 1.6,
+        }}
+      >
+        Invite team members to access your moderation dashboard. Invites are sent by email.
+      </p>
+
+      {!canAccess ? (
+        <UpgradeGate
+          feature="Team member invitations"
+          description="Invite colleagues to help moderate your comments on the Business plan."
+          minPlan="business"
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', maxWidth: 420 }}>
+            <div style={{ flex: 1 }}>
+              <InputField label="Email address" htmlFor="invite-email">
+                <input
+                  id="invite-email"
+                  type="email"
+                  value={email}
+                  onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
+                  placeholder="colleague@example.com"
+                  style={{ width: '100%' }}
+                  disabled={sending}
+                />
+              </InputField>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onClick={invite}
+              disabled={sending || !email.trim()}
+              style={{ flexShrink: 0 }}
+            >
+              {sending ? 'Sending…' : 'Invite'}
+            </button>
+          </div>
+
+          {msg && <InlineMsg type={msg.type}>{msg.text}</InlineMsg>}
+
+          {members.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {members.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.875rem',
+                    padding: '0.625rem 0',
+                    borderBottom: '1px solid var(--surface)',
+                  }}
+                >
+                  <div style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text)' }}>
+                    {m.email}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.6875rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase' as const,
+                      letterSpacing: '0.06em',
+                      color: m.accepted ? 'var(--green-text)' : 'var(--muted)',
+                      background: m.accepted ? 'var(--green-bg)' : 'var(--surface)',
+                      border: `1px solid ${m.accepted ? 'var(--green-border)' : 'var(--border)'}`,
+                      borderRadius: 9999,
+                      padding: '0.15em 0.55em',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {m.accepted ? 'Active' : 'Pending'}
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn-ghost"
+                    style={{ fontSize: '0.8125rem', flexShrink: 0 }}
+                    onClick={() => remove(m.id)}
+                    disabled={removing[m.id]}
+                  >
+                    {removing[m.id] ? 'Removing…' : 'Remove'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
 // ---- Root component ---------------------------------------------------------
 
 export default function AccountPanel() {
@@ -597,6 +748,8 @@ export default function AccountPanel() {
       {account.providers.includes('email') && <PasswordSection />}
 
       <SecuritySection billing={billing} />
+
+      {!IS_SELF_HOSTED && <InvitationsSection billing={billing} />}
     </div>
   )
 }

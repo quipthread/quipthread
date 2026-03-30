@@ -119,6 +119,13 @@ export const api = {
       }),
   },
 
+  invitations: {
+    list: () => req<{ members: import('./types').TeamMember[] }>('/api/admin/invitations'),
+    create: (email: string) =>
+      json('POST', '/api/admin/invitations', { email }) as Promise<import('./types').TeamMember>,
+    delete: (id: string) => req(`/api/admin/invitations/${id}`, { method: 'DELETE' }),
+  },
+
   imports: {
     disqus: (siteId: string, file: File) =>
       multipart<import('./types').ImportResult>('/api/admin/import/disqus', siteId, file),

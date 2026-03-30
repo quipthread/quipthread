@@ -1,6 +1,7 @@
 {
   "name": "@quipthread/website",
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.2",
     "@astrojs/starlight": "^0.38.1",
     "@resvg/resvg-js": "^2.6.2",
     "astro": "^6.0.6",
@@ -10,7 +11,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "check": "astro check"
   },
   "type": "module",
   "devDependencies": {

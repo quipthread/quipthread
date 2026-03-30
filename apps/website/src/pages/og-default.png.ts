@@ -92,7 +92,8 @@ export const GET: APIRoute = async () => {
           },
         ],
       },
-    },
+      // biome-ignore lint/suspicious/noExplicitAny: satori expects ReactNode but accepts plain VNode objects at runtime
+    } as any,
     {
       width: 1200,
       height: 630,
@@ -110,7 +111,9 @@ export const GET: APIRoute = async () => {
   const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } })
   const png = resvg.render().asPng()
 
-  return new Response(png, {
+  // Wrap in Uint8Array — Buffer<ArrayBufferLike> is not assignable to BodyInit
+  // in all TypeScript/DOM type combinations despite being a Uint8Array subtype.
+  return new Response(new Uint8Array(png), {
     headers: {
       'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=31536000, immutable',

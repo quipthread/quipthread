@@ -145,3 +145,14 @@ export interface SecuritySettings {
   turnstile_site_key: string
   has_turnstile_secret: boolean
 }
+
+export interface TeamMember {
+  id: string
+  account_id: string
+  email: string
+  role: string
+  invite_token: string
+  accepted: boolean
+  invited_at: string
+  accepted_at: string | null
+}

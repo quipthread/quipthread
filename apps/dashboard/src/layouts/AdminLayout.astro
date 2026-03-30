@@ -3,6 +3,7 @@ import { ClientRouter, fade } from 'astro:transitions'
 import NavPlanSync from '../components/NavPlanSync'
 import CheckoutSuccessModal from '../components/CheckoutSuccessModal'
 import SiteGuard from '../components/SiteGuard'
+import UsageNudgeBanner from '../components/UsageNudgeBanner'
 
 interface Props {
   title: string
@@ -110,6 +111,7 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
         </div>
       </aside>
       <main class="main" transition:animate={fade({ duration: '0.25s' })}>
+        {!isSelfHosted && <UsageNudgeBanner client:load />}
         <slot />
       </main>
     </div>
