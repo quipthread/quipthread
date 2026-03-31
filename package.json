@@ -23,7 +23,18 @@
     "check": "biome check .",
     "check:fix": "biome check --write --unsafe ."
   },
+  "overrides": {
+    "h3": "^1.15.10",
+    "smol-toml": "^1.6.1"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9"
+  },
+  "dependencies": {
+    "@astrojs/preact": "^5.1.0",
+    "@astrojs/starlight": "^0.38.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "astro": "^6.1.2",
+    "vite": "^8.0.3"
   }
 }

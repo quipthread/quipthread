@@ -4,12 +4,17 @@ const html = document.documentElement
 
 function applyThemeToggle() {
   const isLight = html.getAttribute('data-theme') === 'light'
+  const osPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   if (isLight) {
     html.removeAttribute('data-theme')
-    localStorage.setItem('qt-theme', 'dark')
+    // Toggling to dark — clear override if that matches the OS so tracking resumes
+    if (osPrefersDark) localStorage.removeItem('qt-theme')
+    else localStorage.setItem('qt-theme', 'dark')
   } else {
     html.setAttribute('data-theme', 'light')
-    localStorage.setItem('qt-theme', 'light')
+    // Toggling to light — clear override if that matches the OS so tracking resumes
+    if (!osPrefersDark) localStorage.removeItem('qt-theme')
+    else localStorage.setItem('qt-theme', 'light')
   }
 }
 

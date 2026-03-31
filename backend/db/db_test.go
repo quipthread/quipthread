@@ -60,7 +60,10 @@ func TestCountCommentsThisMonth(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	lastMonth := now.AddDate(0, -1, 0)
+	// AddDate(0, -1, 0) can overshoot into the current month when run on day
+	// 29-31 of a month longer than the preceding one (e.g. March 31 → "Feb 31"
+	// → Mar 3). Anchor to first-of-month and step back one day instead.
+	lastMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 
 	comments := []*models.Comment{
 		{ID: "cur1", SiteID: "s1", PageID: "/", UserID: "u1", Content: "x", Status: "approved", CreatedAt: now},
