@@ -450,7 +450,7 @@ func (r *Runner) releaseLease(accountID string, lease *accountLease) {
 	accountLocks.Unlock()
 }
 
-func pinnedChecksum(goos, goarch string) (string, error) {
+func pinnedChecksum(goos, goarch string) (string, error) { //nolint:unparam // OS and architecture vary across build targets, but are constant within each build.
 	data, err := migrationAssets.ReadFile("atlas_cli.sha256")
 	if err != nil {
 		return "", err

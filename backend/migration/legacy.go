@@ -5,16 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
-	"slices"
 	"strings"
 
 	_ "modernc.org/sqlite" // Register SQLite for the legacy schema preflight.
 )
 
 type schemaColumn struct {
-	table, name, kind   string
-	notNull, primaryKey int
-	defaultValue        sql.NullString
+	table, name, kind           string
+	notNull, primaryKey, hidden int
+	defaultValue                sql.NullString
 }
 
 func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
@@ -30,10 +29,15 @@ func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close() //nolint:errcheck // read-only migration preflight
+	defer conn.Close() //nolint:errcheck // migration preflight connection cleanup
 	conn.SetMaxOpenConns(1)
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback() //nolint:errcheck // successful completion commits; other paths release the read transaction
 	var atlasTable, gooseTable, tables int
-	if err := conn.QueryRowContext(ctx, `SELECT count(*),coalesce(sum(name='atlas_schema_revisions'),0),coalesce(sum(name='goose_db_version'),0) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'`).Scan(&tables, &atlasTable, &gooseTable); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*),coalesce(sum(name='atlas_schema_revisions'),0),coalesce(sum(name='goose_db_version'),0) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'`).Scan(&tables, &atlasTable, &gooseTable); err != nil {
 		return "", err
 	}
 	if tables == 0 {
@@ -41,7 +45,7 @@ func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
 	}
 	if atlasTable > 0 {
 		var revisions int
-		if err := conn.QueryRowContext(ctx, `SELECT count(*) FROM atlas_schema_revisions`).Scan(&revisions); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM atlas_schema_revisions`).Scan(&revisions); err != nil {
 			return "", err
 		}
 		if revisions > 0 {
@@ -50,7 +54,7 @@ func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
 	}
 	if gooseTable > 0 {
 		var version, invalid int
-		if err := conn.QueryRowContext(ctx, `SELECT coalesce(max(version_id),0),coalesce(sum(version_id NOT IN (0,1) OR is_applied<>1),0) FROM goose_db_version`).Scan(&version, &invalid); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT coalesce(max(version_id),0),coalesce(sum(version_id NOT IN (0,1) OR is_applied<>1),0) FROM goose_db_version`).Scan(&version, &invalid); err != nil {
 			return "", err
 		}
 		if version != 1 || invalid != 0 {
@@ -58,13 +62,13 @@ func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
 		}
 	}
 	var customObjects int
-	if err := conn.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_schema WHERE type IN ('view','trigger') OR (type='index' AND sql IS NOT NULL)`).Scan(&customObjects); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_schema WHERE type IN ('view','trigger') OR (type='index' AND sql IS NOT NULL)`).Scan(&customObjects); err != nil {
 		return "", err
 	}
 	if customObjects != 0 {
 		return "", errors.New("unrecognized legacy schema objects")
 	}
-	actual, err := readSchemaColumns(ctx, conn)
+	actual, err := readSchemaColumns(ctx, tx)
 	if err != nil {
 		return "", err
 	}
@@ -88,14 +92,21 @@ func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !slices.Equal(actual, expected) {
-		return "", errors.New("database does not match the shipped legacy schema")
+	if err := completeHistoricalBaseline(ctx, tx, actual, expected); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
 	}
 	return "00001", nil
 }
 
-func readSchemaColumns(ctx context.Context, conn *sql.DB) ([]schemaColumn, error) {
-	rows, err := conn.QueryContext(ctx, `SELECT m.name,p.name,p.type,p."notnull",p.dflt_value,p.pk FROM sqlite_schema m JOIN pragma_table_info(m.name) p WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT IN ('goose_db_version','atlas_schema_revisions') ORDER BY m.name,p.name`)
+type schemaReader interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+func readSchemaColumns(ctx context.Context, conn schemaReader) ([]schemaColumn, error) {
+	rows, err := conn.QueryContext(ctx, `SELECT m.name,p.name,p.type,p."notnull",p.dflt_value,p.pk,p.hidden FROM sqlite_schema m JOIN pragma_table_xinfo(m.name) p WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT IN ('goose_db_version','atlas_schema_revisions') ORDER BY m.name,p.name`)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +114,7 @@ func readSchemaColumns(ctx context.Context, conn *sql.DB) ([]schemaColumn, error
 	var columns []schemaColumn
 	for rows.Next() {
 		var column schemaColumn
-		if err := rows.Scan(&column.table, &column.name, &column.kind, &column.notNull, &column.defaultValue, &column.primaryKey); err != nil {
+		if err := rows.Scan(&column.table, &column.name, &column.kind, &column.notNull, &column.defaultValue, &column.primaryKey, &column.hidden); err != nil {
 			return nil, err
 		}
 		columns = append(columns, column)
