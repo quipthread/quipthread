@@ -78,12 +78,10 @@ Used for moderation digest notifications and email auth flows.
 
 | Variable | Description |
 |---|---|
-| `EMAIL_PROVIDER` | Optional comment-notification API provider: `resend`, `postmark`, or `sendgrid`. Authentication emails always use SMTP. |
 | `SMTP_HOST` | SMTP server hostname (e.g. `email-smtp.us-east-1.amazonaws.com` for SES) |
 | `SMTP_PORT` | SMTP port (typically `587`) |
 | `SMTP_FROM` | Sender address (e.g. `noreply@yourdomain.com`) |
 | `SMTP_USER` / `SMTP_PASS` | SMTP credentials |
-| `EMAIL_API_KEY` | API key for Resend, Postmark, or SendGrid |
 
 ### Rate Limiting
 
@@ -95,15 +93,15 @@ Used for moderation digest notifications and email auth flows.
 
 ### Notifications
 
+Self-hosted builds support SMTP email notifications. Configure the `SMTP_*` settings above.
+
+Self-hosted builds support SMTP email notifications. Configure the `SMTP_*` settings above.
+
 | Variable | Description |
 |---|---|
 | `NOTIFY_EMAIL_TO` | Email address to receive moderation digests |
 | `NOTIFY_BATCH_SIZE` | Send digest when this many comments are pending (default: `5`) |
 | `NOTIFY_COOLDOWN_HOURS` | Also send if any pending and this many hours have passed (default: `24`) |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Telegram notification channel |
-| `SLACK_WEBHOOK_URL` | Slack incoming webhook |
-| `DISCORD_WEBHOOK_URL` | Discord webhook URL |
-| `WEBHOOK_URL` | Generic HTTP webhook for custom integrations |
 
 ## Embedding the Widget
 
