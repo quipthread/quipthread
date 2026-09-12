@@ -418,6 +418,7 @@ nav[data-open] .mobile-menu {
 }
 
 .subhead {
+  max-width: 32rem;
   font-size: 1.0625rem;
   line-height: 1.7;
   color: var(--stone);
@@ -738,6 +739,7 @@ button:not(.outline):not(.ghost):not([data-variant]):hover {
   margin-bottom: 0;
 }
 .featured-row .badge.warning {
+  padding-inline: 0;
   background: linear-gradient(90deg, #a7f3c4, #16a34a) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -1008,6 +1010,7 @@ footer {
     justify-content: center;
   }
   .subhead {
+    margin-inline: auto;
     font-size: 0.9375rem;
   }
   .col-3 {
