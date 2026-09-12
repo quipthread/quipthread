@@ -22,7 +22,7 @@ Clone the repository so the Compose file and Caddy configuration are both availa
 ```bash
 git clone https://github.com/quipthread/quipthread
 cd quipthread
-cp .env.example .env
+cp .env.docker.example .env
 chmod 600 .env
 ```
 
@@ -41,7 +41,7 @@ The image tag `latest` follows public version-tag releases, not merges to `main`
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in the values. Required fields are marked below.
+Copy `.env.docker.example` to `.env` and fill in the values. Required fields are marked below.
 
 ### Core
 
@@ -137,7 +137,7 @@ Use Go 1.26.4 or newer and Bun. The backend also requires the pinned Linux Atlas
 ```bash
 bun install --frozen-lockfile
 bun run build:assets:selfhosted
-cp .env.example .env
+cp .env.docker.example .env
 # Edit .env with your local backend origin, publisher origins, database path, and auth settings.
 ```
 
