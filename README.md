@@ -95,8 +95,6 @@ Used for moderation digest notifications and email auth flows.
 
 Self-hosted builds support SMTP email notifications. Configure the `SMTP_*` settings above.
 
-Self-hosted builds support SMTP email notifications. Configure the `SMTP_*` settings above.
-
 | Variable | Description |
 |---|---|
 | `NOTIFY_EMAIL_TO` | Email address to receive moderation digests |
