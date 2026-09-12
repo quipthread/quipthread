@@ -17,22 +17,31 @@ A self-hostable comment system you can drop into any website. No third-party tra
 
 ## Quick Start (Docker)
 
-The fastest way to get running:
+Clone the repository so the Compose file and Caddy configuration are both available:
 
 ```bash
-curl -O https://raw.githubusercontent.com/quipthread/quipthread/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/quipthread/quipthread/main/.env.docker.example
+git clone https://github.com/quipthread/quipthread
+cd quipthread
+cp .env.example .env
+chmod 600 .env
+```
 
-cp .env.docker.example .env
-# Edit .env — at minimum set JWT_SECRET and at least one OAuth provider
+Edit `.env`: set `JWT_SECRET`, `BASE_URL`, `ALLOWED_ORIGINS`, and a complete authentication provider. Use the Quipthread origin for `BASE_URL` and the websites that embed comments for `ALLOWED_ORIGINS`. Email authentication requires SMTP.
+
+Replace the example domain and email in `deploy/Caddyfile`. Point DNS to your server and allow inbound TCP ports 80 and 443. Then run:
+
+```bash
+docker compose pull
 docker compose up -d
 ```
 
-The admin dashboard is available at `http://localhost:8080/dashboard`.
+Open `https://your-comments-domain/login` and create the first admin account. The app port is private by default; Caddy serves HTTPS.
+
+The image tag `latest` follows public version-tag releases, not merges to `main`. See the [Docker guide](https://quipthread.com/docs/guides/docker/) for the current-source build option, local testing, and backups.
 
 ## Configuration
 
-Copy `.env.docker.example` to `.env` and fill in the values. Required fields are marked below.
+Copy `.env.example` to `.env` and fill in the values. Required fields are marked below.
 
 ### Core
 
@@ -42,7 +51,7 @@ Copy `.env.docker.example` to `.env` and fill in the values. Required fields are
 | `BASE_URL` | Yes | `http://localhost:8080` | Public URL of your instance |
 | `PORT` | No | `8080` | Port the server listens on |
 | `DATABASE_URL` | No | `./data/comments.db` | SQLite database path |
-| `ALLOWED_ORIGINS` | No | _(allow all)_ | Comma-separated list of domains that can embed the widget |
+| `ALLOWED_ORIGINS` | Yes in production | — | Comma-separated exact publisher origins, including scheme and port where needed. No paths or wildcards. |
 
 ### Authentication
 
@@ -69,7 +78,7 @@ Used for moderation digest notifications and email auth flows.
 
 | Variable | Description |
 |---|---|
-| `EMAIL_PROVIDER` | `smtp`, `ses`, `resend`, `postmark`, or `sendgrid` |
+| `EMAIL_PROVIDER` | Optional comment-notification API provider: `resend`, `postmark`, or `sendgrid`. Authentication emails always use SMTP. |
 | `SMTP_HOST` | SMTP server hostname (e.g. `email-smtp.us-east-1.amazonaws.com` for SES) |
 | `SMTP_PORT` | SMTP port (typically `587`) |
 | `SMTP_FROM` | Sender address (e.g. `noreply@yourdomain.com`) |
@@ -94,32 +103,23 @@ Used for moderation digest notifications and email auth flows.
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Telegram notification channel |
 | `SLACK_WEBHOOK_URL` | Slack incoming webhook |
 | `DISCORD_WEBHOOK_URL` | Discord webhook URL |
-| `NOTIFY_WEBHOOK_URL` | Generic HTTP webhook for custom integrations |
+| `WEBHOOK_URL` | Generic HTTP webhook for custom integrations |
 
 ## Embedding the Widget
 
-After logging in and creating a site in the dashboard, add this to any page:
+After creating a site in the dashboard, put the mount element before the script:
 
 ```html
-<script
-  src="http://your-instance.com/embed.js"
-  data-site-id="your-site-id"
-  async
-></script>
+<div
+  id="comments"
+  data-site-id="YOUR_SITE_ID"
+  data-page-id="/your-page"
+  data-theme="auto"
+></div>
+<script src="https://your-comments-domain/embed.js" async></script>
 ```
 
-The widget automatically inherits your page's light/dark preference, or you can pin a specific theme:
-
-```html
-<script
-  src="http://your-instance.com/embed.js"
-  data-site-id="your-site-id"
-  data-theme="dark"
-  async
-></script>
-```
-
-Available themes: `auto`, `light`, `dark`, `editorial-light`, `editorial-dark`, `warm-paper`, `midnight`, `ocean`, `forest`, `rose`, `slate`, `sepia`, `high-contrast-light`, `high-contrast-dark`.
+Use a stable, unique `data-page-id` for each page. The attributes belong on the `div`, not the script. `auto` uses the site theme with a system-preference fallback. See the [embed reference](https://quipthread.com/docs/embed/reference/) for supported options.
 
 ## Upgrading
 
@@ -128,25 +128,20 @@ docker compose pull
 docker compose up -d
 ```
 
-The database schema is managed automatically — migrations run on startup and are idempotent.
+Back up the database before upgrading. Startup runs migrations automatically and stops on migration errors. Container replacement preserves the data volume; `docker compose down -v` deletes it. Keep a pre-upgrade backup if you need to roll back.
 
 ## Development
 
+Use Go 1.26.4 or newer and Bun. The backend also requires the pinned Linux Atlas CLI; follow the [source-build guide](https://quipthread.com/docs/guides/self-hosting/) to install it before starting the backend. On macOS or Windows, use the Linux Docker image for the backend.
+
 ```bash
-# Install dependencies
-bun install
-
-# Terminal 1 — Go backend
-cd backend
-cp ../.env.example .env   # fill in JWT_SECRET + auth provider keys
-echo "DEV_DASHBOARD_URL=http://localhost:4321" >> .env
-go run .
-
-# Terminal 2 — Astro dashboard (with HMR)
-bun run dev:dashboard
+bun install --frozen-lockfile
+bun run build:assets:selfhosted
+cp .env.example .env
+# Edit .env with your local backend origin, publisher origins, database path, and auth settings.
 ```
 
-Everything is available at `http://localhost:8080`. The Go backend proxies `/dashboard/*` to the Astro dev server so hot module replacement works.
+Run the backend from `backend/` with `go run .`. To use dashboard HMR, set `DEV_DASHBOARD_URL` to the URL printed by `bun run dev:dashboard` before starting the backend.
 
 ## Repo Layout
 
@@ -160,18 +155,9 @@ Everything is available at `http://localhost:8080`. The Go backend proxies `/das
 └── deploy/              Docker entrypoint and supporting scripts
 ```
 
-## Building from Source
+## Building from source
 
-```bash
-# Build frontend assets
-bun run build:assets:selfhosted
-
-# Build the Go binary
-cd backend && go build -tags=selfhosted,production -o quipthread .
-
-# Run it
-./quipthread
-```
+The [self-hosting guide](https://quipthread.com/docs/guides/self-hosting/) covers the Go/Bun build, checksum-verified Atlas installation, production configuration, and HTTPS setup. The [Docker guide](https://quipthread.com/docs/guides/docker/) builds all of these inside a container.
 
 ## License
 
