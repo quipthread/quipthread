@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - ".github/workflows/ci.yml"
   pull_request:
     paths:
       - "backend/**"
+      - ".github/workflows/ci.yml"
 
 jobs:
   go:
@@ -21,6 +23,24 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      - name: Verify pinned Atlas CLI
+        run: |
+          set -eu
+          version=v1.3.0
+          arch="$(dpkg --print-architecture)"
+          case "$arch" in
+            amd64|arm64) ;;
+            *) echo "unsupported Atlas CI architecture: $arch" >&2; exit 1 ;;
+          esac
+          artifact="atlas-linux-${arch}-${version}"
+          checksum="$(awk -v key="linux/${arch}/${artifact}" '$2 == key { print $1 }' migration/atlas_cli.sha256)"
+          test -n "$checksum"
+          tmp="$RUNNER_TEMP/atlas"
+          curl --fail --silent --show-error --location "https://release.ariga.io/atlas/${artifact}" --output "$tmp"
+          echo "$checksum  $tmp" | sha256sum --check --status
+          chmod 0555 "$tmp"
+          "$tmp" version | grep -F "atlas version ${version}" >/dev/null
+          echo "ATLAS_TEST_ATLAS_PATH=$tmp" >> "$GITHUB_ENV"
       - run: go build ./...
       - run: go build -tags=selfhosted ./...
       - run: go vet -tags=selfhosted ./...
