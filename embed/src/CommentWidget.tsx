@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { AuthModal } from './AuthModal'
-import { fetchConfig, getMe } from './api'
+import { fetchConfig, getApiBase, getMe, ssoLogin } from './api'
 import { CommentForm } from './CommentForm'
 import { CommentList } from './CommentList'
 import { useTranslations } from './i18n'
@@ -15,6 +15,7 @@ interface CommentWidgetProps {
   lang: string
   theme?: string
   customVars?: Record<string, string>
+  ssoToken?: string
 }
 
 export function CommentWidget({
@@ -25,6 +26,7 @@ export function CommentWidget({
   lang,
   theme,
   customVars,
+  ssoToken,
 }: CommentWidgetProps) {
   const t = useTranslations(lang)
   const [user, setUser] = useState<User | null>(null)
@@ -40,8 +42,25 @@ export function CommentWidget({
   const dbTheme = useRef<string>('auto')
 
   useEffect(() => {
-    getMe().then((u) => {
-      setUser(u)
+    getMe().then(async (u) => {
+      if (u) {
+        setUser(u)
+        setAuthLoading(false)
+        return
+      }
+      // If a publisher-signed SSO token is present, attempt the exchange before
+      // treating the user as anonymous. A failed exchange (expired, invalid plan,
+      // misconfigured secret) is silent — the user just sees the normal auth UI.
+      if (ssoToken) {
+        const ssoUser = await ssoLogin(siteId, ssoToken)
+        if (ssoUser) {
+          setUser(ssoUser)
+          setAuthLoading(false)
+          return
+        } else {
+          console.warn('[quipthread] SSO token exchange failed — falling back to anonymous auth')
+        }
+      }
       setAuthLoading(false)
     })
     fetchConfig(siteId).then((cfg) => {
@@ -52,7 +71,7 @@ export function CommentWidget({
         setActiveTheme(dbTheme.current)
       }
     })
-  }, [siteId, theme])
+  }, [siteId, theme, ssoToken])
 
   // Watch the host page's container for data-theme changes (e.g. page-level theme toggles).
   // Updates activeTheme state so React stays in sync rather than fighting DOM mutations.
@@ -96,13 +115,11 @@ export function CommentWidget({
 
   const handleLogout = async () => {
     try {
-      await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
+      await fetch(`${getApiBase()}/auth/embed/logout`, { method: 'POST', credentials: 'include' })
     } finally {
       setUser(null)
     }
   }
-
-  const _commentCount = undefined // Could be fetched separately; left for a later pass
 
   return (
     <div

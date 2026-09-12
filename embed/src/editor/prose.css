@@ -1,0 +1,141 @@
+.qt-root {
+  --qt-prose-text: var(--qt-text);
+  --qt-prose-accent: var(--qt-accent);
+  --qt-prose-border: var(--qt-border);
+  --qt-prose-bg: var(--qt-bg-alt);
+  --qt-prose-radius: var(--qt-radius-sm);
+}
+.qt-dashboard-comment {
+  --qt-prose-text: var(--text);
+  --qt-prose-accent: var(--amber);
+  --qt-prose-border: var(--border);
+  --qt-prose-bg: var(--surface);
+  --qt-prose-radius: 4px;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) {
+  color: var(--qt-prose-text);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) p {
+  margin: 0 0 0.75em;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment)
+  :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1em 0 0.5em;
+  color: inherit;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) h1 {
+  font-size: 1.5rem;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) h2 {
+  font-size: 1.25rem;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) h3 {
+  font-size: 1.125rem;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) h4 {
+  font-size: 1rem;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) h5 {
+  font-size: 0.9375rem;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) h6 {
+  font-size: 0.875rem;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) strong {
+  font-weight: 700;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) em {
+  font-style: italic;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) u {
+  text-decoration: underline;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) s {
+  text-decoration: line-through;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) mark {
+  color: inherit;
+  background: color-mix(in srgb, var(--qt-prose-accent) 24%, transparent);
+  padding: 0 0.1em;
+  border-radius: 2px;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment)
+  :is(sub, sup) {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) sub {
+  bottom: -0.25em;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) sup {
+  top: -0.5em;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment)
+  :is(ul, ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) ul {
+  list-style: disc;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) ol {
+  list-style: decimal;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) li > p {
+  margin-bottom: 0;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment)
+  blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--qt-prose-border);
+  font-style: italic;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--qt-prose-bg);
+  padding: 0.1em 0.35em;
+  border-radius: var(--qt-prose-radius);
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) pre {
+  color: var(--qt-prose-text);
+  background: var(--qt-prose-bg);
+  border: 1px solid var(--qt-prose-border);
+  border-radius: var(--qt-prose-radius);
+  padding: 12px;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0.75em 0;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) hr {
+  border: 0;
+  border-top: 1px solid var(--qt-prose-border);
+  margin: 1em 0;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment) a {
+  color: var(--qt-prose-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment)
+  > :first-child {
+  margin-top: 0;
+}
+:is(.qt-root .qt-rich-text .tiptap, .qt-root .qt-comment-content, .qt-dashboard-comment)
+  > :last-child {
+  margin-bottom: 0;
+}

@@ -1,16 +1,68 @@
 package db
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/quipthread/quipthread/models"
 )
 
+func TestGetUserContextHonorsCancellation(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.UpsertUser(&models.User{ID: "context-user", Email: "context@example.test", Role: "commenter"}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := store.GetUserContext(ctx, "context-user"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("GetUserContext error = %v, want context cancellation", err)
+	}
+}
+
+func TestNewLibSQLStoreContextHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := NewLibSQLStoreContext(ctx, "libsql://cancelled.example.test")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("NewLibSQLStoreContext error = %v, want context cancellation", err)
+	}
+}
+
+func TestLibSQLInitializationErrorsDoNotExposeRemoteCredentials(t *testing.T) {
+	secret := "private-auth-token"
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := NewLibSQLStoreWithAuthTokenContext(ctx, "libsql://tenant.example.test", secret)
+	if err == nil || strings.Contains(err.Error(), secret) || strings.Contains(err.Error(), "tenant.example.test") {
+		t.Fatalf("unsafe libSQL initialization error = %v", err)
+	}
+}
+
+func TestStrictLibSQLTargetRejectsUnsafeURLForms(t *testing.T) {
+	for _, test := range []struct {
+		target string
+		token  string
+	}{
+		{target: "libsql://user:pass@tenant.example.test", token: "separate-token"},
+		{target: "libsql://tenant.example.test#secret", token: "separate-token"},
+		{target: "libsql://tenant.example.test?authToken=one&authToken=two", token: "separate-token"},
+		{target: "libsql://tenant.example.test?unexpected=value", token: ""},
+		{target: "libsql://tenant.example.test?bad=%zz", token: ""},
+	} {
+		_, err := libSQLDriverDSNStrict(test.target, test.token)
+		if err == nil || strings.Contains(err.Error(), "tenant.example.test") || strings.Contains(err.Error(), "secret") || strings.Contains(err.Error(), "one") || strings.Contains(err.Error(), "two") {
+			t.Fatalf("unsafe target %q produced unsafe result: %v", test.target, err)
+		}
+	}
+}
+
 func newTestStore(t *testing.T) Store {
 	t.Helper()
-	s, err := NewSQLiteStore(":memory:")
+	s, err := NewSQLiteStoreForTest(":memory:")
 	if err != nil {
 		t.Fatalf("open in-memory store: %v", err)
 	}

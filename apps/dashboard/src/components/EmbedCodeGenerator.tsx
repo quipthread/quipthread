@@ -29,7 +29,7 @@ export function Comments() {
   return (
     <>
       <div
-        id="quipthread-comments"
+        id="comments"
         data-site-id="${siteId}"
         data-page-id={pathname}
       />
@@ -58,7 +58,7 @@ export function Comments() {
 
   return (
     <div
-      id="quipthread-comments"
+      id="comments"
       data-site-id="${siteId}"
       data-page-id={asPath}
     />
@@ -71,7 +71,7 @@ const pageId = Astro.url.pathname
 ---
 
 <div
-  id="quipthread-comments"
+  id="comments"
   data-site-id="${siteId}"
   data-page-id={pageId}
 />
@@ -86,7 +86,7 @@ const pageId = Astro.url.pathname
     case 'vue':
       return `<template>
   <div
-    id="quipthread-comments"
+    id="comments"
     data-site-id="${siteId}"
     :data-page-id="$route.path"
   />
@@ -115,7 +115,7 @@ export default defineNuxtPlugin(() => {
 // components/QuipthreadComments.vue
 // <template>
 //   <div
-//     id="quipthread-comments"
+//     id="comments"
 //     data-site-id="${siteId}"
 //     :data-page-id="useRoute().path"
 //   />
@@ -123,7 +123,7 @@ export default defineNuxtPlugin(() => {
 
     case 'vanilla':
       return `<div
-  id="quipthread-comments"
+  id="comments"
   data-site-id="${siteId}"
   data-page-id="/your-page-path"
 ></div>

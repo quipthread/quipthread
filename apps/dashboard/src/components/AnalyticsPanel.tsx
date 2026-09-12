@@ -1,7 +1,10 @@
+import { useQuery } from '@tanstack/preact-query'
 import { useEffect, useState } from 'preact/hooks'
 import * as _recharts from 'recharts'
 import { api } from '../api'
-import type { AnalyticsData, Site } from '../types'
+import { queryKeys } from '../lib/queryKeys'
+import type { AnalyticsData } from '../types'
+import QueryProvider from './QueryProvider'
 import SelectDropdown from './SelectDropdown'
 import UpgradeGate from './UpgradeGate'
 
@@ -263,28 +266,55 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 
 // ---- Main component --------------------------------------------------------
 
-export default function AnalyticsPanel() {
-  const [plan, setPlan] = useState<string | null>(null)
-  const [sites, setSites] = useState<Site[]>([])
-  const [siteId, setSiteId] = useState<string>('')
+function AnalyticsPanelInner() {
+  const [siteId, setSiteId] = useState('')
   const [range, setRange] = useState<Range>('30d')
-  const [data, setData] = useState<AnalyticsData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [isDark, setIsDark] = useState(false)
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 600 : false,
   )
 
+  const {
+    data: billing,
+    isError: billingError,
+    isFetching: billingFetching,
+    refetch: refetchBilling,
+  } = useQuery({
+    queryKey: queryKeys.billingStatus(),
+    queryFn: () => api.billing.status(),
+    staleTime: 60_000,
+  })
+
+  const { data: sitesData } = useQuery({
+    queryKey: queryKeys.sites(),
+    queryFn: () => api.sites.list(),
+    staleTime: 30_000,
+  })
+
+  const plan = billing?.plan ?? null
+  const sites = sitesData?.sites ?? []
+
   const isPro = plan ? PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('pro') : false
   const isBusiness = plan === 'business'
   const hasAccess = plan ? PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('starter') : false
 
-  const gridColor = isDark ? '#2E2C29' : '#D9D4CB'
-  const axisColor = isDark ? '#8A8480' : '#7A7570'
-  const cursorColor = isDark ? 'rgba(224,127,50,0.12)' : '#F5E0CE'
-  const yAxisWidth = isMobile ? 80 : 140
-  const labelTrunc = isMobile ? 14 : 32
+  // Initialize siteId when sites first load
+  useEffect(() => {
+    if (sites.length > 0 && !siteId) setSiteId(sites[0].id)
+  }, [sites, siteId])
+
+  const {
+    data: analyticsData,
+    isLoading: analyticsLoading,
+    isError: analyticsError,
+    isFetching: analyticsFetching,
+    refetch: refetchAnalytics,
+  } = useQuery<AnalyticsData>({
+    queryKey: queryKeys.analytics(siteId, range),
+    queryFn: () => api.analytics.get(siteId, range),
+    enabled: !!siteId && hasAccess,
+    staleTime: 30_000,
+  })
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -300,31 +330,27 @@ export default function AnalyticsPanel() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
-  useEffect(() => {
-    Promise.all([api.billing.status(), api.sites.list()])
-      .then(([status, { sites }]) => {
-        setPlan(status.plan)
-        setSites(sites)
-        if (sites.length > 0) setSiteId(sites[0].id)
-      })
-      .catch(() => setPlan('hobby'))
-  }, [])
+  const gridColor = isDark ? '#2E2C29' : '#D9D4CB'
+  const axisColor = isDark ? '#8A8480' : '#7A7570'
+  const cursorColor = isDark ? 'rgba(224,127,50,0.12)' : '#F5E0CE'
+  const yAxisWidth = isMobile ? 80 : 140
+  const labelTrunc = isMobile ? 14 : 32
 
-  useEffect(() => {
-    if (!siteId || !hasAccess) return
-    setLoading(true)
-    setError(null)
-    api.analytics
-      .get(siteId, range)
-      .then((d) => {
-        setData(d)
-        setLoading(false)
-      })
-      .catch(() => {
-        setError('Failed to load analytics.')
-        setLoading(false)
-      })
-  }, [siteId, range, hasAccess])
+  if (plan === null && billingError) {
+    return (
+      <div className="error-msg" role="alert">
+        Failed to load billing status.{' '}
+        <button
+          type="button"
+          className="btn"
+          disabled={billingFetching}
+          onClick={() => refetchBilling()}
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   if (plan === null) return <div className="loading">Loading…</div>
 
@@ -338,6 +364,9 @@ export default function AnalyticsPanel() {
     )
   }
 
+  const data = analyticsData ?? null
+  const loading = analyticsLoading
+  const error = analyticsError ? 'Failed to load analytics.' : null
   const isEmpty = data && data.volume.length === 0 && data.pages.length === 0
 
   return (
@@ -374,6 +403,7 @@ export default function AnalyticsPanel() {
 
       {error && (
         <div
+          role="alert"
           style={{
             background: 'var(--red-bg)',
             color: 'var(--red-text)',
@@ -383,7 +413,15 @@ export default function AnalyticsPanel() {
             fontSize: '0.875rem',
           }}
         >
-          {error}
+          {error}{' '}
+          <button
+            type="button"
+            className="btn"
+            disabled={analyticsFetching}
+            onClick={() => refetchAnalytics()}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -684,5 +722,13 @@ export default function AnalyticsPanel() {
         </>
       )}
     </div>
+  )
+}
+
+export default function AnalyticsPanel() {
+  return (
+    <QueryProvider>
+      <AnalyticsPanelInner />
+    </QueryProvider>
   )
 }

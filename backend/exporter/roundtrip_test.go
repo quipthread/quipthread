@@ -12,7 +12,7 @@ import (
 
 func newTestStore(t *testing.T) db.Store {
 	t.Helper()
-	s, err := db.NewSQLiteStore(":memory:")
+	s, err := db.NewSQLiteStoreForTest(":memory:")
 	if err != nil {
 		t.Fatalf("open in-memory store: %v", err)
 	}

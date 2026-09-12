@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from 'preact/hooks'
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
+import { useState } from 'preact/hooks'
 import { api } from '../api'
+import { queryKeys } from '../lib/queryKeys'
 import type { Comment } from '../types'
 import { relativeTime, stripHtml, truncate } from '../utils'
 import ModerationQueue from './ModerationQueue'
+import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 
 const STATUSES = ['pending', 'approved', 'rejected'] as const
@@ -10,43 +13,47 @@ type Status = (typeof STATUSES)[number]
 
 const PAGE_SIZE = 20
 
-export default function CommentsPanel() {
+function CommentsPanelInner() {
   const [status, setStatus] = useState<Status>('pending')
-
-  // State for approved / rejected tabs only — pending is owned by ModerationQueue
-  const [comments, setComments] = useState<Comment[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [acting, setActing] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const fetchComments = useCallback(async (p: number, s: Status) => {
-    if (s === 'pending') return
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await api.comments.list({ status: s, page: p, limit: PAGE_SIZE })
-      setComments(res.comments ?? [])
-      setTotal(res.total)
-      setPage(p)
-    } catch {
-      setError('Failed to load comments.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.comments({ status, page, limit: PAGE_SIZE }),
+    queryFn: () => api.comments.list({ status, page, limit: PAGE_SIZE }),
+    enabled: status !== 'pending',
+  })
 
-  useEffect(() => {
-    if (status !== 'pending') fetchComments(1, status)
-  }, [status, fetchComments])
+  const comments = data?.comments ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  function handleStatusChange(s: Status) {
+    setStatus(s)
+    setPage(1)
+  }
+
+  function removeFromCache(id: string) {
+    queryClient.setQueryData<{ comments: Comment[]; total: number }>(
+      queryKeys.comments({ status, page, limit: PAGE_SIZE }),
+      (old) =>
+        old
+          ? {
+              ...old,
+              comments: old.comments.filter((c) => c.id !== id),
+              total: Math.max(0, old.total - 1),
+            }
+          : old,
+    )
+    queryClient.invalidateQueries({ queryKey: queryKeys.allComments() })
+  }
 
   const changeStatus = async (id: string, next: string) => {
     setActing(id)
     try {
       await api.comments.update(id, { status: next })
-      setComments((prev) => prev.filter((c) => c.id !== id))
-      setTotal((t) => Math.max(0, t - 1))
+      removeFromCache(id)
     } finally {
       setActing(null)
     }
@@ -57,14 +64,11 @@ export default function CommentsPanel() {
     setActing(id)
     try {
       await api.comments.delete(id)
-      setComments((prev) => prev.filter((c) => c.id !== id))
-      setTotal((t) => Math.max(0, t - 1))
+      removeFromCache(id)
     } finally {
       setActing(null)
     }
   }
-
-  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <>
@@ -81,7 +85,7 @@ export default function CommentsPanel() {
             type="button"
             key={s}
             className={status === s ? 'active' : ''}
-            onClick={() => setStatus(s)}
+            onClick={() => handleStatusChange(s)}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
@@ -90,10 +94,10 @@ export default function CommentsPanel() {
 
       {status === 'pending' ? (
         <ModerationQueue />
-      ) : loading ? (
+      ) : isLoading ? (
         <div className="loading">Loading…</div>
-      ) : error ? (
-        <div className="error-msg">{error}</div>
+      ) : isError ? (
+        <div className="error-msg">Failed to load comments.</div>
       ) : comments.length === 0 ? (
         <div className="empty">No {status} comments.</div>
       ) : (
@@ -179,7 +183,7 @@ export default function CommentsPanel() {
                 type="button"
                 className="btn"
                 disabled={page <= 1}
-                onClick={() => fetchComments(page - 1, status)}
+                onClick={() => setPage((p) => p - 1)}
               >
                 ←
               </button>
@@ -190,7 +194,7 @@ export default function CommentsPanel() {
                 type="button"
                 className="btn"
                 disabled={page >= totalPages}
-                onClick={() => fetchComments(page + 1, status)}
+                onClick={() => setPage((p) => p + 1)}
               >
                 →
               </button>
@@ -199,5 +203,13 @@ export default function CommentsPanel() {
         </>
       )}
     </>
+  )
+}
+
+export default function CommentsPanel() {
+  return (
+    <QueryProvider>
+      <CommentsPanelInner />
+    </QueryProvider>
   )
 }

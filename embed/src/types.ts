@@ -17,6 +17,7 @@ export interface Comment {
   status: string
   author_name: string
   author_avatar: string
+  disqus_author?: string
   upvotes: number
   user_voted: boolean
   user_flagged: boolean

@@ -21,7 +21,18 @@ const (
 // StartDispatcher runs a background loop that checks for pending comments and
 // dispatches notification batches per site. It respects ctx cancellation for
 // clean shutdown. Call it in a goroutine from main.
+//
+// In managed cloud mode (CLOUD_MODE=true) the dispatcher must not start: it
+// enumerates sites and reads pending comments through the store passed by the
+// caller, which in cloud deployments is the global constructor store holding
+// tenant content. Until a tenant-aware dispatcher exists this function fails
+// closed and performs zero store reads or dispatches.
 func StartDispatcher(ctx context.Context, store db.Store, notifier Notifier, cfg *config.Config) {
+	if cfg.CloudMode {
+		slog.Info("notifications dispatcher disabled in cloud mode")
+		return
+	}
+
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
 

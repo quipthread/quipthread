@@ -5,107 +5,127 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/quipthread/quipthread/db"
+	"github.com/quipthread/quipthread/models"
 	"github.com/quipthread/quipthread/session"
 )
 
-// RequireAuth validates the session JWT and attaches claims to the request context.
-// Returns 401 if the cookie is missing or the token is invalid.
+// RequireAuth is the dashboard compatibility wrapper. New routes should name
+// their trust domain explicitly with RequireAuthForAudience.
 func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
+	return RequireAuthForAudience(jwtSecret, session.DashboardAudience, nil)
+}
+
+func RequireAuthForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(session.CookieName)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "authentication required")
+			claims, ok := authenticate(w, r, jwtSecret, audience, fallback)
+			if !ok {
 				return
 			}
-
-			claims, err := session.Parse(jwtSecret, cookie.Value)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "invalid or expired session")
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), session.UserKey, claims)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), session.UserKey, claims)))
 		})
 	}
 }
 
-// RequireAdmin runs after RequireAuth. Returns 403 if the user is not an admin.
+// RequireAdmin runs after RequireAuth and validates a dashboard session.
 func RequireAdmin(jwtSecret string) func(http.Handler) http.Handler {
+	return RequireAdminForAudience(jwtSecret, session.DashboardAudience, nil)
+}
+
+func RequireAdminForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(session.CookieName)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "authentication required")
+			claims, ok := authenticate(w, r, jwtSecret, audience, fallback)
+			if !ok {
 				return
 			}
-
-			claims, err := session.Parse(jwtSecret, cookie.Value)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "invalid or expired session")
-				return
-			}
-
 			if claims.Role != "admin" {
 				writeError(w, http.StatusForbidden, "admin access required")
 				return
 			}
-
-			ctx := context.WithValue(r.Context(), session.UserKey, claims)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), session.UserKey, claims)))
 		})
 	}
 }
 
-// RequireOwner runs after RequireAuth. Returns 403 if the user is not an admin
-// or if the user is a team member. Use this on routes that only account owners
-// should access (billing, invitation management, account deletion, etc.).
 func RequireOwner(jwtSecret string) func(http.Handler) http.Handler {
+	return RequireOwnerForAudience(jwtSecret, session.DashboardAudience, nil)
+}
+
+func RequireOwnerForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(session.CookieName)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "authentication required")
+			claims, ok := authenticate(w, r, jwtSecret, audience, fallback)
+			if !ok {
 				return
 			}
-
-			claims, err := session.Parse(jwtSecret, cookie.Value)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "invalid or expired session")
-				return
-			}
-
 			if claims.Role != "admin" {
 				writeError(w, http.StatusForbidden, "admin access required")
 				return
 			}
-
 			if claims.IsTeamMember {
 				writeError(w, http.StatusForbidden, "account owner access required")
 				return
 			}
-
-			ctx := context.WithValue(r.Context(), session.UserKey, claims)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), session.UserKey, claims)))
 		})
 	}
 }
 
-// InjectAuth tries to parse the session JWT and, if valid, attaches claims to
-// the request context. Unlike RequireAuth it never rejects the request — callers
-// check for nil claims to distinguish authenticated from anonymous users.
+// InjectAuth is the dashboard compatibility wrapper.
 func InjectAuth(jwtSecret string) func(http.Handler) http.Handler {
+	return InjectAuthForAudience(jwtSecret, session.DashboardAudience, nil)
+}
+
+func InjectAuthForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if cookie, err := r.Cookie(session.CookieName); err == nil {
-				if claims, err := session.Parse(jwtSecret, cookie.Value); err == nil {
-					r = r.WithContext(context.WithValue(r.Context(), session.UserKey, claims))
-				}
+			if claims, ok := authenticate(nil, r, jwtSecret, audience, fallback); ok {
+				r = r.WithContext(context.WithValue(r.Context(), session.UserKey, claims))
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func authenticate(w http.ResponseWriter, r *http.Request, jwtSecret, audience string, fallback db.Store) (*session.Claims, bool) {
+	cookie, err := r.Cookie(session.CookieNameForAudience(audience))
+	if err != nil {
+		if w != nil {
+			writeError(w, http.StatusUnauthorized, "authentication required")
+		}
+		return nil, false
+	}
+	claims, err := session.ParseForAudience(jwtSecret, cookie.Value, audience)
+	if err != nil {
+		if w != nil {
+			writeError(w, http.StatusUnauthorized, "invalid or expired session")
+		}
+		return nil, false
+	}
+
+	store := fallback
+	if contextual, ok := db.StoreFromContext(r.Context()); ok {
+		store = contextual
+	}
+	if store != nil {
+		user, err := store.GetUser(claims.Sub)
+		if err != nil || user == nil || user.Banned || generationForAudience(user, audience) != claims.SessionGeneration {
+			if w != nil {
+				writeError(w, http.StatusUnauthorized, "invalid or revoked session")
+			}
+			return nil, false
+		}
+	}
+	return claims, true
+}
+
+func generationForAudience(user *models.User, audience string) int64 {
+	if audience == session.EmbedAudience {
+		return user.EmbedSessionGeneration
+	}
+	return user.DashboardSessionGeneration
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

@@ -1,7 +1,9 @@
 ---
+import HeroToolbar from "./HeroToolbar.astro";
 ---
 
-<div class="hw-shell">
+<div class="hw-shell" role="img" aria-label="Example Quipthread discussion with threaded replies and a compact comment editor. Additional formatting fits in the trailing overflow menu.">
+  <div aria-hidden="true">
   <div class="hw-chrome">
     <span class="dot"></span><span class="dot"></span><span class="dot"></span>
     <span class="hw-label">quipthread</span>
@@ -12,7 +14,7 @@
       <div class="hw-user-bar">
         <span class="hw-av hw-av-lg hw-av-you">SK</span>
         <span class="hw-user-name">Sarah K.</span>
-        <button class="hw-btn-ghost">Sign out</button>
+        <span class="hw-btn-ghost">Sign out</span>
       </div>
     </div>
     <ul class="hw-comment-list">
@@ -25,7 +27,7 @@
           </div>
           <div class="hw-content">The new dark mode looks fantastic. Really appreciate the attention to detail on the color transitions.</div>
           <div class="hw-actions">
-            <button class="hw-btn-ghost hw-action-btn">Reply</button>
+            <span class="hw-btn-ghost hw-action-btn">Reply</span>
           </div>
           <div class="hw-replies">
             <div class="hw-reply">
@@ -50,35 +52,23 @@
           </div>
           <div class="hw-content">Switched from Disqus last week. Import worked flawlessly — readers haven't noticed a thing.</div>
           <div class="hw-actions">
-            <button class="hw-btn-ghost hw-action-btn">Reply</button>
+            <span class="hw-btn-ghost hw-action-btn">Reply</span>
           </div>
         </div>
       </li>
     </ul>
     <div class="hw-new-comment">
-      <div class="hw-new-header">
-        <span class="hw-new-label">Leave a comment</span>
-      </div>
       <div class="hw-editor-wrapper">
-        <div class="hw-toolbar">
-          <button class="hw-tb-btn"><strong>B</strong></button>
-          <button class="hw-tb-btn"><em>I</em></button>
-          <button class="hw-tb-btn"><s>S</s></button>
-          <div class="hw-tb-sep"></div>
-          <button class="hw-tb-btn">≡</button>
-          <button class="hw-tb-btn">№</button>
-          <div class="hw-tb-sep"></div>
-          <button class="hw-tb-btn">&lt;&gt;</button>
-          <button class="hw-tb-btn">↗</button>
-        </div>
+        <HeroToolbar />
         <div class="hw-editor-content">
-          <p class="hw-placeholder">What are your thoughts?</p>
+          <p class="hw-placeholder">Write a comment</p>
         </div>
       </div>
       <div class="hw-form-actions">
-        <button class="hw-btn-primary">Comment</button>
+        <span class="hw-btn-primary">Post comment</span>
       </div>
     </div>
+  </div>
   </div>
 </div>
 
@@ -226,7 +216,6 @@
     border-radius: var(--hw-r);
     padding: 0.25rem 0.5rem;
     font-size: 0.8125rem;
-    cursor: pointer;
     font-family: inherit;
   }
   .hw-action-btn { font-size: 0.75rem; padding: 0.2rem 0.4rem; }
@@ -238,7 +227,6 @@
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    cursor: pointer;
     font-family: inherit;
   }
 
@@ -247,54 +235,16 @@
     padding-top: 1rem;
     border-top: 1px solid var(--hw-border);
   }
-  .hw-new-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-  }
-  .hw-new-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--hw-muted);
-  }
-
   .hw-editor-wrapper {
+    container: hero-composer / inline-size;
     border: 1px solid var(--hw-border);
-    border-radius: var(--hw-r);
+    border-radius: 10px;
     overflow: hidden;
     background: var(--hw-bg);
   }
-  .hw-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 0.375rem 0.5rem;
-    border-bottom: 1px solid var(--hw-border);
-    background: var(--hw-bg-alt);
-  }
-  .hw-tb-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px; height: 28px;
-    border: none;
-    background: transparent;
-    border-radius: var(--hw-r-sm);
-    cursor: pointer;
-    color: var(--hw-muted);
-    font-family: system-ui, sans-serif;
-    font-size: 0.875rem;
-  }
-  .hw-tb-sep {
-    width: 1px;
-    background: var(--hw-border);
-    margin: 4px 2px;
-    align-self: stretch;
-  }
   .hw-editor-content {
     padding: 0.5rem 0.625rem;
-    min-height: 52px;
+    min-height: 100px;
   }
   .hw-placeholder { color: var(--hw-muted); font-size: 0.8125rem; margin: 0; }
   .hw-form-actions {

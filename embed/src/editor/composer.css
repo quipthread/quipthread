@@ -1,0 +1,199 @@
+.qt-root .qt-composer {
+  --qt-editor-control: 24px;
+  --qt-editor-divider: 5px;
+  --qt-editor-radius: 10px;
+  --qt-editor-button-radius: 7px;
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--qt-border);
+  border-radius: var(--qt-editor-radius);
+  background: var(--qt-bg);
+  color: var(--qt-text);
+}
+.qt-root .qt-editor-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.qt-root .qt-composer .rte-toolbar {
+  margin: 0;
+  min-inline-size: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--qt-bg-alt);
+  border-radius: var(--qt-editor-radius) var(--qt-editor-radius) 0 0;
+}
+.qt-root .qt-composer .rte-controls-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.qt-root .qt-composer :is(.rte-control-button, .qt-editor-action) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--qt-editor-control);
+  min-width: var(--qt-editor-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--qt-editor-button-radius);
+  background: transparent;
+  color: var(--qt-text-muted);
+  font-family: var(--qt-font);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+}
+.qt-root .qt-composer .rte-controls-group + .rte-controls-group::before {
+  content: "";
+  width: 1px;
+  height: 14px;
+  margin-inline: 2px;
+  background: var(--qt-border);
+  flex-shrink: 0;
+}
+.qt-root .qt-composer :is(.rte-control-button, .qt-editor-action):hover:not(:disabled) {
+  background: var(--qt-border);
+  color: var(--qt-text);
+}
+.qt-root .qt-composer .rte-control-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--qt-accent) 10%, transparent);
+  color: var(--qt-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--qt-accent) 25%, transparent);
+}
+.qt-root .qt-composer :is(button, select, input):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--qt-accent) 40%, transparent);
+  outline-offset: 1px;
+}
+.qt-root .qt-composer :is(button, select):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.qt-root .qt-composer .rte-editor-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.qt-root .qt-composer .rte-content-wrapper {
+  min-width: 0;
+}
+.qt-root .qt-composer .tiptap {
+  padding: 8px 10px;
+  min-height: 100px;
+  max-height: 360px;
+  overflow-y: auto;
+  outline: none;
+  cursor: text;
+}
+.qt-root .qt-composer .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--qt-text-muted);
+  pointer-events: none;
+  height: 0;
+}
+.qt-root .qt-editor-positioner {
+  z-index: 100;
+  max-width: calc(100vw - 24px);
+}
+.qt-root .qt-editor-popover {
+  box-sizing: border-box;
+  width: 288px;
+  max-width: calc(100vw - 24px);
+  max-height: min(480px, var(--available-height));
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--qt-border);
+  border-radius: var(--qt-radius);
+  background: var(--qt-bg);
+  color: var(--qt-text);
+  font: 0.875rem / 1.5 var(--qt-font);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--qt-text) 12%, transparent);
+}
+.qt-root .qt-popover-title {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.qt-root .qt-link-popover label {
+  display: block;
+  margin-bottom: 4px;
+}
+.qt-root .qt-link-popover input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px;
+  color: var(--qt-text);
+  background: var(--qt-bg-alt);
+  border: 1px solid var(--qt-border);
+  border-radius: var(--qt-radius-sm);
+  font: inherit;
+}
+.qt-root .qt-link-error {
+  color: var(--qt-danger);
+  margin: 4px 0;
+  font-size: 0.875rem;
+}
+.qt-root .qt-link-error:empty {
+  margin: 0;
+}
+.qt-root .qt-link-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.qt-root .qt-link-actions .qt-editor-action {
+  border: 1px solid var(--qt-border);
+  padding: 8px 12px;
+  height: auto;
+  min-height: 36px;
+  color: var(--qt-text);
+}
+.qt-root .qt-composer .qt-toolbar-overflowing {
+  justify-content: flex-start;
+}
+.qt-root .qt-composer .qt-overflow-trigger {
+  margin-left: auto;
+  flex: 0 0 var(--qt-editor-control);
+}
+.qt-root .qt-overflow-popover {
+  width: 240px;
+}
+.qt-root .qt-overflow-section + .qt-overflow-section {
+  margin-top: 8px;
+}
+.qt-root .qt-overflow-label {
+  color: var(--qt-text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+.qt-root .qt-composer:has(.tiptap:focus-visible) {
+  border-color: color-mix(in srgb, var(--qt-accent) 40%, var(--qt-border));
+}
+@media (prefers-reduced-motion: reduce) {
+  .qt-root .qt-composer *,
+  .qt-root .qt-composer *::before,
+  .qt-root .qt-composer *::after {
+    animation: none;
+    transition: none;
+  }
+}

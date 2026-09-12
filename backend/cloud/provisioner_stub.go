@@ -2,7 +2,10 @@
 
 package cloud
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 var errNotAvailable = errors.New("cloud provisioning not available in this build")
 
@@ -10,4 +13,6 @@ var errNotAvailable = errors.New("cloud provisioning not available in this build
 func ProvisionSQLite(_, _ string) (string, error) { return "", errNotAvailable }
 
 // ProvisionTurso is unavailable in non-cloud builds.
-func ProvisionTurso(_, _, _, _, _ string) (string, error) { return "", errNotAvailable }
+func ProvisionTurso(_ context.Context, _, _, _, _, _, _ string) (string, error) {
+	return "", errNotAvailable
+}

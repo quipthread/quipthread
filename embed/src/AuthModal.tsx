@@ -37,8 +37,8 @@ export function AuthModal({ t, onClose }: AuthModalProps) {
   const apiBase = getApiBase()
   const returnTo = encodeURIComponent(window.location.href)
 
-  const githubUrl = `${apiBase}/auth/github/login?returnTo=${returnTo}`
-  const googleUrl = `${apiBase}/auth/google/login?returnTo=${returnTo}`
+  const githubUrl = `${apiBase}/auth/github/login?audience=embed&returnTo=${returnTo}`
+  const googleUrl = `${apiBase}/auth/google/login?audience=embed&returnTo=${returnTo}`
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose()

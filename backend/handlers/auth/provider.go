@@ -67,17 +67,42 @@ func newHandler(store db.Store, cfg *config.Config) *Handler {
 	return h
 }
 
-// Me returns current session claims as JSON, or 401 if not authenticated.
+// Me is the dashboard compatibility alias.
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(session.CookieName)
-	if err != nil {
-		writeError(w, r, http.StatusUnauthorized, "not authenticated")
-		return
-	}
+	h.MeForAudience(w, r, session.DashboardAudience)
+}
 
-	claims, err := session.Parse(h.config.JWTSecret, cookie.Value)
-	if err != nil {
-		writeError(w, r, http.StatusUnauthorized, "invalid session")
+func (h *Handler) DashboardMe(w http.ResponseWriter, r *http.Request) {
+	h.MeForAudience(w, r, session.DashboardAudience)
+}
+
+func (h *Handler) EmbedMe(w http.ResponseWriter, r *http.Request) {
+	h.MeForAudience(w, r, session.EmbedAudience)
+}
+
+func (h *Handler) MeForAudience(w http.ResponseWriter, r *http.Request, audience string) {
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	claims, _ := r.Context().Value(session.UserKey).(*session.Claims)
+	if claims == nil {
+		cookie, err := r.Cookie(session.CookieNameForAudience(audience))
+		if err != nil {
+			writeError(w, r, http.StatusUnauthorized, "not authenticated")
+			return
+		}
+		var parseErr error
+		claims, parseErr = session.ParseForAudience(h.config.JWTSecret, cookie.Value, audience)
+		if parseErr != nil {
+			writeError(w, r, http.StatusUnauthorized, "invalid session")
+			return
+		}
+	}
+	store := h.store
+	if contextual, ok := db.StoreFromContext(r.Context()); ok {
+		store = contextual
+	}
+	user, err := store.GetUser(claims.Sub)
+	if err != nil || user == nil || user.Banned || audienceGeneration(user, audience) != claims.SessionGeneration {
+		writeError(w, r, http.StatusUnauthorized, "invalid or revoked session")
 		return
 	}
 
@@ -89,10 +114,46 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Logout clears the session cookie.
+// validateDashboardUser validates the dashboard cookie against the current
+// tenant user record. OAuth link flows must not mutate identities for a
+// banned or generation-revoked dashboard session.
+func (h *Handler) validateDashboardUser(r *http.Request, expectedUserID string) bool {
+	cookie, err := r.Cookie(session.DashboardCookieName)
+	if err != nil {
+		return false
+	}
+	claims, err := session.ParseForAudience(h.config.JWTSecret, cookie.Value, session.DashboardAudience)
+	if err != nil || claims == nil || expectedUserID != "" && claims.Sub != expectedUserID {
+		return false
+	}
+	if h.config.CloudMode {
+		return h.validateCloudDashboardUser(r.Context(), claims)
+	}
+	store := h.store
+	if contextual, ok := db.StoreFromContext(r.Context()); ok {
+		store = contextual
+	}
+	user, err := store.GetUser(claims.Sub)
+	return err == nil && user != nil && !user.Banned && audienceGeneration(user, session.DashboardAudience) == claims.SessionGeneration
+}
+
+// Logout is the dashboard compatibility alias.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	session.ClearCookie(w)
-	session.ClearIndicatorCookie(w, h.config.CookieDomain)
+	h.DashboardLogout(w, r)
+}
+
+func (h *Handler) DashboardLogout(w http.ResponseWriter, r *http.Request) {
+	session.ClearCookieForAudience(w, session.DashboardAudience, session.IsHTTPS(r, h.config.BaseURL))
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	session.ClearIndicatorCookie(w, h.config.CookieDomain, session.IsHTTPS(r, h.config.BaseURL))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck,gosec // error response; connection may already be broken
+}
+
+func (h *Handler) EmbedLogout(w http.ResponseWriter, r *http.Request) {
+	session.ClearCookieForAudience(w, session.EmbedAudience, session.IsHTTPS(r, h.config.BaseURL))
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	session.ClearIndicatorCookie(w, h.config.CookieDomain, session.IsHTTPS(r, h.config.BaseURL))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck,gosec // error response; connection may already be broken
 }
@@ -100,6 +161,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 // --- state cookie helpers ---------------------------------------------------
 
 const stateCookieName = "quipthread_oauth_state"
+const stateAudienceCookieName = "quipthread_oauth_audience"
 
 func generateState() (string, error) {
 	b := make([]byte, 24)
@@ -109,15 +171,21 @@ func generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func setStateCookie(w http.ResponseWriter, state string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     stateCookieName,
-		Value:    state,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   600,
-	})
+type oauthStateBinding struct {
+	State    string `json:"state"`
+	Audience string `json:"audience"`
+	Redirect string `json:"redirect"`
+}
+
+func setOAuthCookie(w http.ResponseWriter, name, value string, secure bool, maxAge int) {
+	// #nosec G124 -- OAuth cookies use Lax for provider redirects; Secure follows the deployment HTTPS setting.
+	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
+}
+
+func setStateCookie(w http.ResponseWriter, binding oauthStateBinding, secure bool) {
+	setOAuthCookie(w, stateCookieName, binding.State, secure, 600)
+	data, _ := json.Marshal(binding)
+	setOAuthCookie(w, stateAudienceCookieName, base64.RawURLEncoding.EncodeToString(data), secure, 600)
 }
 
 func validateStateCookie(r *http.Request, state string) bool {
@@ -128,13 +196,26 @@ func validateStateCookie(r *http.Request, state string) bool {
 	return state != "" && cookie.Value == state
 }
 
-func clearStateCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:   stateCookieName,
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
-	})
+func clearStateCookie(w http.ResponseWriter, secure bool) {
+	setOAuthCookie(w, stateCookieName, "", secure, -1)
+	setOAuthCookie(w, stateAudienceCookieName, "", secure, -1)
+}
+
+func consumeStateBinding(w http.ResponseWriter, r *http.Request, state string, secure bool) (oauthStateBinding, bool) {
+	var binding oauthStateBinding
+	cookie, err := r.Cookie(stateAudienceCookieName)
+	setOAuthCookie(w, stateAudienceCookieName, "", secure, -1)
+	if err != nil {
+		return binding, false
+	}
+	data, err := base64.RawURLEncoding.DecodeString(cookie.Value)
+	if err != nil || json.Unmarshal(data, &binding) != nil || binding.State != state {
+		return oauthStateBinding{}, false
+	}
+	if binding.Audience != session.DashboardAudience && binding.Audience != session.EmbedAudience {
+		return oauthStateBinding{}, false
+	}
+	return binding, true
 }
 
 // --- returnTo cookie helpers ------------------------------------------------
@@ -170,58 +251,79 @@ func (h *Handler) validateReturnTo(returnTo string) bool {
 	return false
 }
 
-func setReturnToCookie(w http.ResponseWriter, returnTo string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     returnToCookieName,
-		Value:    returnTo,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   600,
-	})
-}
-
-// consumeReturnToCookie reads the returnTo cookie, clears it, and returns its value.
-func consumeReturnToCookie(w http.ResponseWriter, r *http.Request) string {
-	cookie, err := r.Cookie(returnToCookieName)
-	if err != nil {
+func requestedOAuthAudience(r *http.Request) string {
+	audience := r.URL.Query().Get("audience")
+	if audience == "" {
 		return ""
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:   returnToCookieName,
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
-	})
-	return cookie.Value
+	if audience == session.DashboardAudience || audience == session.EmbedAudience {
+		return audience
+	}
+	return session.DashboardAudience
+}
+
+func (h *Handler) resolveOAuthFlow(r *http.Request) (oauthStateBinding, error) {
+	requested := r.URL.Query().Get("audience")
+	audience := requestedOAuthAudience(r)
+	explicit := requested != ""
+	if explicit && audience != session.DashboardAudience && audience != session.EmbedAudience {
+		return oauthStateBinding{}, fmt.Errorf("invalid OAuth audience")
+	}
+
+	returnTo := r.URL.Query().Get("returnTo")
+	validReturnTo := returnTo != "" && h.validateReturnTo(returnTo)
+	external := validReturnTo && !h.isBaseOrigin(returnTo)
+	if !explicit {
+		if external {
+			audience = session.EmbedAudience
+		} else {
+			audience = session.DashboardAudience
+		}
+	}
+
+	redirect := h.config.BaseURL
+	if audience == session.EmbedAudience {
+		if !external {
+			return oauthStateBinding{}, fmt.Errorf("embed OAuth requires an allowed publisher returnTo")
+		}
+		redirect = returnTo
+	}
+	// Dashboard redirects are always constrained to the configured base URL,
+	// even when a caller supplied an allowed external returnTo.
+	return oauthStateBinding{Audience: audience, Redirect: redirect}, nil
+}
+
+func (h *Handler) isBaseOrigin(raw string) bool {
+	requested, err := url.Parse(raw)
+	base, baseErr := url.Parse(h.config.BaseURL)
+	return err == nil && baseErr == nil && requested.Scheme == base.Scheme && requested.Host == base.Host
+}
+
+func clearReturnToCookie(w http.ResponseWriter, secure bool) {
+	setOAuthCookie(w, returnToCookieName, "", secure, -1)
+}
+
+func (h *Handler) validRedirectForAudience(redirect, audience string) bool {
+	if audience == session.DashboardAudience {
+		return h.isBaseOrigin(redirect)
+	}
+	return audience == session.EmbedAudience && h.validateReturnTo(redirect) && !h.isBaseOrigin(redirect)
 }
 
 // --- link intent cookie helpers ---------------------------------------------
 
 const linkIntentCookieName = "quipthread_link_intent"
 
-func setLinkIntentCookie(w http.ResponseWriter, accountID string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     linkIntentCookieName,
-		Value:    accountID,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   600,
-	})
+func setLinkIntentCookie(w http.ResponseWriter, accountID string, secure bool) {
+	setOAuthCookie(w, linkIntentCookieName, accountID, secure, 600)
 }
 
-func consumeLinkIntentCookie(w http.ResponseWriter, r *http.Request) string {
+func consumeLinkIntentCookie(w http.ResponseWriter, r *http.Request, secure bool) string {
 	cookie, err := r.Cookie(linkIntentCookieName)
 	if err != nil {
 		return ""
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:   linkIntentCookieName,
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
-	})
+	setOAuthCookie(w, linkIntentCookieName, "", secure, -1)
 	return cookie.Value
 }
 
@@ -263,7 +365,11 @@ func (h *Handler) handleLinkCallback(w http.ResponseWriter, r *http.Request, inf
 
 // upsertAndIssueToken finds or creates the user for the given provider identity,
 // then issues a session JWT. Returns the signed token string.
-func (h *Handler) upsertAndIssueToken(info *UserInfo) (string, error) {
+func (h *Handler) upsertAndIssueToken(info *UserInfo, audiences ...string) (string, error) {
+	audience := session.DashboardAudience
+	if len(audiences) > 0 && audiences[0] != "" {
+		audience = audiences[0]
+	}
 	identity, err := h.store.GetIdentity(info.Provider, info.ProviderID)
 	if err != nil {
 		return "", fmt.Errorf("get identity: %w", err)
@@ -329,7 +435,14 @@ func (h *Handler) upsertAndIssueToken(info *UserInfo) (string, error) {
 		return "", fmt.Errorf("account is banned")
 	}
 
-	return session.Issue(h.config.JWTSecret, user.ID, user.DisplayName, info.Provider, user.Role, "")
+	return session.IssueWithAudience(h.config.JWTSecret, audience, user.ID, user.DisplayName, info.Provider, user.Role, "", audienceGeneration(user, audience))
+}
+
+func audienceGeneration(user *models.User, audience string) int64 {
+	if audience == session.EmbedAudience {
+		return user.EmbedSessionGeneration
+	}
+	return user.DashboardSessionGeneration
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

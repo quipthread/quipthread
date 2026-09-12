@@ -23,12 +23,30 @@ func NewSMTPNotifier(cfg *config.Config, ownerEmail func(string) string) *SMTPNo
 }
 
 func (s *SMTPNotifier) NotifyBatch(ctx context.Context, b Batch) error {
-	to := s.ownerEmail(b.Site.OwnerID)
+	if s == nil || s.cfg == nil || s.cfg.SMTPHost == "" || s.cfg.SMTPPort == "" || s.cfg.SMTPFrom == "" {
+		return channelError(ChannelEmail, ChannelErrorNotConfigured)
+	}
+	if ctx == nil {
+		return channelError(ChannelEmail, ChannelErrorInvalidRequest)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b.Site == nil {
+		return channelError(ChannelEmail, ChannelErrorInvalidRequest)
+	}
+
+	// net/smtp.SendMail has no context-aware API. Cancellation is checked before
+	// the call, but an in-flight SMTP operation cannot be interrupted here.
+	var to string
+	if s.ownerEmail != nil {
+		to = s.ownerEmail(b.Site.OwnerID)
+	}
 	if to == "" {
 		to = s.cfg.NotifyEmailTo
 	}
 	if to == "" {
-		return nil // nowhere to send
+		return channelError(ChannelEmail, ChannelErrorRecipientUnavailable)
 	}
 
 	subject := fmt.Sprintf("[Quipthread] %d comment(s) awaiting approval on %s",
@@ -42,7 +60,10 @@ func (s *SMTPNotifier) NotifyBatch(ctx context.Context, b Batch) error {
 	if s.cfg.SMTPUser != "" {
 		auth = smtp.PlainAuth("", s.cfg.SMTPUser, s.cfg.SMTPPass, s.cfg.SMTPHost)
 	}
-	return smtp.SendMail(addr, auth, s.cfg.SMTPFrom, []string{to}, []byte(msg))
+	if err := smtp.SendMail(addr, auth, s.cfg.SMTPFrom, []string{to}, []byte(msg)); err != nil {
+		return channelError(ChannelEmail, ChannelErrorProvider)
+	}
+	return nil
 }
 
 func buildMIMEMessage(from, to, subject, htmlBody string) string {

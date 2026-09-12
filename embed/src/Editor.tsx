@@ -1,8 +1,8 @@
-import Link from '@tiptap/extension-link'
-import Placeholder from '@tiptap/extension-placeholder'
-import { EditorContent, useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import { forwardRef, useEffect, useImperativeHandle } from 'react'
+import { useEditor } from '@tiptap/react'
+import { forwardRef, useId, useImperativeHandle, useState } from 'react'
+import { createCommentExtensions } from './editor/extensions'
+import { EditorToolbar } from './editor/Toolbar'
+import { RichTextEditor } from './editorcn'
 
 export interface EditorRef {
   getHTML: () => string
@@ -11,28 +11,25 @@ export interface EditorRef {
 }
 
 interface EditorProps {
-  placeholder?: string
-  initialContent?: string
-  onChange?: (html: string, isEmpty: boolean) => void
+  readonly placeholder?: string
+  readonly initialContent?: string
+  readonly onChange?: (html: string, isEmpty: boolean) => void
+  readonly disabled?: boolean
 }
 
 export const Editor = forwardRef<EditorRef, EditorProps>(
-  ({ placeholder = 'Write a comment…', initialContent = '', onChange }, ref) => {
+  ({ placeholder = 'Write a comment…', initialContent = '', onChange, disabled = false }, ref) => {
+    const labelId = useId()
+    const [linkOpen, setLinkOpen] = useState(false)
     const editor = useEditor({
       immediatelyRender: false,
-      shouldRerenderOnTransaction: true,
-      extensions: [
-        StarterKit.configure({ link: false }),
-        Link.configure({
-          openOnClick: false,
-          validate: (href) => /^https?:\/\//.test(href),
-        }),
-        Placeholder.configure({ placeholder }),
-      ],
+      shouldRerenderOnTransaction: false,
+      extensions: createCommentExtensions({ placeholder, openLink: () => setLinkOpen(true) }),
       content: initialContent,
-      onUpdate: ({ editor }) => {
-        onChange?.(editor.getHTML(), editor.isEmpty)
+      editorProps: {
+        attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-labelledby': labelId },
       },
+      onUpdate: ({ editor }) => onChange?.(editor.getHTML(), editor.isEmpty),
     })
 
     useImperativeHandle(ref, () => ({
@@ -41,102 +38,16 @@ export const Editor = forwardRef<EditorRef, EditorProps>(
       clear: () => editor?.commands.clearContent(true),
     }))
 
-    useEffect(() => {
-      return () => {
-        editor?.destroy()
-      }
-    }, [editor])
-
     if (!editor) return null
 
-    const ToolbarBtn = ({
-      onClick,
-      active,
-      title,
-      children,
-    }: {
-      onClick: () => void
-      active?: boolean
-      title: string
-      children: React.ReactNode
-    }) => (
-      <button
-        type="button"
-        className={`qt-toolbar-btn${active ? ' is-active' : ''}`}
-        title={title}
-        onClick={onClick}
-        onMouseDown={(e) => e.preventDefault()}
-      >
-        {children}
-      </button>
-    )
-
-    const handleAddLink = () => {
-      const prev = editor.isActive('link') ? (editor.getAttributes('link').href as string) : ''
-      const url = window.prompt('Link URL:', prev)
-      if (url === null) return
-      if (url === '') {
-        editor.chain().focus().unsetLink().run()
-      } else {
-        editor.chain().focus().setLink({ href: url }).run()
-      }
-    }
-
     return (
-      <div className="qt-editor-wrapper">
-        <div className="qt-toolbar">
-          <ToolbarBtn
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            active={editor.isActive('bold')}
-            title="Bold"
-          >
-            <strong>B</strong>
-          </ToolbarBtn>
-          <ToolbarBtn
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            active={editor.isActive('italic')}
-            title="Italic"
-          >
-            <em>I</em>
-          </ToolbarBtn>
-          <ToolbarBtn
-            onClick={() => editor.chain().focus().toggleStrike().run()}
-            active={editor.isActive('strike')}
-            title="Strikethrough"
-          >
-            <s>S</s>
-          </ToolbarBtn>
-          <div className="qt-toolbar-separator" />
-          <ToolbarBtn
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            active={editor.isActive('bulletList')}
-            title="Bullet list"
-          >
-            ≡
-          </ToolbarBtn>
-          <ToolbarBtn
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            active={editor.isActive('orderedList')}
-            title="Numbered list"
-          >
-            №
-          </ToolbarBtn>
-          <div className="qt-toolbar-separator" />
-          <ToolbarBtn
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            active={editor.isActive('code')}
-            title="Inline code"
-          >
-            {'<>'}
-          </ToolbarBtn>
-          <ToolbarBtn onClick={handleAddLink} active={editor.isActive('link')} title="Add link">
-            ↗
-          </ToolbarBtn>
-        </div>
-        <div className="qt-editor-content">
-          <EditorContent editor={editor} />
-        </div>
-      </div>
+      <RichTextEditor editor={editor} editable={!disabled} className="qt-composer">
+        <span id={labelId} className="qt-editor-label">
+          {placeholder}
+        </span>
+        <EditorToolbar linkOpen={linkOpen} onLinkOpenChange={setLinkOpen} />
+        <RichTextEditor.Content className="qt-rich-text" />
+      </RichTextEditor>
     )
   },
 )

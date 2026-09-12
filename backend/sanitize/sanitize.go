@@ -13,12 +13,15 @@ func buildCommentPolicy() *bluemonday.Policy {
 	p := bluemonday.NewPolicy()
 
 	// Inline formatting
-	p.AllowElements("p", "br", "strong", "em", "s", "u", "code")
+	p.AllowElements("p", "br", "strong", "em", "s", "u", "code", "mark", "sub", "sup")
 
 	// Block elements
-	p.AllowElements("pre", "blockquote")
+	p.AllowElements("pre", "blockquote", "hr")
 	p.AllowElements("ul", "ol", "li")
-	p.AllowElements("h1", "h2", "h3")
+	p.AllowAttrs("start").Matching(bluemonday.Integer).OnElements("ol")
+	p.AllowElements("h1", "h2", "h3", "h4", "h5", "h6")
+	p.AllowStyles("text-align").MatchingEnum("left", "center", "right", "justify").
+		OnElements("p", "h1", "h2", "h3", "h4", "h5", "h6")
 
 	// Links — RequireParseableURLs MUST be set before AllowURLSchemes;
 	// without it the scheme allowlist is never consulted and javascript: hrefs

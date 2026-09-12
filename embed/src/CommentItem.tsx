@@ -56,8 +56,8 @@ interface CommentBodyProps {
   pageTitle?: string
   onDelete?: (id: string) => void
   onReplySuccess?: (comment: Comment) => void
-  onVote?: (id: string) => void
-  onFlag?: (id: string) => void
+  onVote?: (id: string) => Promise<void>
+  onFlag?: (id: string) => Promise<void>
   showReply?: boolean
 }
 
@@ -76,17 +76,38 @@ function CommentBody({
   showReply = true,
 }: CommentBodyProps) {
   const [showReplyForm, setShowReplyForm] = useState(false)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
   const authorName = comment.author_name || comment.disqus_author || 'Anonymous'
-  const _avatarSrc = comment.author_avatar || undefined
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this comment?')) return
+    setMutationError(null)
     try {
-      await deleteComment(comment.id)
+      await deleteComment(comment.id, siteId)
       onDelete?.(comment.id)
     } catch {
-      // Silently fail — the comment stays visible
+      setMutationError('Unable to delete comment. Try again.')
+    }
+  }
+
+  const handleVote = async () => {
+    if (!onVote) return
+    setMutationError(null)
+    try {
+      await onVote(comment.id)
+    } catch {
+      setMutationError('Unable to update vote. Try again.')
+    }
+  }
+
+  const handleFlag = async () => {
+    if (!onFlag) return
+    setMutationError(null)
+    try {
+      await onFlag(comment.id)
+    } catch {
+      setMutationError('Unable to update flag. Try again.')
     }
   }
 
@@ -109,7 +130,7 @@ function CommentBody({
         <button
           type="button"
           className={`qt-btn qt-vote-btn${comment.user_voted ? ' voted' : ''}`}
-          onClick={() => onVote?.(comment.id)}
+          onClick={handleVote}
           title={user ? (comment.user_voted ? 'Remove upvote' : 'Upvote') : 'Sign in to vote'}
           aria-pressed={comment.user_voted}
         >
@@ -136,7 +157,7 @@ function CommentBody({
           <button
             type="button"
             className={`qt-btn qt-flag-btn${comment.user_flagged ? ' flagged' : ''}`}
-            onClick={() => onFlag?.(comment.id)}
+            onClick={handleFlag}
             title={comment.user_flagged ? 'Remove flag' : 'Flag this comment'}
             aria-pressed={comment.user_flagged}
           >
@@ -144,6 +165,11 @@ function CommentBody({
           </button>
         )}
       </div>
+      {mutationError && (
+        <p className="qt-mutation-error" role="status">
+          {mutationError}
+        </p>
+      )}
       {showReplyForm && (
         <div className="qt-reply-form">
           <CommentForm
@@ -176,8 +202,8 @@ interface CommentItemProps {
   pageTitle?: string
   onDelete: (id: string) => void
   onReplySuccess: (comment: Comment) => void
-  onVote?: (id: string) => void
-  onFlag?: (id: string) => void
+  onVote?: (id: string) => Promise<void>
+  onFlag?: (id: string) => Promise<void>
 }
 
 export function CommentItem({

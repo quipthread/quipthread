@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.example
+.env.live-libsql
+backend/.env.live-libsql
 
 # Scripts (local tooling only, not pushed to either repo)
 /scripts/
@@ -27,6 +29,11 @@ backend/static/
 
 # Claude
 .claude/
+
+# Local agent evidence and deepwork state
+.omo/
+.slim/deepwork/
+/PRODUCTION_ROADMAP.md
 
 # IDE
 .idea/

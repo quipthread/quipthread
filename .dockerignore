@@ -2,6 +2,9 @@
 .claude
 .env
 *.env.local
+.env.live*
+**/.env.live*
+*.live-libsql
 
 # Node / Bun
 node_modules

@@ -1,3 +1,6 @@
+import composerCSS from './editor/composer.css?inline'
+import proseCSS from './editor/prose.css?inline'
+
 const CSS = `
 .qt-root {
   --qt-bg: #ffffff;
@@ -388,6 +391,12 @@ const CSS = `
   gap: 0.125rem;
   margin-top: 0.375rem;
 }
+.qt-mutation-error {
+  margin: 0.375rem 0 0;
+  color: var(--qt-danger);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
 
 /* Replies */
 .qt-replies {
@@ -769,6 +778,6 @@ export function injectStyles(): void {
   if (injected) return
   injected = true
   const style = document.createElement('style')
-  style.textContent = CSS
+  style.textContent = CSS + composerCSS + proseCSS
   document.head.appendChild(style)
 }

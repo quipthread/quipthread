@@ -17,6 +17,19 @@ func NewSlackNotifier(cfg *config.Config) *SlackNotifier {
 }
 
 func (s *SlackNotifier) NotifyBatch(ctx context.Context, b Batch) error {
+	if s == nil || s.cfg == nil || s.cfg.SlackWebhookURL == "" {
+		return channelError(ChannelSlack, ChannelErrorNotConfigured)
+	}
+	if ctx == nil {
+		return channelError(ChannelSlack, ChannelErrorInvalidRequest)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b.Site == nil {
+		return channelError(ChannelSlack, ChannelErrorInvalidRequest)
+	}
+
 	blocks := []map[string]interface{}{
 		{
 			"type": "header",

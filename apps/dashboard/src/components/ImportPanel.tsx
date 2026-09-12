@@ -1,7 +1,10 @@
+import { useQuery } from '@tanstack/preact-query'
 import type { ComponentChildren } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
-import type { ColumnMapping, ImportResult, Site, TableInfo } from '../types'
+import { queryKeys } from '../lib/queryKeys'
+import type { ColumnMapping, ImportResult, TableInfo } from '../types'
+import QueryProvider from './QueryProvider'
 import SelectDropdown from './SelectDropdown'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -208,8 +211,7 @@ function ColumnMapper({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ImportPanel() {
-  const [sites, setSites] = useState<Site[]>([])
+function ImportPanelInner() {
   const [source, setSource] = useState<Source>('disqus')
   const [siteId, setSiteId] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -224,12 +226,17 @@ export default function ImportPanel() {
   })
   const [result, setResult] = useState<ImportResult | null>(null)
 
+  const { data: sitesData } = useQuery({
+    queryKey: queryKeys.sites(),
+    queryFn: () => api.sites.list(),
+    staleTime: 30_000,
+  })
+
+  const sites = sitesData?.sites ?? []
+
   useEffect(() => {
-    api.sites.list().then((r) => {
-      setSites(r.sites ?? [])
-      if (r.sites?.length) setSiteId(r.sites[0].id)
-    })
-  }, [])
+    if (sites.length > 0 && !siteId) setSiteId(sites[0].id)
+  }, [sites, siteId])
 
   function reset() {
     setPhase('configure')
@@ -428,6 +435,14 @@ export default function ImportPanel() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ImportPanel() {
+  return (
+    <QueryProvider>
+      <ImportPanelInner />
+    </QueryProvider>
   )
 }
 

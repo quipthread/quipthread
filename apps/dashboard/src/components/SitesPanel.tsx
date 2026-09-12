@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useState } from 'preact/hooks'
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
+import { useState } from 'preact/hooks'
 import { api, buildExportURL } from '../api'
+import { IS_SELF_HOSTED } from '../lib/env'
+import { queryKeys } from '../lib/queryKeys'
 import type { Site } from '../types'
 import { relativeTime } from '../utils'
+import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 
 const THEME_LABEL: Record<string, string> = {
@@ -88,10 +92,7 @@ const NOTIFY_OPTIONS = [
 
 type OpenAccordion = { siteId: string; type: 'export' | 'notify' } | null
 
-export default function SitesPanel() {
-  const [sites, setSites] = useState<Site[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+function SitesPanelInner() {
   const [adding, setAdding] = useState(false)
   const [domain, setDomain] = useState('')
   const [creating, setCreating] = useState(false)
@@ -100,36 +101,29 @@ export default function SitesPanel() {
   const [exportState, setExportState] = useState<ExportState>(defaultExport())
   const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.sites(),
+    queryFn: () => api.sites.list(),
+  })
+
+  const sites = data?.sites ?? []
 
   const handleDelete = async (site: Site) => {
     if (!confirm(`Delete site "${site.domain}"? This cannot be undone.`)) return
     setDeletingId(site.id)
     try {
       await api.sites.delete(site.id)
-      setSites((prev) => prev.filter((s) => s.id !== site.id))
+      queryClient.setQueryData<{ sites: Site[] }>(queryKeys.sites(), (old) =>
+        old ? { ...old, sites: old.sites.filter((s) => s.id !== site.id) } : old,
+      )
     } catch {
       alert('Failed to delete site.')
     } finally {
       setDeletingId(null)
     }
   }
-
-  const fetchSites = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await api.sites.list()
-      setSites(res.sites ?? [])
-    } catch {
-      setError('Failed to load sites.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchSites()
-  }, [fetchSites])
 
   const createSite = async (e?: Event) => {
     e?.preventDefault()
@@ -139,7 +133,9 @@ export default function SitesPanel() {
     setCreateError(null)
     try {
       const site = (await api.sites.create(trimmed)) as Site
-      setSites((prev) => [site, ...prev])
+      queryClient.setQueryData<{ sites: Site[] }>(queryKeys.sites(), (old) =>
+        old ? { ...old, sites: [site, ...old.sites] } : old,
+      )
       setDomain('')
       setAdding(false)
     } catch (err) {
@@ -208,10 +204,10 @@ export default function SitesPanel() {
         </form>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="loading">Loading…</div>
-      ) : error ? (
-        <div className="error-msg">{error}</div>
+      ) : isError ? (
+        <div className="error-msg">Failed to load sites.</div>
       ) : sites.length === 0 ? (
         <div className="empty">No sites yet. Add one above.</div>
       ) : (
@@ -225,6 +221,7 @@ export default function SitesPanel() {
                 <th>Created</th>
                 <th>Export</th>
                 <th>Notifications</th>
+                {!IS_SELF_HOSTED && <th>SSO</th>}
                 <th></th>
               </tr>
             </thead>
@@ -255,10 +252,15 @@ export default function SitesPanel() {
                 setSavingNotifyId(s.id)
                 try {
                   const updated = (await api.sites.update(s.id, { notify_interval: value })) as Site
-                  setSites((prev) =>
-                    prev.map((x) =>
-                      x.id === s.id ? { ...x, notify_interval: updated.notify_interval } : x,
-                    ),
+                  queryClient.setQueryData<{ sites: Site[] }>(queryKeys.sites(), (old) =>
+                    old
+                      ? {
+                          ...old,
+                          sites: old.sites.map((x) =>
+                            x.id === s.id ? { ...x, notify_interval: updated.notify_interval } : x,
+                          ),
+                        }
+                      : old,
                   )
                 } catch {
                   // leave existing value on error
@@ -350,6 +352,63 @@ export default function SitesPanel() {
                         {isNotifyOpen ? 'Close' : 'Notify'}
                       </button>
                     </td>
+                    {!IS_SELF_HOSTED && (
+                      <td data-label="SSO">
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            gap: '0.25rem',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled
+                            aria-describedby={`sso-unavailable-${s.id}`}
+                            style={{ fontSize: '0.8125rem', padding: '0.25rem 0.625rem' }}
+                          >
+                            SSO
+                          </button>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.375rem',
+                              color: 'var(--muted)',
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            <span
+                              aria-hidden="true"
+                              style={{
+                                width: 7,
+                                height: 7,
+                                borderRadius: '50%',
+                                background: s.sso_enabled ? 'var(--green-text)' : 'var(--border)',
+                                flexShrink: 0,
+                              }}
+                            />
+                            {s.sso_enabled ? 'Configured' : 'Not configured'}
+                          </span>
+                          <span
+                            id={`sso-unavailable-${s.id}`}
+                            style={{
+                              maxWidth: '12rem',
+                              color: 'var(--muted)',
+                              fontSize: '0.75rem',
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            Hosted SSO is temporarily unavailable. Settings cannot be viewed or
+                            changed.
+                          </span>
+                        </div>
+                      </td>
+                    )}
                     <td data-label="Delete">
                       <button
                         type="button"
@@ -367,7 +426,7 @@ export default function SitesPanel() {
                     style={{ display: isExportOpen ? undefined : 'none' }}
                   >
                     <td
-                      colSpan={7}
+                      colSpan={IS_SELF_HOSTED ? 7 : 8}
                       style={{
                         padding: '0.875rem 1rem',
                         background: 'var(--surface)',
@@ -541,7 +600,7 @@ export default function SitesPanel() {
                     style={{ display: isNotifyOpen ? undefined : 'none' }}
                   >
                     <td
-                      colSpan={7}
+                      colSpan={IS_SELF_HOSTED ? 7 : 8}
                       style={{
                         padding: '0.875rem 1rem',
                         background: 'var(--surface)',
@@ -606,5 +665,13 @@ export default function SitesPanel() {
         </div>
       )}
     </>
+  )
+}
+
+export default function SitesPanel() {
+  return (
+    <QueryProvider>
+      <SitesPanelInner />
+    </QueryProvider>
   )
 }

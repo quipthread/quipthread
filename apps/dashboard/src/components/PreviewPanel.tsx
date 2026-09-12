@@ -1,7 +1,10 @@
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { API, api } from '../api'
+import { queryKeys } from '../lib/queryKeys'
 import type { AnalyticsData, Site } from '../types'
 import EmbedCodeGenerator from './EmbedCodeGenerator'
+import QueryProvider from './QueryProvider'
 import ThemeSwatches from './ThemeSwatches'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
@@ -42,35 +45,40 @@ function lastSeenLabel(date: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function PreviewPanel() {
-  const [plan, setPlan] = useState<string | null>(null)
-  const [sites, setSites] = useState<Site[]>([])
+function PreviewPanelInner() {
   const [activeSiteId, setActiveSiteId] = useState('')
   const [activeTheme, setActiveTheme] = useState('auto')
   const [saving, setSaving] = useState(false)
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
-  const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [mobileTab, setMobileTab] = useState<'configure' | 'preview'>('configure')
   const [isMobileLayout, setIsMobileLayout] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const queryClient = useQueryClient()
 
+  const { data: billing } = useQuery({
+    queryKey: queryKeys.billingStatus(),
+    queryFn: () => api.billing.status(),
+    staleTime: 60_000,
+  })
+
+  const { data: sitesData } = useQuery({
+    queryKey: queryKeys.sites(),
+    queryFn: () => api.sites.list(),
+    staleTime: 30_000,
+  })
+
+  const plan = billing?.plan ?? null
+  const sites = sitesData?.sites ?? []
   const hasAnalytics = plan !== null && PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('starter')
   const activeSite = sites.find((s) => s.id === activeSiteId)
   const apiBase = typeof window !== 'undefined' ? API || window.location.origin : ''
 
-  // Initial load: billing status + sites list
+  // Initialize activeSiteId + activeTheme when sites first load
   useEffect(() => {
-    Promise.all([api.billing.status(), api.sites.list()])
-      .then(([status, { sites: list }]) => {
-        setPlan(status.plan)
-        setSites(list)
-        if (list.length > 0) {
-          setActiveSiteId(list[0].id)
-          setActiveTheme(list[0].theme || 'auto')
-        }
-      })
-      .catch(() => setPlan('hobby'))
-  }, [])
+    if (sites.length > 0 && !activeSiteId) {
+      setActiveSiteId(sites[0].id)
+      setActiveTheme(sites[0].theme || 'auto')
+    }
+  }, [sites, activeSiteId])
 
   // Sync active theme when the selected site changes
   useEffect(() => {
@@ -87,24 +95,12 @@ export default function PreviewPanel() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Fetch analytics for installation detection (Starter+ only)
-  useEffect(() => {
-    if (!activeSiteId || !hasAnalytics) {
-      setAnalyticsData(null)
-      return
-    }
-    setAnalyticsLoading(true)
-    api.analytics
-      .get(activeSiteId, '7d')
-      .then((d) => {
-        setAnalyticsData(d)
-        setAnalyticsLoading(false)
-      })
-      .catch(() => {
-        setAnalyticsData(null)
-        setAnalyticsLoading(false)
-      })
-  }, [activeSiteId, hasAnalytics])
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
+    queryKey: queryKeys.analytics(activeSiteId, '7d'),
+    queryFn: () => api.analytics.get(activeSiteId, '7d'),
+    enabled: !!activeSiteId && hasAnalytics,
+    staleTime: 30_000,
+  })
 
   const changeTheme = async (theme: string) => {
     if (!activeSiteId || saving) return
@@ -113,7 +109,11 @@ export default function PreviewPanel() {
     setSaving(true)
     try {
       await api.sites.update(activeSiteId, { theme })
-      setSites((prev) => prev.map((s) => (s.id === activeSiteId ? { ...s, theme } : s)))
+      queryClient.setQueryData<{ sites: Site[] }>(queryKeys.sites(), (old) =>
+        old
+          ? { ...old, sites: old.sites.map((s) => (s.id === activeSiteId ? { ...s, theme } : s)) }
+          : old,
+      )
     } catch {
       setActiveTheme(previous)
     } finally {
@@ -124,7 +124,6 @@ export default function PreviewPanel() {
 
   const handleSiteChange = (siteId: string) => {
     setActiveSiteId(siteId)
-    setAnalyticsData(null)
   }
 
   // Derive installation detection info from the analytics volume series
@@ -259,5 +258,13 @@ export default function PreviewPanel() {
         </>
       )}
     </div>
+  )
+}
+
+export default function PreviewPanel() {
+  return (
+    <QueryProvider>
+      <PreviewPanelInner />
+    </QueryProvider>
   )
 }

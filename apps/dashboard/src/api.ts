@@ -1,3 +1,26 @@
+import type { z } from 'zod'
+import {
+  AccountInfoSchema,
+  AnalyticsDataSchema,
+  BillingStatusSchema,
+  BlockedTermListResponseSchema,
+  BlockedTermSchema,
+  CheckoutResponseSchema,
+  CommentListResponseSchema,
+  ImportResultSchema,
+  MeResponseSchema,
+  ModRulesImportResponseSchema,
+  PortalResponseSchema,
+  SecuritySettingsSchema,
+  SiteListResponseSchema,
+  SiteSchema,
+  TableListResponseSchema,
+  TeamMemberListResponseSchema,
+  TeamMemberSchema,
+  UserListResponseSchema,
+} from './schemas'
+import type { ColumnMapping } from './types'
+
 // PUBLIC_API_URL is empty in production (same origin) and set to the backend
 // URL in local development via dashboard/.env
 export const API = (import.meta.env.PUBLIC_API_URL as string | undefined) ?? ''
@@ -15,6 +38,13 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// parse fetches a path and validates the response through a Zod schema.
+// Use this for all GET endpoints (and mutations) that return a known shape.
+async function parse<T>(schema: z.ZodType<T>, path: string, init?: RequestInit): Promise<T> {
+  const data = await req<unknown>(path, init)
+  return schema.parse(data)
+}
+
 function json(method: string, path: string, body: unknown) {
   return req(path, {
     method,
@@ -23,8 +53,16 @@ function json(method: string, path: string, body: unknown) {
   })
 }
 
+function jsonParse<T>(schema: z.ZodType<T>, method: string, path: string, body: unknown) {
+  return parse(schema, path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 export const api = {
-  me: () => req<{ id: string; display_name: string; role: string }>('/api/auth/me'),
+  me: () => parse(MeResponseSchema, '/api/auth/dashboard/me'),
 
   comments: {
     list: (params: {
@@ -40,9 +78,7 @@ export const api = {
       if (params.page) q.set('page', String(params.page))
       if (params.limit) q.set('limit', String(params.limit))
       if (params.siteId) q.set('siteId', params.siteId)
-      return req<{ comments: import('./types').Comment[]; total: number; page: number }>(
-        `/api/admin/comments?${q}`,
-      )
+      return parse(CommentListResponseSchema, `/api/admin/comments?${q}`)
     },
     update: (id: string, body: { status?: string; content?: string }) =>
       json('PATCH', `/api/admin/comments/${id}`, body),
@@ -56,52 +92,54 @@ export const api = {
       const q = new URLSearchParams()
       if (params.page) q.set('page', String(params.page))
       if (params.limit) q.set('limit', String(params.limit))
-      return req<{ users: import('./types').User[]; total: number; page: number }>(
-        `/api/admin/users?${q}`,
-      )
+      return parse(UserListResponseSchema, `/api/admin/users?${q}`)
     },
     update: (id: string, body: { role?: string; banned?: boolean; shadow_banned?: boolean }) =>
       json('PATCH', `/api/admin/users/${id}`, body),
   },
 
   sites: {
-    list: () => req<{ sites: import('./types').Site[] }>('/api/admin/sites'),
-    create: (domain: string) => json('POST', '/api/admin/sites', { domain }),
+    list: () => parse(SiteListResponseSchema, '/api/admin/sites'),
+    create: (domain: string) => jsonParse(SiteSchema, 'POST', '/api/admin/sites', { domain }),
     update: (id: string, body: { theme?: string; notify_interval?: number }) =>
       json('PATCH', `/api/admin/sites/${id}`, body),
     delete: (id: string) => req(`/api/admin/sites/${id}`, { method: 'DELETE' }),
+    generateSso: (id: string) =>
+      req<{ sso_secret: string }>(`/api/admin/sites/${id}/sso`, { method: 'POST' }),
+    disableSso: (id: string) => req(`/api/admin/sites/${id}/sso`, { method: 'DELETE' }),
   },
 
   modrules: {
-    list: () => req<{ terms: import('./types').BlockedTerm[] }>('/api/admin/modrules/blocklist'),
+    list: () => parse(BlockedTermListResponseSchema, '/api/admin/modrules/blocklist'),
     add: (term: string, isRegex = false) =>
-      json('POST', '/api/admin/modrules/blocklist', { term, is_regex: isRegex }) as Promise<
-        import('./types').BlockedTerm
-      >,
+      jsonParse(BlockedTermSchema, 'POST', '/api/admin/modrules/blocklist', {
+        term,
+        is_regex: isRegex,
+      }),
     delete: (id: string) => req(`/api/admin/modrules/blocklist/${id}`, { method: 'DELETE' }),
     import: (url: string) =>
-      json('POST', '/api/admin/modrules/blocklist/import', { url }) as Promise<{
-        added: number
-        skipped: number
-      }>,
+      jsonParse(ModRulesImportResponseSchema, 'POST', '/api/admin/modrules/blocklist/import', {
+        url,
+      }),
   },
 
   analytics: {
     get: (siteId: string, range: '7d' | '30d' | 'all') =>
-      req<import('./types').AnalyticsData>(
+      parse(
+        AnalyticsDataSchema,
         `/api/admin/analytics?siteId=${encodeURIComponent(siteId)}&range=${range}`,
       ),
   },
 
   billing: {
-    status: () => req<import('./types').BillingStatus>('/api/billing/status'),
+    status: () => parse(BillingStatusSchema, '/api/billing/status'),
     checkout: (plan: string, interval: string) =>
-      json('POST', '/api/billing/checkout', { plan, interval }) as Promise<{ url: string }>,
-    portal: () => json('POST', '/api/billing/portal', {}) as Promise<{ url: string }>,
+      jsonParse(CheckoutResponseSchema, 'POST', '/api/billing/checkout', { plan, interval }),
+    portal: () => jsonParse(PortalResponseSchema, 'POST', '/api/billing/portal', {}),
   },
 
   account: {
-    get: () => req<import('./types').AccountInfo>('/api/admin/account'),
+    get: () => parse(AccountInfoSchema, '/api/admin/account'),
     updateProfile: (displayName: string) =>
       json('PATCH', '/api/admin/account/profile', { display_name: displayName }),
     updatePassword: (currentPassword: string, newPassword: string) =>
@@ -111,7 +149,7 @@ export const api = {
       }),
     disconnectIdentity: (provider: string) =>
       req(`/api/admin/account/identity/${provider}`, { method: 'DELETE' }),
-    getSecurity: () => req<import('./types').SecuritySettings>('/api/admin/account/security'),
+    getSecurity: () => parse(SecuritySettingsSchema, '/api/admin/account/security'),
     updateSecurity: (turnstileSiteKey: string, turnstileSecretKey?: string) =>
       json('PATCH', '/api/admin/account/security', {
         turnstile_site_key: turnstileSiteKey,
@@ -120,37 +158,37 @@ export const api = {
   },
 
   invitations: {
-    list: () => req<{ members: import('./types').TeamMember[] }>('/api/admin/invitations'),
+    list: () => parse(TeamMemberListResponseSchema, '/api/admin/invitations'),
     create: (email: string) =>
-      json('POST', '/api/admin/invitations', { email }) as Promise<import('./types').TeamMember>,
+      jsonParse(TeamMemberSchema, 'POST', '/api/admin/invitations', { email }),
     delete: (id: string) => req(`/api/admin/invitations/${id}`, { method: 'DELETE' }),
   },
 
   imports: {
     disqus: (siteId: string, file: File) =>
-      multipart<import('./types').ImportResult>('/api/admin/import/disqus', siteId, file),
+      multipartParse(ImportResultSchema, '/api/admin/import/disqus', siteId, file),
     wordpress: (siteId: string, file: File) =>
-      multipart<import('./types').ImportResult>('/api/admin/import/wordpress', siteId, file),
+      multipartParse(ImportResultSchema, '/api/admin/import/wordpress', siteId, file),
     remark42: (siteId: string, file: File) =>
-      multipart<import('./types').ImportResult>('/api/admin/import/remark42', siteId, file),
+      multipartParse(ImportResultSchema, '/api/admin/import/remark42', siteId, file),
     native: (siteId: string, file: File) =>
-      multipart<import('./types').ImportResult>('/api/admin/import/native', siteId, file),
+      multipartParse(ImportResultSchema, '/api/admin/import/native', siteId, file),
     quipthread: (siteId: string, file: File) =>
-      multipart<import('./types').ImportResult>('/api/admin/import/quipthread', siteId, file),
+      multipartParse(ImportResultSchema, '/api/admin/import/quipthread', siteId, file),
     sqliteInspect: (file: File) => {
       const fd = new FormData()
       fd.append('file', file)
-      return req<{ tables: import('./types').TableInfo[] }>('/api/admin/import/sqlite/inspect', {
+      return parse(TableListResponseSchema, '/api/admin/import/sqlite/inspect', {
         method: 'POST',
         body: fd,
       })
     },
-    sqliteRun: (siteId: string, file: File, mapping: import('./types').ColumnMapping) => {
+    sqliteRun: (siteId: string, file: File, mapping: ColumnMapping) => {
       const fd = new FormData()
       fd.append('siteId', siteId)
       fd.append('file', file)
       fd.append('mapping', JSON.stringify(mapping))
-      return req<import('./types').ImportResult>('/api/admin/import/sqlite/run', {
+      return parse(ImportResultSchema, '/api/admin/import/sqlite/run', {
         method: 'POST',
         body: fd,
       })
@@ -172,9 +210,14 @@ export function buildExportURL(
   return `${base}?${params}`
 }
 
-function multipart<T>(path: string, siteId: string, file: File): Promise<T> {
+function multipartParse<T>(
+  schema: z.ZodType<T>,
+  path: string,
+  siteId: string,
+  file: File,
+): Promise<T> {
   const fd = new FormData()
   fd.append('siteId', siteId)
   fd.append('file', file)
-  return req<T>(path, { method: 'POST', body: fd })
+  return parse(schema, path, { method: 'POST', body: fd })
 }

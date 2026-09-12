@@ -1,51 +1,48 @@
-import { useCallback, useEffect, useState } from 'preact/hooks'
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
+import { useState } from 'preact/hooks'
 import { api } from '../api'
+import { queryKeys } from '../lib/queryKeys'
 import type { User } from '../types'
 import { relativeTime } from '../utils'
+import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 
 const PAGE_SIZE = 20
 
-export default function UsersPanel() {
-  const [users, setUsers] = useState<User[]>([])
-  const [total, setTotal] = useState(0)
+function UsersPanelInner() {
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [acting, setActing] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    api
-      .me()
-      .then((me) => setCurrentUserId(me.id))
-      .catch(() => {})
-  }, [])
+  const { data: meData } = useQuery({
+    queryKey: queryKeys.me(),
+    queryFn: () => api.me(),
+    staleTime: 60_000,
+  })
+  const currentUserId = meData?.id ?? null
 
-  const fetchUsers = useCallback(async (p: number) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await api.users.list({ page: p, limit: PAGE_SIZE })
-      setUsers(res.users ?? [])
-      setTotal(res.total)
-      setPage(p)
-    } catch {
-      setError('Failed to load users.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.users({ page, limit: PAGE_SIZE }),
+    queryFn: () => api.users.list({ page, limit: PAGE_SIZE }),
+  })
 
-  useEffect(() => {
-    fetchUsers(1)
-  }, [fetchUsers])
+  const users = data?.users ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  function updateUserInCache(updated: User) {
+    queryClient.setQueryData<{ users: User[]; total: number }>(
+      queryKeys.users({ page, limit: PAGE_SIZE }),
+      (old) =>
+        old ? { ...old, users: old.users.map((u) => (u.id === updated.id ? updated : u)) } : old,
+    )
+  }
 
   const toggleBan = async (user: User) => {
     setActing(user.id)
     try {
       const updated = (await api.users.update(user.id, { banned: !user.banned })) as User
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)))
+      updateUserInCache(updated)
     } finally {
       setActing(null)
     }
@@ -57,7 +54,7 @@ export default function UsersPanel() {
       const updated = (await api.users.update(user.id, {
         shadow_banned: !user.shadow_banned,
       })) as User
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)))
+      updateUserInCache(updated)
     } finally {
       setActing(null)
     }
@@ -68,22 +65,20 @@ export default function UsersPanel() {
     setActing(user.id)
     try {
       const updated = (await api.users.update(user.id, { role: next })) as User
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)))
+      updateUserInCache(updated)
     } finally {
       setActing(null)
     }
   }
 
-  const totalPages = Math.ceil(total / PAGE_SIZE)
-
   return (
     <>
       <PageHeader title="Users" action={<span className="page-count">{total} total</span>} />
 
-      {loading ? (
+      {isLoading ? (
         <div className="loading">Loading…</div>
-      ) : error ? (
-        <div className="error-msg">{error}</div>
+      ) : isError ? (
+        <div className="error-msg">Failed to load users.</div>
       ) : users.length === 0 ? (
         <div className="empty">No users found.</div>
       ) : (
@@ -179,7 +174,7 @@ export default function UsersPanel() {
                 type="button"
                 className="btn"
                 disabled={page <= 1}
-                onClick={() => fetchUsers(page - 1)}
+                onClick={() => setPage((p) => p - 1)}
               >
                 ←
               </button>
@@ -190,7 +185,7 @@ export default function UsersPanel() {
                 type="button"
                 className="btn"
                 disabled={page >= totalPages}
-                onClick={() => fetchUsers(page + 1)}
+                onClick={() => setPage((p) => p + 1)}
               >
                 →
               </button>
@@ -199,5 +194,13 @@ export default function UsersPanel() {
         </>
       )}
     </>
+  )
+}
+
+export default function UsersPanel() {
+  return (
+    <QueryProvider>
+      <UsersPanelInner />
+    </QueryProvider>
   )
 }

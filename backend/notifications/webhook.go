@@ -16,6 +16,19 @@ func NewWebhookNotifier(cfg *config.Config) *WebhookNotifier {
 }
 
 func (w *WebhookNotifier) NotifyBatch(ctx context.Context, b Batch) error {
+	if w == nil || w.cfg == nil || w.cfg.WebhookURL == "" {
+		return channelError(ChannelWebhook, ChannelErrorNotConfigured)
+	}
+	if ctx == nil {
+		return channelError(ChannelWebhook, ChannelErrorInvalidRequest)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b.Site == nil {
+		return channelError(ChannelWebhook, ChannelErrorInvalidRequest)
+	}
+
 	type commentEntry struct {
 		ID         string `json:"id"`
 		Author     string `json:"author"`

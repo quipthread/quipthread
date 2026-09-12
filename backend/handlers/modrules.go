@@ -3,11 +3,11 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -16,6 +16,34 @@ import (
 	"github.com/quipthread/quipthread/middleware"
 	"github.com/quipthread/quipthread/models"
 )
+
+const maxNormalJSONBodyBytes int64 = middleware.MaxNormalBodyBytes
+
+var errModRulesBodyTooLarge = errors.New("modrules request body too large")
+
+func decodeModRulesJSON(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxNormalJSONBodyBytes) //nolint:gosec // G120: admin JSON request limit
+	if r.ContentLength > maxNormalJSONBodyBytes {
+		return errModRulesBodyTooLarge
+	}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+	// Consume the bounded body so a valid JSON value followed by an oversized
+	// suffix cannot bypass the request limit. Only whitespace is accepted after
+	// the first value.
+	var extra interface{}
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return err
+	}
+	return nil
+}
+
+func modRulesBodyTooLarge(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.Is(err, errModRulesBodyTooLarge) || errors.As(err, &maxErr)
+}
 
 type ModRulesHandler struct {
 	store db.Store
@@ -60,7 +88,15 @@ func (h *ModRulesHandler) Add(w http.ResponseWriter, r *http.Request) {
 		Term    string `json:"term"`
 		IsRegex bool   `json:"is_regex"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Term) == "" {
+	if err := decodeModRulesJSON(w, r, &body); err != nil {
+		if modRulesBodyTooLarge(err) {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
+		writeError(w, r, http.StatusBadRequest, "term is required")
+		return
+	}
+	if strings.TrimSpace(body.Term) == "" {
 		writeError(w, r, http.StatusBadRequest, "term is required")
 		return
 	}
@@ -111,27 +147,26 @@ func (h *ModRulesHandler) Import(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		URL string `json:"url"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.URL) == "" {
+	if err := decodeModRulesJSON(w, r, &body); err != nil {
+		if modRulesBodyTooLarge(err) {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
+		writeError(w, r, http.StatusBadRequest, "url is required")
+		return
+	}
+	if strings.TrimSpace(body.URL) == "" {
 		writeError(w, r, http.StatusBadRequest, "url is required")
 		return
 	}
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	fetchReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, body.URL, nil)
+	raw, err := fetchUntrustedBlocklistURL(r.Context(), strings.TrimSpace(body.URL))
 	if err != nil {
-		writeError(w, r, http.StatusBadRequest, "invalid URL")
-		return
-	}
-	resp, err := client.Do(fetchReq)
-	if err != nil {
+		if errors.Is(err, errInvalidRemoteURL) {
+			writeError(w, r, http.StatusBadRequest, "invalid URL")
+			return
+		}
 		writeError(w, r, http.StatusBadGateway, "failed to fetch URL")
-		return
-	}
-	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by ReadAll
-
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB cap
-	if err != nil {
-		writeError(w, r, http.StatusBadGateway, "failed to read URL response")
 		return
 	}
 

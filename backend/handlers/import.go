@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -10,6 +11,30 @@ import (
 	"github.com/quipthread/quipthread/importer"
 	"github.com/quipthread/quipthread/models"
 )
+
+const (
+	maxTextImportBodyBytes   int64 = 33 << 20
+	maxSQLiteImportBodyBytes int64 = 129 << 20
+)
+
+var errImportBodyTooLarge = errors.New("import request body too large")
+
+// parseImportMultipart applies both limits: ParseMultipartForm's argument is
+// only a memory threshold, not a request-size limit. MaxBytesReader is the
+// outer bound that also covers multipart headers, fields, and files spilled
+// to disk.
+func parseImportMultipart(w http.ResponseWriter, r *http.Request, maxBytes int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+	if r.ContentLength > maxBytes {
+		return errImportBodyTooLarge
+	}
+	return r.ParseMultipartForm(maxBytes) // #nosec G120 -- MaxBytesReader above bounds the entire request before parsing.
+}
+
+func importBodyTooLarge(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.Is(err, errImportBodyTooLarge) || errors.As(err, &maxErr)
+}
 
 // importFromReader is a shared helper for text-based importers (XML/JSON).
 // It reads a multipart form with "siteId" and "file" fields, parses the file
@@ -21,7 +46,11 @@ func (h *AdminHandler) importFromReader(
 ) {
 	store := h.db(r)
 
-	if err := r.ParseMultipartForm(32 << 20); err != nil { //nolint:gosec // G120: 32MB limit is intentional
+	if err := parseImportMultipart(w, r, maxTextImportBodyBytes); err != nil {
+		if importBodyTooLarge(err) {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
@@ -118,7 +147,11 @@ func (h *AdminHandler) ImportNative(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 
-	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit is intentional for SQLite database file uploads
+	if err := parseImportMultipart(w, r, maxSQLiteImportBodyBytes); err != nil {
+		if importBodyTooLarge(err) {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
@@ -159,7 +192,11 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 // POST /api/admin/import/sqlite/inspect
 // Accepts a SQLite file and returns the schema of every table with sample values.
 func (h *AdminHandler) ImportSQLiteInspect(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit intentional for SQLite database file uploads
+	if err := parseImportMultipart(w, r, maxSQLiteImportBodyBytes); err != nil {
+		if importBodyTooLarge(err) {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}
@@ -186,7 +223,11 @@ func (h *AdminHandler) ImportSQLiteInspect(w http.ResponseWriter, r *http.Reques
 func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 	store := h.db(r)
 
-	if err := r.ParseMultipartForm(128 << 20); err != nil { //nolint:gosec // G120: 128MB limit intentional for SQLite database file uploads
+	if err := parseImportMultipart(w, r, maxSQLiteImportBodyBytes); err != nil {
+		if importBodyTooLarge(err) {
+			writeError(w, r, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeError(w, r, http.StatusBadRequest, "invalid multipart form")
 		return
 	}

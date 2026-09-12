@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useQuery } from '@tanstack/preact-query'
+import { useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
+import { queryKeys } from '../lib/queryKeys'
 import type { BillingStatus } from '../types'
+import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 
 const FAQ_ITEMS = [
@@ -42,28 +45,22 @@ const FAQ_ITEMS = [
   },
 ]
 
-export default function HelpPanel() {
-  const [billing, setBilling] = useState<BillingStatus | null>(null)
-  const [openFaq, setOpenFaq] = useState<boolean[]>([])
+function HelpPanelInner() {
+  const [openFaq, setOpenFaq] = useState<boolean[]>(new Array(FAQ_ITEMS.length).fill(false))
 
-  useEffect(() => {
-    if (!IS_SELF_HOSTED) {
-      api.billing
-        .status()
-        .then((status) => {
-          setBilling(status)
-        })
-        .catch(() => {})
-    }
-    setOpenFaq(new Array(FAQ_ITEMS.length).fill(false))
-  }, [])
+  const { data: billing } = useQuery<BillingStatus>({
+    queryKey: queryKeys.billingStatus(),
+    queryFn: () => api.billing.status(),
+    enabled: !IS_SELF_HOSTED,
+    staleTime: 60_000,
+  })
 
   function toggleFaq(i: number) {
     setOpenFaq((prev) => prev.map((v, idx) => (idx === i ? !v : v)))
   }
 
   const visibleFaq = FAQ_ITEMS.filter((item) => {
-    if (item.gate === 'billing') return !IS_SELF_HOSTED && billing !== null
+    if (item.gate === 'billing') return !IS_SELF_HOSTED && billing !== undefined
     return true
   })
 
@@ -171,6 +168,14 @@ export default function HelpPanel() {
         </div>
       </section>
     </div>
+  )
+}
+
+export default function HelpPanel() {
+  return (
+    <QueryProvider>
+      <HelpPanelInner />
+    </QueryProvider>
   )
 }
 

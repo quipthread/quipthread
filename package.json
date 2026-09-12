@@ -21,6 +21,7 @@
     "dev:cli": "bun run --cwd packages/create-quipthread dev",
     "test:backend": "cd backend && go test ./...",
     "check": "biome check .",
+    "check:embed-selector": "bun run tools/check-embed-selector.ts",
     "check:fix": "biome check --write --unsafe ."
   },
   "overrides": {
@@ -28,13 +29,13 @@
     "smol-toml": "^1.6.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.9"
+    "@biomejs/biome": "^2.5.11"
   },
   "dependencies": {
-    "@astrojs/preact": "^5.1.0",
-    "@astrojs/starlight": "^0.38.2",
-    "@vitejs/plugin-react": "^6.0.1",
-    "astro": "^6.1.2",
-    "vite": "^8.0.3"
+    "@astrojs/preact": "^6.0.5",
+    "@astrojs/starlight": "^0.41.10",
+    "@vitejs/plugin-react": "^6.1.1",
+    "astro": "^7.2.10",
+    "vite": "^8.2.2"
   }
 }

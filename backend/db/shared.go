@@ -3,82 +3,18 @@ package db
 import (
 	"context"
 	"database/sql"
-	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pressly/goose/v3"
 
 	"github.com/quipthread/quipthread/models"
 )
 
-//go:embed migrations/*.sql
-var migrationFiles embed.FS
-
 type sqlStore struct {
-	db      *sql.DB
-	dialect goose.Dialect
-}
-
-// ensureColumns adds columns that may be absent from databases created before
-// a column was introduced. CREATE TABLE IF NOT EXISTS in goose migrations is a
-// no-op on existing tables, so ALTER TABLE is required for pre-existing DBs.
-func (s *sqlStore) ensureColumns() error {
-	type colSpec struct{ table, column, def string }
-	cols := []colSpec{
-		{"sites", "notify_interval", "INTEGER"},
-	}
-	for _, c := range cols {
-		rows, err := s.db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, c.table)) //nolint:noctx // DB layer
-		if err != nil {
-			return fmt.Errorf("pragma table_info %s: %w", c.table, err)
-		}
-		found := false
-		for rows.Next() {
-			var cid int
-			var name, typ string
-			var notNull, dflt, pk any
-			if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
-				rows.Close() //nolint:errcheck,gosec // non-actionable cleanup error
-				return fmt.Errorf("scan table_info %s: %w", c.table, err)
-			}
-			if name == c.column {
-				found = true
-				break
-			}
-		}
-		rows.Close() //nolint:errcheck,gosec // non-actionable cleanup error
-		if !found {
-			if _, err := s.db.Exec(fmt.Sprintf( //nolint:noctx // DB layer
-				`ALTER TABLE %s ADD COLUMN %s %s`, c.table, c.column, c.def,
-			)); err != nil {
-				return fmt.Errorf("add column %s.%s: %w", c.table, c.column, err)
-			}
-		}
-	}
-	return nil
-}
-
-func (s *sqlStore) migrate() error {
-	// NewProvider expects migrations at the FS root; strip the "migrations/" prefix.
-	migrationsFS, err := fs.Sub(migrationFiles, "migrations")
-	if err != nil {
-		return fmt.Errorf("goose sub fs: %w", err)
-	}
-	provider, err := goose.NewProvider(s.dialect, s.db, migrationsFS,
-		goose.WithLogger(goose.NopLogger()),
-	)
-	if err != nil {
-		return fmt.Errorf("goose provider: %w", err)
-	}
-	if _, err := provider.Up(context.Background()); err != nil {
-		return fmt.Errorf("goose up: %w", err)
-	}
-	return nil
+	db *sql.DB
 }
 
 // ---- Comments ---------------------------------------------------------------
@@ -345,15 +281,15 @@ func (s *sqlStore) CountApprovedCommentsByUser(userID, siteID string) (int, erro
 	return count, err
 }
 
-func (s *sqlStore) FindDuplicateComment(userID, pageID, content string, since time.Time) (*models.Comment, error) {
+func (s *sqlStore) FindDuplicateComment(siteID, userID, pageID, content string, since time.Time) (*models.Comment, error) {
 	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
 		`SELECT id, site_id, page_id, page_url, page_title, parent_id,
 		       user_id, content, status, imported, disqus_author, created_at, updated_at
 		FROM comments
-		WHERE user_id = ? AND page_id = ? AND content = ? AND created_at >= ?
+		WHERE site_id = ? AND user_id = ? AND page_id = ? AND content = ? AND created_at >= ?
 		ORDER BY created_at DESC
 		LIMIT 1`,
-		userID, pageID, content, since.UTC().Format("2006-01-02 15:04:05"),
+		siteID, userID, pageID, content, since.UTC().Format("2006-01-02 15:04:05"),
 	)
 	return scanComment(row)
 }
@@ -449,7 +385,17 @@ func (s *sqlStore) ExportComments(siteID string, filter ExportFilter) ([]*models
 
 func (s *sqlStore) GetUser(id string) (*models.User, error) {
 	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, created_at
+		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, dashboard_session_generation, embed_session_generation, created_at
+		FROM users WHERE id = ?`, id)
+	return scanUser(row)
+}
+
+func (s *sqlStore) GetUserContext(ctx context.Context, id string) (*models.User, error) {
+	if ctx == nil {
+		return nil, context.Canceled
+	}
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, dashboard_session_generation, embed_session_generation, created_at
 		FROM users WHERE id = ?`, id)
 	return scanUser(row)
 }
@@ -480,11 +426,29 @@ func (s *sqlStore) UpsertUser(u *models.User) error {
 
 func (s *sqlStore) UpdateUser(u *models.User) error {
 	_, err := s.db.Exec( //nolint:noctx // DB layer; full context threading deferred
-		`UPDATE users SET display_name = ?, email = ?, avatar_url = ?, role = ?, banned = ?, shadow_banned = ?
+		`UPDATE users SET display_name = ?, email = ?, avatar_url = ?, role = ?, banned = ?, shadow_banned = ?,
+		 dashboard_session_generation = dashboard_session_generation + CASE WHEN role != ? OR banned != ? THEN 1 ELSE 0 END,
+		 embed_session_generation = embed_session_generation + CASE WHEN role != ? OR banned != ? THEN 1 ELSE 0 END
 		WHERE id = ?`,
 		u.DisplayName, nullStr(u.Email), nullStr(u.AvatarURL),
-		u.Role, boolInt(u.Banned), boolInt(u.ShadowBanned), u.ID,
+		u.Role, boolInt(u.Banned), boolInt(u.ShadowBanned), u.Role, boolInt(u.Banned), u.Role, boolInt(u.Banned), u.ID,
 	)
+	return err
+}
+
+func (s *sqlStore) BumpSessionGeneration(userID string, audiences ...string) error {
+	audience := "both"
+	if len(audiences) > 0 && audiences[0] != "" {
+		audience = audiences[0]
+	}
+	columns := "dashboard_session_generation = dashboard_session_generation + 1, embed_session_generation = embed_session_generation + 1"
+	switch audience {
+	case "dashboard":
+		columns = "dashboard_session_generation = dashboard_session_generation + 1"
+	case "embed":
+		columns = "embed_session_generation = embed_session_generation + 1"
+	}
+	_, err := s.db.Exec(`UPDATE users SET `+columns+` WHERE id = ?`, userID) //nolint:noctx,gosec // columns is a closed set above
 	return err
 }
 
@@ -497,7 +461,7 @@ func (s *sqlStore) ListUsers(page, pageSize int) ([]*models.User, int, error) {
 	}
 
 	rows, err := s.db.Query( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, created_at
+		`SELECT id, display_name, email, avatar_url, role, banned, shadow_banned, email_verified, dashboard_session_generation, embed_session_generation, created_at
 		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`,
 		pageSize, offset,
 	)
@@ -572,12 +536,12 @@ func (s *sqlStore) UpdateIdentityPassword(identityID, hash string) error {
 
 func (s *sqlStore) GetSite(id string) (*models.Site, error) {
 	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT id, owner_id, domain, theme, notify_interval, created_at, last_notified_at FROM sites WHERE id = ?`, id)
+		`SELECT id, owner_id, domain, theme, notify_interval, created_at, last_notified_at, sso_secret FROM sites WHERE id = ?`, id)
 	return scanSite(row)
 }
 
 func (s *sqlStore) ListSites() ([]*models.Site, error) {
-	rows, err := s.db.Query(`SELECT id, owner_id, domain, theme, notify_interval, created_at, last_notified_at FROM sites ORDER BY created_at DESC`) //nolint:noctx // DB layer; full context threading deferred
+	rows, err := s.db.Query(`SELECT id, owner_id, domain, theme, notify_interval, created_at, last_notified_at, sso_secret FROM sites ORDER BY created_at DESC`) //nolint:noctx // DB layer; full context threading deferred
 	if err != nil {
 		return nil, err
 	}
@@ -702,6 +666,86 @@ func (s *sqlStore) DeleteApprovalToken(token string) error {
 	return err
 }
 
+// Sentinel outcomes for ConsumeApprovalToken. Unknown and already-consumed
+// tokens are deliberately indistinguishable so replays cannot probe which
+// tokens existed.
+var (
+	ErrApprovalTokenNotFound   = errors.New("approval token: unknown or already consumed")
+	ErrApprovalTokenExpired    = errors.New("approval token: expired")
+	ErrApprovalCommentNotFound = errors.New("approval token: comment no longer exists")
+	ErrInvalidApprovalStatus   = errors.New("approval token: status must be approved or rejected")
+)
+
+// ConsumeApprovalToken atomically validates a raw approval token, mutates the
+// associated comment's status, and deletes the token in a single transaction,
+// so exactly one concurrent consumer can win. The ordering matters:
+//
+//  1. Token lookup rejects unknown/replayed tokens before any mutation.
+//  2. Expiry is checked against the caller-supplied now.
+//  3. The comment UPDATE requires the write lock; a transaction whose snapshot
+//     predates another consumer's commit cannot upgrade and fails here.
+//  4. The token DELETE with a rows-affected check is the final replay guard:
+//     if a concurrent winner deleted the token between steps 1 and 4, this
+//     transaction rolls back with ErrApprovalTokenNotFound and the comment
+//     keeps the winner's status.
+func (s *sqlStore) ConsumeApprovalToken(token, status string, now time.Time) (*models.Comment, error) {
+	if status != "approved" && status != "rejected" {
+		return nil, ErrInvalidApprovalStatus
+	}
+
+	tx, err := s.db.Begin() //nolint:noctx // DB layer; full context threading deferred
+	if err != nil {
+		return nil, fmt.Errorf("begin approval consume: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after successful commit
+
+	var commentID string
+	var expiresAt time.Time
+	err = tx.QueryRow( //nolint:noctx // DB layer; full context threading deferred
+		`SELECT comment_id, expires_at FROM approval_tokens WHERE token = ?`, token,
+	).Scan(&commentID, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrApprovalTokenNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lookup approval token: %w", err)
+	}
+	if !expiresAt.After(now) {
+		return nil, ErrApprovalTokenExpired
+	}
+
+	res, err := tx.Exec( //nolint:noctx // DB layer; full context threading deferred
+		`UPDATE comments SET status = ?, updated_at = ? WHERE id = ?`,
+		status, now.UTC(), commentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("apply approval status: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, ErrApprovalCommentNotFound
+	}
+
+	res, err = tx.Exec(`DELETE FROM approval_tokens WHERE token = ?`, token) //nolint:noctx // DB layer; full context threading deferred
+	if err != nil {
+		return nil, fmt.Errorf("consume approval token: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		// A concurrent consumer deleted the token first; roll back so the
+		// comment keeps the winner's status and this caller mutates nothing.
+		return nil, ErrApprovalTokenNotFound
+	}
+
+	comment, err := scanComment(tx.QueryRow( //nolint:noctx // DB layer; full context threading deferred
+		`SELECT id, site_id, page_id, page_url, page_title, parent_id,
+		       user_id, content, status, imported, disqus_author, created_at, updated_at
+		FROM comments WHERE id = ?`, commentID,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("read consumed approval comment: %w", err)
+	}
+	return comment, tx.Commit()
+}
+
 // ---- Email tokens -----------------------------------------------------------
 
 func (s *sqlStore) CreateEmailToken(t *models.EmailToken) error {
@@ -741,6 +785,9 @@ func (s *sqlStore) UpdatePasswordHashByUser(userID, provider, hash string) error
 		WHERE user_id = ? AND provider = ?`,
 		hash, userID, provider,
 	)
+	if err == nil {
+		_, err = s.db.Exec(`UPDATE users SET dashboard_session_generation = dashboard_session_generation + 1, embed_session_generation = embed_session_generation + 1 WHERE id = ?`, userID) //nolint:noctx // DB layer; full context threading deferred
+	}
 	return err
 }
 
@@ -889,8 +936,9 @@ func scanSite(s scanner) (*models.Site, error) {
 		site           models.Site
 		notifyInterval sql.NullInt64
 		lastNotifiedAt sql.NullTime
+		ssoSecret      sql.NullString
 	)
-	err := s.Scan(&site.ID, &site.OwnerID, &site.Domain, &site.Theme, &notifyInterval, &site.CreatedAt, &lastNotifiedAt)
+	err := s.Scan(&site.ID, &site.OwnerID, &site.Domain, &site.Theme, &notifyInterval, &site.CreatedAt, &lastNotifiedAt, &ssoSecret)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -904,19 +952,31 @@ func scanSite(s scanner) (*models.Site, error) {
 	if lastNotifiedAt.Valid {
 		site.LastNotifiedAt = &lastNotifiedAt.Time
 	}
+	if ssoSecret.Valid {
+		site.SSOSecret = &ssoSecret.String
+	}
 	return &site, nil
+}
+
+func (s *sqlStore) UpdateSiteSSO(siteID string, secret *string) error {
+	_, err := s.db.Exec( //nolint:noctx // DB layer; full context threading deferred
+		`UPDATE sites SET sso_secret = ? WHERE id = ?`, secret, siteID,
+	)
+	return err
 }
 
 func scanUser(s scanner) (*models.User, error) {
 	var (
-		u             models.User
-		email         sql.NullString
-		avatar        sql.NullString
-		banned        int
-		shadowBanned  int
-		emailVerified int
+		u                   models.User
+		email               sql.NullString
+		avatar              sql.NullString
+		banned              int
+		shadowBanned        int
+		emailVerified       int
+		dashboardGeneration int64
+		embedGeneration     int64
 	)
-	err := s.Scan(&u.ID, &u.DisplayName, &email, &avatar, &u.Role, &banned, &shadowBanned, &emailVerified, &u.CreatedAt)
+	err := s.Scan(&u.ID, &u.DisplayName, &email, &avatar, &u.Role, &banned, &shadowBanned, &emailVerified, &dashboardGeneration, &embedGeneration, &u.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -928,6 +988,8 @@ func scanUser(s scanner) (*models.User, error) {
 	u.Banned = banned != 0
 	u.ShadowBanned = shadowBanned != 0
 	u.EmailVerified = emailVerified != 0
+	u.DashboardSessionGeneration = dashboardGeneration
+	u.EmbedSessionGeneration = embedGeneration
 	return &u, nil
 }
 

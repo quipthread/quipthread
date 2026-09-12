@@ -1,8 +1,11 @@
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
 import type { ComponentChildren, JSX } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
+import { queryKeys } from '../lib/queryKeys'
 import type { AccountInfo, BillingStatus, SecuritySettings, TeamMember } from '../types'
+import QueryProvider from './QueryProvider'
 import InlineMsg from './shared/InlineMsg'
 import InputField from './shared/InputField'
 import PageHeader from './shared/PageHeader'
@@ -428,26 +431,26 @@ function PasswordSection() {
 // ---- Security section -------------------------------------------------------
 
 function SecuritySection({ billing }: { billing: BillingStatus | null }) {
-  const [security, setSecurity] = useState<SecuritySettings | null>(null)
   const [siteKey, setSiteKey] = useState('')
   const [secretKey, setSecretKey] = useState('')
   const [secretChanged, setSecretChanged] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const queryClient = useQueryClient()
 
   const planIndex = billing ? PLAN_ORDER.indexOf(billing.plan) : PLAN_ORDER.indexOf('business')
   const canAccess = IS_SELF_HOSTED || planIndex >= PLAN_ORDER.indexOf('starter')
 
+  const { data: security } = useQuery<SecuritySettings>({
+    queryKey: queryKeys.security(),
+    queryFn: () => api.account.getSecurity(),
+    enabled: canAccess,
+    staleTime: 60_000,
+  })
+
   useEffect(() => {
-    if (!canAccess) return
-    api.account
-      .getSecurity()
-      .then((s) => {
-        setSecurity(s)
-        setSiteKey(s.turnstile_site_key)
-      })
-      .catch(() => {})
-  }, [canAccess])
+    if (security) setSiteKey(security.turnstile_site_key)
+  }, [security])
 
   async function save() {
     setSaving(true)
@@ -457,10 +460,7 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
       setMsg({ type: 'success', text: 'Security settings saved.' })
       setSecretChanged(false)
       setSecretKey('')
-      // Refresh security state
-      const s = await api.account.getSecurity()
-      setSecurity(s)
-      setSiteKey(s.turnstile_site_key)
+      queryClient.invalidateQueries({ queryKey: queryKeys.security() })
     } catch (e) {
       setMsg({ type: 'error', text: (e as Error).message ?? 'Failed to save.' })
     } finally {
@@ -546,22 +546,23 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
 // ---- Team members section ---------------------------------------------------
 
 function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
-  const [members, setMembers] = useState<TeamMember[]>([])
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [removing, setRemoving] = useState<Record<string, boolean>>({})
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const queryClient = useQueryClient()
 
   const planIndex = billing ? PLAN_ORDER.indexOf(billing.plan) : PLAN_ORDER.indexOf('business')
   const canAccess = IS_SELF_HOSTED || planIndex >= PLAN_ORDER.indexOf('business')
 
-  useEffect(() => {
-    if (!canAccess) return
-    api.invitations
-      .list()
-      .then((r) => setMembers(r.members))
-      .catch(() => {})
-  }, [canAccess])
+  const { data: invitationsData } = useQuery({
+    queryKey: queryKeys.invitations(),
+    queryFn: () => api.invitations.list(),
+    enabled: canAccess,
+    staleTime: 30_000,
+  })
+
+  const members = invitationsData?.members ?? []
 
   async function invite() {
     if (!email.trim()) return
@@ -569,9 +570,16 @@ function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
     setMsg(null)
     try {
       const member = await api.invitations.create(email.trim())
-      setMembers((m) => {
-        const existing = m.findIndex((x) => x.id === member.id)
-        return existing >= 0 ? m.map((x, i) => (i === existing ? member : x)) : [member, ...m]
+      queryClient.setQueryData<{ members: TeamMember[] }>(queryKeys.invitations(), (old) => {
+        if (!old) return old
+        const existing = old.members.findIndex((x) => x.id === member.id)
+        return {
+          ...old,
+          members:
+            existing >= 0
+              ? old.members.map((x, i) => (i === existing ? member : x))
+              : [member, ...old.members],
+        }
       })
       setEmail('')
       setMsg({ type: 'success', text: `Invitation sent to ${member.email}.` })
@@ -586,7 +594,9 @@ function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
     setRemoving((r) => ({ ...r, [id]: true }))
     try {
       await api.invitations.delete(id)
-      setMembers((m) => m.filter((x) => x.id !== id))
+      queryClient.setQueryData<{ members: TeamMember[] }>(queryKeys.invitations(), (old) =>
+        old ? { ...old, members: old.members.filter((x) => x.id !== id) } : old,
+      )
     } catch {
       // ignore
     } finally {
@@ -696,36 +706,26 @@ function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
 
 // ---- Root component ---------------------------------------------------------
 
-export default function AccountPanel() {
-  const [account, setAccount] = useState<AccountInfo | null>(null)
-  const [billing, setBilling] = useState<BillingStatus | null>(null)
-  const [loadErr, setLoadErr] = useState<string | null>(null)
+function AccountPanelInner() {
+  const queryClient = useQueryClient()
 
-  function load() {
-    api.account
-      .get()
-      .then(setAccount)
-      .catch((e: unknown) => {
-        setLoadErr((e as Error).message ?? 'Failed to load account.')
-      })
-  }
+  const { data: account, isError: accountError } = useQuery<AccountInfo>({
+    queryKey: queryKeys.account(),
+    queryFn: () => api.account.get(),
+    staleTime: 60_000,
+  })
 
-  useEffect(() => {
-    load()
-    if (!IS_SELF_HOSTED) {
-      api.billing
-        .status()
-        .then(setBilling)
-        .catch(() => {
-          setBilling({ plan: 'business' } as BillingStatus)
-        })
-    }
-  }, [])
+  const { data: billing } = useQuery<BillingStatus>({
+    queryKey: queryKeys.billingStatus(),
+    queryFn: () => api.billing.status(),
+    enabled: !IS_SELF_HOSTED,
+    staleTime: 60_000,
+  })
 
-  if (loadErr) {
+  if (accountError) {
     return (
       <div class="error-msg" style={{ marginTop: '2rem' }}>
-        {loadErr}
+        Failed to load account.
       </div>
     )
   }
@@ -740,16 +740,31 @@ export default function AccountPanel() {
 
       <ProfileSection
         account={account}
-        onUpdated={(name) => setAccount((a) => (a ? { ...a, display_name: name } : a))}
+        onUpdated={(name) => {
+          queryClient.setQueryData<AccountInfo>(queryKeys.account(), (old) =>
+            old ? { ...old, display_name: name } : old,
+          )
+        }}
       />
 
-      <ConnectedAccountsSection account={account} onRefresh={load} />
+      <ConnectedAccountsSection
+        account={account}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.account() })}
+      />
 
       {account.providers.includes('email') && <PasswordSection />}
 
-      <SecuritySection billing={billing} />
+      <SecuritySection billing={billing ?? null} />
 
-      {!IS_SELF_HOSTED && <InvitationsSection billing={billing} />}
+      {!IS_SELF_HOSTED && <InvitationsSection billing={billing ?? null} />}
     </div>
+  )
+}
+
+export default function AccountPanel() {
+  return (
+    <QueryProvider>
+      <AccountPanelInner />
+    </QueryProvider>
   )
 }

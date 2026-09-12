@@ -1,16 +1,47 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/quipthread/quipthread/cloud"
+	"github.com/quipthread/quipthread/cloud/approvaltoken"
 	"github.com/quipthread/quipthread/db"
 )
+
+// approvalUnavailable writes the deterministic 503 used while the approval
+// routes are gated off in managed cloud mode (missing control-plane store or
+// missing/invalid approval-token HMAC key). It follows the same response
+// convention as the gated SSO routes (see admin_sso.go): JSON
+// feature_unavailable carrying the chi request id.
+//
+// These disabled handlers receive no store reference at all: in cloud mode the
+// approval tokens/comments live per-tenant, and without valid dependencies the
+// routes must fail closed rather than resolve content through the global
+// constructor store.
+func approvalUnavailable(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusServiceUnavailable, "feature_unavailable")
+}
+
+// HandleApprovalPageUnavailable is the fail-closed replacement for
+// GET /approve/{token} in managed cloud mode. Storeless by construction.
+func HandleApprovalPageUnavailable(w http.ResponseWriter, r *http.Request) {
+	approvalUnavailable(w, r)
+}
+
+// HandleApprovalActionUnavailable is the fail-closed replacement for
+// POST /approve/{token} in managed cloud mode. Storeless by construction.
+func HandleApprovalActionUnavailable(w http.ResponseWriter, r *http.Request) {
+	approvalUnavailable(w, r)
+}
 
 // HandleApprovalPage renders the styled approval page for a given token.
 // GET /approve/{token}
@@ -131,6 +162,298 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg}) //nolint:errcheck,gosec // error response; connection may already be broken
+}
+
+// --- Cloud approval flow -----------------------------------------------------
+//
+// The managed-cloud approval flow never touches the global/master content
+// store. The central control plane holds only a hashed routing locator
+// (cloud.ApprovalToken: account/site/expiry, keyed by the HMAC-SHA-256 hash of
+// the raw bearer token); the raw token and its comment association live solely
+// in the locator account's tenant store. Raw tokens and the HMAC key are never
+// logged — failures are correlated by token hash only.
+
+// ApprovalTenantStoreResolver opens the tenant db.Store owned by the given
+// control-plane account. It is the narrow, injectable seam through which the
+// cloud approval controller reaches tenant content: production wiring resolves
+// the locator account's store through the shared bounded tenant-store cache,
+// and tests substitute fakes. The returned release func must be called exactly
+// once when the caller is finished with the store.
+type ApprovalTenantStoreResolver func(accountID string) (store db.Store, release func(), err error)
+
+// ApprovalCloudDeps carries the collaborators of the cloud approval controller.
+// All fields are required; registration (see registerApprovalRoutes) mounts the
+// cloud handlers only when every dependency is valid, so the handlers themselves
+// fail closed via terminal errors rather than silent fallbacks.
+type ApprovalCloudDeps struct {
+	// CloudStore is the central control-plane store. Only hashed locators and
+	// site-registry entries are read from it; raw tokens never reach it.
+	CloudStore cloud.Store
+	// HMACKey is the dedicated approval-token HMAC secret. The raw token is
+	// hashed with it before any central lookup; the key itself is never logged
+	// or persisted.
+	HMACKey string
+	// ResolveTenant opens the locator account's tenant store.
+	ResolveTenant ApprovalTenantStoreResolver
+	// Now returns the decision time; overridable for deterministic tests.
+	Now func() time.Time
+}
+
+// Uniform rejection wording, identical to the self-hosted responses, so a
+// rejected cloud approval link leaks no more than a self-hosted one already
+// does: unknown, consumed, and registry-inconsistent locators all answer with
+// the same 404, and only true expiry is distinguishable as 410.
+const (
+	approvalMsgNotFound = "token not found or already used"
+	approvalMsgExpired  = "approval link has expired"
+)
+
+// approvalReject is a terminal caller-safe rejection: an HTTP status plus the
+// exact response message. It never carries registry/topology details.
+type approvalReject struct {
+	status int
+	msg    string
+}
+
+func (e *approvalReject) Error() string { return e.msg }
+
+func approvalRejectNotFound() *approvalReject {
+	return &approvalReject{http.StatusNotFound, approvalMsgNotFound}
+}
+
+func approvalRejectExpired() *approvalReject {
+	return &approvalReject{http.StatusGone, approvalMsgExpired}
+}
+
+func approvalRejectInternal() *approvalReject {
+	return &approvalReject{http.StatusInternalServerError, "internal error"}
+}
+
+func approvalRejectService() *approvalReject {
+	return &approvalReject{http.StatusServiceUnavailable, "service unavailable"}
+}
+
+// resolveCloudApproval performs the shared pre-tenant validation for both the
+// GET page and the POST action:
+//
+//  1. The raw path token is HMAC-hashed and looked up in the central locator
+//     table. Unknown/consumed locators reject with the uniform 404.
+//  2. Locator expiry is enforced against the central record.
+//  3. The locator's site must have an active registration owned by the same
+//     account the locator names (stale, inactive, or mismatched registry
+//     entries reject with the uniform 404 — no registry-state leakage).
+//  4. Only the locator account's tenant store is opened, via the injectable
+//     resolver seam, and the site must actually exist in that tenant store.
+//
+// On success it returns the locator (whose TokenHash field identifies the
+// central row), the tenant store, and the release func that must be deferred
+// by the caller. The raw token is never logged anywhere in this path.
+func (d ApprovalCloudDeps) resolveCloudApproval(rawToken string) (*cloud.ApprovalToken, db.Store, func(), *approvalReject) {
+	now := time.Now
+	if d.Now != nil {
+		now = d.Now
+	}
+
+	tokenHash := approvaltoken.Hash(d.HMACKey, rawToken)
+
+	loc, err := d.CloudStore.GetApprovalToken(tokenHash)
+	if err != nil {
+		slog.ErrorContext(context.Background(), "approval locator lookup failed", "token_hash", tokenHash, "error", err)
+		return nil, nil, nil, approvalRejectInternal()
+	}
+	if loc == nil {
+		return nil, nil, nil, approvalRejectNotFound()
+	}
+	if !loc.ExpiresAt.After(now()) {
+		return nil, nil, nil, approvalRejectExpired()
+	}
+
+	entry, err := d.CloudStore.GetActiveSiteRegistration(loc.SiteID)
+	if err != nil {
+		slog.ErrorContext(context.Background(), "approval site registry lookup failed", "token_hash", tokenHash, "error", err)
+		return nil, nil, nil, approvalRejectInternal()
+	}
+	if entry == nil || entry.AccountID != loc.AccountID {
+		// Stale, inactive, or account-mismatched registration: indistinguishable
+		// from an unknown token on purpose.
+		return nil, nil, nil, approvalRejectNotFound()
+	}
+
+	store, release, err := d.ResolveTenant(loc.AccountID)
+	if err != nil {
+		slog.ErrorContext(context.Background(), "approval tenant store open failed", "token_hash", tokenHash, "error", err)
+		return nil, nil, nil, approvalRejectService()
+	}
+
+	site, err := store.GetSite(loc.SiteID)
+	if err != nil {
+		release()
+		slog.ErrorContext(context.Background(), "approval tenant site lookup failed", "token_hash", tokenHash, "error", err)
+		return nil, nil, nil, approvalRejectService()
+	}
+	if site == nil {
+		// A registry entry without tenant rows is a consistency gap we must not
+		// paper over with a global-store fallback.
+		release()
+		return nil, nil, nil, approvalRejectNotFound()
+	}
+
+	return loc, store, release, nil
+}
+
+// emitApprovalReject writes the rejection in the response style of the calling
+// route: plain text for the server-rendered GET page, JSON for the POST action.
+func emitApprovalReject(w http.ResponseWriter, rej *approvalReject, asJSON bool) {
+	if asJSON {
+		jsonError(w, rej.msg, rej.status)
+		return
+	}
+	http.Error(w, rej.msg, rej.status)
+}
+
+// HandleCloudApprovalPage renders the styled approval page for a raw path
+// token in managed cloud mode. GET /approve/{token}. It reads the tenant raw
+// token and comment without consuming: the link stays usable until a POST
+// action atomically consumes it.
+func HandleCloudApprovalPage(d ApprovalCloudDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rawToken := chi.URLParam(r, "token")
+
+		loc, store, release, rej := d.resolveCloudApproval(rawToken)
+		if rej != nil {
+			emitApprovalReject(w, rej, false)
+			return
+		}
+		defer release()
+
+		// Tenant-owned raw token association. The central locator only routed
+		// us here; the tenant store is the authority on the link itself.
+		tt, err := store.GetApprovalToken(rawToken)
+		if err != nil {
+			slog.ErrorContext(r.Context(), "approval tenant token lookup failed", "token_hash", loc.TokenHash, "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if tt == nil {
+			http.Error(w, approvalMsgNotFound, http.StatusNotFound)
+			return
+		}
+		if !tt.ExpiresAt.After(d.Now()) {
+			http.Error(w, approvalMsgExpired, http.StatusGone)
+			return
+		}
+
+		comment, err := store.GetComment(tt.CommentID)
+		if err != nil || comment == nil {
+			http.Error(w, "comment not found", http.StatusNotFound)
+			return
+		}
+
+		// The verified tenant site was fetched during resolution; use its
+		// domain for the page header exactly as the self-hosted renderer does.
+		site, _ := store.GetSite(comment.SiteID)
+
+		author := comment.AuthorName
+		if author == "" {
+			author = "Anonymous"
+		}
+		domain := ""
+		if site != nil {
+			domain = site.Domain
+		}
+
+		pageLabel := comment.PageTitle
+		if pageLabel == "" {
+			pageLabel = comment.PageURL
+		}
+		if pageLabel == "" {
+			pageLabel = comment.PageID
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, approvalPageHTML, //nolint:errcheck,gosec // ResponseWriter.Write errors not actionable; HTML is pre-escaped by html.EscapeString above
+			html.EscapeString(domain),
+			html.EscapeString(author),
+			html.EscapeString(pageLabel),
+			html.EscapeString(comment.PageURL),
+			comment.CreatedAt.Format("Jan 2, 2006 at 3:04 PM UTC"),
+			comment.Content, // raw HTML from the editor — already sanitized on save
+			rawToken,
+		)
+	}
+}
+
+// HandleCloudApprovalAction processes POST /approve/{token} with the existing
+// JSON body {"action":"approve"|"reject"}. The tenant store's
+// ConsumeApprovalToken is the atomic single-use primitive: it validates the
+// raw token, applies the final comment status, and deletes the token in one
+// transaction, so exactly one concurrent caller wins. After a successful
+// tenant commit, the central locator is deleted best-effort. A locator-delete
+// failure never replays the tenant mutation: the delete runs after the
+// consume committed and is logged, not retried. This is deliberately not a
+// distributed transaction — the worst case is a consumed link whose central
+// locator lingers until the expiry sweep removes it.
+func HandleCloudApprovalAction(d ApprovalCloudDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rawToken := chi.URLParam(r, "token")
+
+		loc, store, release, rej := d.resolveCloudApproval(rawToken)
+		if rej != nil {
+			emitApprovalReject(w, rej, true)
+			return
+		}
+		defer release()
+
+		// Existing JSON action behavior: parse and validate the body exactly
+		// as the self-hosted action handler does.
+		var body struct {
+			Action string `json:"action"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || (body.Action != "approve" && body.Action != "reject") {
+			jsonError(w, `action must be "approve" or "reject"`, http.StatusBadRequest)
+			return
+		}
+
+		// Map the action to the final comment status, exactly as the
+		// self-hosted action handler does, before the atomic consume.
+		status := body.Action
+		switch body.Action {
+		case "approve":
+			status = "approved"
+		case "reject":
+			status = "rejected"
+		}
+
+		comment, err := store.ConsumeApprovalToken(rawToken, status, d.Now())
+		switch {
+		case errors.Is(err, db.ErrApprovalTokenNotFound):
+			jsonError(w, approvalMsgNotFound, http.StatusNotFound)
+			return
+		case errors.Is(err, db.ErrApprovalTokenExpired):
+			jsonError(w, approvalMsgExpired, http.StatusGone)
+			return
+		case errors.Is(err, db.ErrApprovalCommentNotFound):
+			jsonError(w, "comment not found", http.StatusNotFound)
+			return
+		case err != nil:
+			slog.ErrorContext(r.Context(), "approval tenant consume failed", "token_hash", loc.TokenHash, "error", err)
+			jsonError(w, "failed to update comment", http.StatusInternalServerError)
+			return
+		}
+
+		// Best-effort central cleanup after the tenant mutation committed. A
+		// failure is logged with the token hash only and must never trigger a
+		// second tenant mutation.
+		if derr := d.CloudStore.DeleteApprovalToken(loc.TokenHash); derr != nil {
+			slog.WarnContext(r.Context(), "approval locator cleanup failed", "token_hash", loc.TokenHash, "error", derr)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck,gosec // error response; connection may already be broken
+			"ok":     true,
+			"status": comment.Status,
+		})
+	}
 }
 
 // approvalPageHTML is a self-contained server-rendered page styled with

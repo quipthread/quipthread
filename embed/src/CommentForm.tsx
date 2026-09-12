@@ -76,30 +76,15 @@ export function CommentForm({
     }
   })()
 
-  // Persist draft on unmount if content remains
-  useEffect(() => {
-    return () => {
-      const html = editorRef.current?.getHTML() ?? ''
-      const isEmpty = editorRef.current?.isEmpty() ?? true
-      try {
-        if (isEmpty) {
-          localStorage.removeItem(key)
-        } else {
-          localStorage.setItem(key, html)
-        }
-      } catch {
-        // localStorage unavailable (cross-origin iframe, private browsing, etc.)
-      }
-    }
-  }, [key])
-
-  const handleChange = (_html: string, isEmpty: boolean) => {
-    if (isEmpty) {
-      try {
+  const handleChange = (html: string, isEmpty: boolean) => {
+    try {
+      if (isEmpty) {
         localStorage.removeItem(key)
-      } catch {
-        /* noop */
+      } else {
+        localStorage.setItem(key, html)
       }
+    } catch (error) {
+      if (!(error instanceof DOMException)) throw error
     }
   }
 
@@ -160,6 +145,7 @@ export function CommentForm({
         placeholder={placeholder ?? t.leaveComment}
         initialContent={initialContent}
         onChange={handleChange}
+        disabled={submitting}
       />
       {error && <p className="qt-error">{error}</p>}
       {turnstileSiteKey && (

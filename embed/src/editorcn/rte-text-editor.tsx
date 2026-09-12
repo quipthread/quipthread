@@ -1,0 +1,70 @@
+import { useEffect, useMemo } from 'react'
+import { RichTextEditorControl } from './controls/rte-control'
+import * as controls from './controls/rte-controls'
+import { DEFAULT_ICONS } from './icons'
+import { DEFAULT_LABELS } from './labels'
+import { Content } from './rte-content'
+import { RichTextEditorContext } from './rte-context'
+import { ControlsGroup } from './rte-controls-group'
+import { Toolbar } from './rte-toolbar'
+import type { RichTextEditorProps } from './types'
+
+const RichTextEditorRoot = ({
+  editor,
+  children,
+  className = '',
+  labels,
+  icons,
+  editable = true,
+}: RichTextEditorProps) => {
+  const mergedLabels = useMemo(() => ({ ...DEFAULT_LABELS, ...labels }), [labels])
+  const mergedIcons = useMemo(() => ({ ...DEFAULT_ICONS, ...icons }), [icons])
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && editor.isEditable !== editable) {
+      editor.setEditable(editable)
+    }
+  }, [editor, editable])
+
+  return (
+    <RichTextEditorContext.Provider
+      value={{ editor, editable, icons: mergedIcons, labels: mergedLabels }}
+    >
+      <div className={`rte-root ${className}`}>{children}</div>
+    </RichTextEditorContext.Provider>
+  )
+}
+
+export const RichTextEditor = Object.assign(RichTextEditorRoot, {
+  AlignCenter: controls.AlignCenterControl,
+  AlignJustify: controls.AlignJustifyControl,
+  AlignLeft: controls.AlignLeftControl,
+  AlignRight: controls.AlignRightControl,
+  Blockquote: controls.BlockquoteControl,
+  Bold: controls.BoldControl,
+  BulletList: controls.BulletListControl,
+  ClearFormatting: controls.ClearFormattingControl,
+  Code: controls.CodeControl,
+  CodeBlock: controls.CodeBlockControl,
+  Content,
+  Control: RichTextEditorControl,
+  ControlsGroup,
+  H1: controls.H1Control,
+  H2: controls.H2Control,
+  H3: controls.H3Control,
+  H4: controls.H4Control,
+  H5: controls.H5Control,
+  H6: controls.H6Control,
+  Highlight: controls.HighlightControl,
+  Hr: controls.HrControl,
+  Italic: controls.ItalicControl,
+  OrderedList: controls.OrderedListControl,
+  Redo: controls.RedoControl,
+  Strikethrough: controls.StrikethroughControl,
+  Subscript: controls.SubscriptControl,
+  Superscript: controls.SuperscriptControl,
+  Toolbar,
+  Underline: controls.UnderlineControl,
+  Undo: controls.UndoControl,
+  Unlink: controls.UnlinkControl,
+})

@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
+import { useRef, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
+import { queryKeys } from '../lib/queryKeys'
 import type { BlockedTerm } from '../types'
+import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 import UpgradeGate from './UpgradeGate'
 
@@ -23,10 +26,7 @@ const POPULAR_LISTS = [
   },
 ]
 
-export default function ModRulesPanel() {
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
-  const [terms, setTerms] = useState<BlockedTerm[]>([])
-  const [loadingList, setLoadingList] = useState(false)
+function ModRulesPanelInner() {
   const [newTerm, setNewTerm] = useState('')
   const [isRegex, setIsRegex] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
@@ -38,33 +38,39 @@ export default function ModRulesPanel() {
   const [importOpen, setImportOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (IS_SELF_HOSTED) {
-      setHasAccess(true)
-      fetchTerms()
-      return
-    }
-    api.billing
-      .status()
-      .then((status) => {
-        const hasIt = PLAN_ORDER.indexOf(status.plan) >= PLAN_ORDER.indexOf('pro')
-        setHasAccess(hasIt)
-        if (hasIt) fetchTerms()
-      })
-      .catch(() => setHasAccess(false))
-  }, [])
+  const {
+    data: billing,
+    isError: billingError,
+    isFetching: billingFetching,
+    refetch: refetchBilling,
+  } = useQuery({
+    queryKey: queryKeys.billingStatus(),
+    queryFn: () => api.billing.status(),
+    enabled: !IS_SELF_HOSTED,
+    staleTime: 60_000,
+  })
 
-  function fetchTerms() {
-    setLoadingList(true)
-    api.modrules
-      .list()
-      .then(({ terms }) => {
-        setTerms(terms)
-        setLoadingList(false)
-      })
-      .catch(() => setLoadingList(false))
-  }
+  const hasAccess = IS_SELF_HOSTED
+    ? true
+    : billing === undefined
+      ? null
+      : PLAN_ORDER.indexOf(billing.plan) >= PLAN_ORDER.indexOf('pro')
+
+  const {
+    data: modrules,
+    isLoading: loadingList,
+    isError: listError,
+    isFetching: listFetching,
+    refetch: refetchList,
+  } = useQuery({
+    queryKey: queryKeys.modrules(),
+    queryFn: () => api.modrules.list(),
+    enabled: hasAccess === true,
+  })
+
+  const terms = modrules?.terms ?? []
 
   async function handleAdd(e: Event) {
     e.preventDefault()
@@ -75,7 +81,9 @@ export default function ModRulesPanel() {
     setAddError(null)
     try {
       const created = await api.modrules.add(t, isRegex)
-      setTerms((prev) => [created, ...prev.filter((x) => x.id !== created.id)])
+      queryClient.setQueryData<{ terms: BlockedTerm[] }>(queryKeys.modrules(), (old) =>
+        old ? { ...old, terms: [created, ...old.terms.filter((x) => x.id !== created.id)] } : old,
+      )
       setNewTerm('')
       inputRef.current?.focus()
     } catch (err: unknown) {
@@ -90,7 +98,9 @@ export default function ModRulesPanel() {
     setDeletingId(id)
     try {
       await api.modrules.delete(id)
-      setTerms((prev) => prev.filter((t) => t.id !== id))
+      queryClient.setQueryData<{ terms: BlockedTerm[] }>(queryKeys.modrules(), (old) =>
+        old ? { ...old, terms: old.terms.filter((t) => t.id !== id) } : old,
+      )
     } catch {
       // silently ignore; keep the term in the list
     } finally {
@@ -109,7 +119,7 @@ export default function ModRulesPanel() {
       const result = await api.modrules.import(url)
       setImportResult(result)
       setImportUrl('')
-      fetchTerms()
+      queryClient.invalidateQueries({ queryKey: queryKeys.modrules() })
     } catch {
       setImportError('Failed to import. Check the URL and try again.')
     } finally {
@@ -118,6 +128,21 @@ export default function ModRulesPanel() {
   }
 
   if (hasAccess === null) {
+    if (billingError) {
+      return (
+        <div className="error-msg" role="alert">
+          Failed to load billing status.{' '}
+          <button
+            type="button"
+            className="btn"
+            disabled={billingFetching}
+            onClick={() => refetchBilling()}
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
     return <div className="loading">Loading…</div>
   }
 
@@ -406,7 +431,21 @@ export default function ModRulesPanel() {
 
         {loadingList && <div style={{ color: MUTED, fontSize: '0.875rem' }}>Loading…</div>}
 
-        {!loadingList && terms.length === 0 && (
+        {listError && (
+          <div className="error-msg" role="alert">
+            Failed to load blocked terms.{' '}
+            <button
+              type="button"
+              className="btn"
+              disabled={listFetching}
+              onClick={() => refetchList()}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loadingList && !listError && terms.length === 0 && (
           <div style={{ color: MUTED, fontSize: '0.875rem' }}>
             No blocked terms yet. Add a term above or import a list.
           </div>
@@ -471,5 +510,13 @@ export default function ModRulesPanel() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ModRulesPanel() {
+  return (
+    <QueryProvider>
+      <ModRulesPanelInner />
+    </QueryProvider>
   )
 }

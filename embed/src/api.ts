@@ -31,7 +31,7 @@ export async function fetchConfig(siteId: string): Promise<WidgetConfig> {
 
 export async function getMe(): Promise<User | null> {
   try {
-    const res = await fetch(`${apiBase}/api/auth/me`, { credentials: 'include' })
+    const res = await fetch(`${apiBase}/api/auth/embed/me`, { credentials: 'include' })
     if (!res.ok) return null
     return res.json()
   } catch {
@@ -60,20 +60,30 @@ export async function listComments(
 
 export async function toggleVote(
   commentId: string,
+  siteId: string,
 ): Promise<{ upvotes: number; user_voted: boolean }> {
-  const res = await fetch(`${apiBase}/api/comments/${commentId}/vote`, {
-    method: 'POST',
-    credentials: 'include',
-  })
+  const res = await fetch(
+    `${apiBase}/api/comments/${commentId}/vote?siteId=${encodeURIComponent(siteId)}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+    },
+  )
   if (!res.ok) throw new Error('Failed to vote')
   return res.json()
 }
 
-export async function flagComment(commentId: string): Promise<{ user_flagged: boolean }> {
-  const res = await fetch(`${apiBase}/api/comments/${commentId}/flag`, {
-    method: 'POST',
-    credentials: 'include',
-  })
+export async function flagComment(
+  commentId: string,
+  siteId: string,
+): Promise<{ user_flagged: boolean }> {
+  const res = await fetch(
+    `${apiBase}/api/comments/${commentId}/flag?siteId=${encodeURIComponent(siteId)}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+    },
+  )
   if (!res.ok) throw new Error('Failed to flag comment')
   return res.json()
 }
@@ -92,9 +102,25 @@ export async function createComment(data: CreateCommentInput): Promise<Comment> 
   return res.json()
 }
 
-export async function deleteComment(id: string): Promise<void> {
-  await fetch(`${apiBase}/api/comments/${id}`, {
+export async function deleteComment(id: string, siteId: string): Promise<void> {
+  const res = await fetch(`${apiBase}/api/comments/${id}?siteId=${encodeURIComponent(siteId)}`, {
     method: 'DELETE',
     credentials: 'include',
   })
+  if (!res.ok) throw new Error('Failed to delete comment')
+}
+
+export async function ssoLogin(siteId: string, token: string): Promise<User | null> {
+  try {
+    const res = await fetch(`${apiBase}/api/auth/sso`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site_id: siteId, token }),
+    })
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
 }

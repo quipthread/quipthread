@@ -3,6 +3,8 @@ import { initApi } from './api'
 import { CommentWidget } from './CommentWidget'
 import { injectStyles } from './styles'
 
+export const EMBED_MOUNT_ID = 'comments'
+
 // Capture the script's origin synchronously during IIFE evaluation.
 // document.currentScript is only set while the script tag is being parsed.
 const scriptEl = document.currentScript as HTMLScriptElement | null
@@ -28,13 +30,21 @@ function mount() {
   injectStyles()
   initApi(apiBase)
 
-  const container = document.getElementById('comments')
+  const container = document.getElementById(EMBED_MOUNT_ID)
   if (!container) return
 
-  const { siteId = '', pageId = '', pageUrl, pageTitle, lang = 'en', theme } = container.dataset
+  const {
+    siteId = '',
+    pageId = '',
+    pageUrl,
+    pageTitle,
+    lang = 'en',
+    theme,
+    sso,
+  } = container.dataset
 
   if (!siteId || !pageId) {
-    console.error('[quipthread] data-site-id and data-page-id are required on #comments')
+    console.error(`[quipthread] data-site-id and data-page-id are required on #${EMBED_MOUNT_ID}`)
     return
   }
 
@@ -53,6 +63,7 @@ function mount() {
       lang={lang}
       theme={theme}
       customVars={customVars}
+      ssoToken={sso}
     />,
   )
 }

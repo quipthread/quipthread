@@ -11,13 +11,14 @@ import (
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 	"github.com/quipthread/quipthread/middleware"
+	"github.com/quipthread/quipthread/session"
 )
 
 // RegisterBillingRoutes registers a minimal billing/status endpoint for
 // non-cloud builds. Stripe checkout/portal/webhook are not available.
 func RegisterBillingRoutes(r chi.Router, store db.Store, cfg *config.Config, _ cloudpkg.Store, _ *middleware.StoreCache) {
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireAdmin(cfg.JWTSecret))
+		r.Use(middleware.RequireAdminForAudience(cfg.JWTSecret, session.DashboardAudience, store))
 		r.Get("/api/billing/status", nonCloudBillingStatus(store))
 	})
 }

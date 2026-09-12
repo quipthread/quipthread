@@ -21,6 +21,19 @@ func NewTelegramNotifier(cfg *config.Config) *TelegramNotifier {
 }
 
 func (t *TelegramNotifier) NotifyBatch(ctx context.Context, b Batch) error {
+	if t == nil || t.cfg == nil || t.cfg.TelegramBotToken == "" || t.cfg.TelegramChatID == "" {
+		return channelError(ChannelTelegram, ChannelErrorNotConfigured)
+	}
+	if ctx == nil {
+		return channelError(ChannelTelegram, ChannelErrorInvalidRequest)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b.Site == nil {
+		return channelError(ChannelTelegram, ChannelErrorInvalidRequest)
+	}
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "*Quipthread: %d comment(s) awaiting approval on %s*\n\n",
 		len(b.Comments), escapeMarkdown(b.Site.Domain))
@@ -50,19 +63,22 @@ func (t *TelegramNotifier) NotifyBatch(ctx context.Context, b Batch) error {
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return channelError(ChannelTelegram, ChannelErrorProvider)
 	}
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.cfg.TelegramBotToken)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return channelError(ChannelTelegram, ChannelErrorProvider)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		return channelError(ChannelTelegram, ChannelErrorProvider)
 	}
 	defer resp.Body.Close() //nolint:errcheck // deferred close; response body not read
 	if resp.StatusCode >= 400 {

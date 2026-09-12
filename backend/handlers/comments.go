@@ -25,6 +25,10 @@ type CommentsHandler struct {
 	config              *config.Config
 	spamChecker         *middleware.SpamChecker
 	blockedTermsChecker *middleware.BlockedTermsChecker
+	// publicResolver is true when cloud mode + PUBLIC_SITE_RESOLVER_ENABLED
+	// are active. In that mode List requires an explicit public-tenant context
+	// and never touches the handler/global store.
+	publicResolver bool
 }
 
 func NewCommentsHandler(store db.Store, cfg *config.Config) *CommentsHandler {
@@ -33,6 +37,7 @@ func NewCommentsHandler(store db.Store, cfg *config.Config) *CommentsHandler {
 		config:              cfg,
 		spamChecker:         middleware.NewSpamChecker(cfg),
 		blockedTermsChecker: middleware.NewBlockedTermsChecker(store),
+		publicResolver:      cfg.CloudMode && cfg.PublicSiteResolverEnabled,
 	}
 }
 
@@ -45,13 +50,32 @@ func (h *CommentsHandler) db(r *http.Request) db.Store {
 
 // GET /api/comments?siteId=&pageId=&page=1&limit=10&sort=newest|oldest|top
 func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
-	store := h.db(r)
 	q := r.URL.Query()
 	siteID := q.Get("siteId")
 	pageID := q.Get("pageId")
-	if siteID == "" || pageID == "" {
-		writeError(w, r, http.StatusBadRequest, "siteId and pageId are required")
-		return
+
+	var store db.Store
+	if h.publicResolver {
+		// Public resolver mode: the tenant store comes exclusively from the
+		// explicit public-tenant context injected by the route-local resolver.
+		// The query siteId must match the resolved site — a mismatch means the
+		// verified-context invariant broke and we must not serve anything.
+		if siteID == "" {
+			writeError(w, r, http.StatusBadRequest, "site_id_required")
+			return
+		}
+		pt, ok := db.PublicTenantFromContext(r.Context())
+		if !ok || pt.Store == nil || pt.SiteID != siteID {
+			writeError(w, r, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		store = pt.Store
+	} else {
+		store = h.db(r)
+		if siteID == "" || pageID == "" {
+			writeError(w, r, http.StatusBadRequest, "siteId and pageId are required")
+			return
+		}
 	}
 
 	page := queryInt(r, "page", 1)
@@ -88,9 +112,38 @@ func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// mutationTarget returns the store a comment mutation must operate on, plus
+// the site the mutation is bound to. In public-resolver mode the store comes
+// exclusively from the explicit public-tenant context injected by the
+// route-local query resolver — the handler/global store is never consulted,
+// and a missing context means the resolver chain was bypassed (the caller
+// must fail closed). Legacy mode keeps the previous store selection with no
+// site binding.
+func (h *CommentsHandler) mutationTarget(r *http.Request) (store db.Store, siteID string, ok bool) {
+	if !h.publicResolver {
+		return h.db(r), "", true
+	}
+	pt, ok := db.PublicTenantFromContext(r.Context())
+	if !ok || pt.Store == nil || pt.SiteID == "" || pt.AccountID == "" {
+		return nil, "", false
+	}
+	return pt.Store, pt.SiteID, true
+}
+
+// siteMismatch reports whether a fetched comment belongs to a different site
+// than the verified resolution context — an invariant break that must fail
+// closed before any mutation is attempted. Legacy mode has no site binding.
+func (h *CommentsHandler) siteMismatch(comment *models.Comment, siteID string) bool {
+	return h.publicResolver && (comment == nil || comment.SiteID != siteID)
+}
+
 // POST /api/comments/:id/vote — toggles an upvote; requires auth.
 func (h *CommentsHandler) Vote(w http.ResponseWriter, r *http.Request) {
-	store := h.db(r)
+	store, siteID, ok := h.mutationTarget(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
+		return
+	}
 	claims := claimsFromContext(r)
 	if claims == nil {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized")
@@ -105,6 +158,10 @@ func (h *CommentsHandler) Vote(w http.ResponseWriter, r *http.Request) {
 	}
 	if comment == nil {
 		writeError(w, r, http.StatusNotFound, "comment not found")
+		return
+	}
+	if h.siteMismatch(comment, siteID) {
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
 		return
 	}
 
@@ -122,7 +179,11 @@ func (h *CommentsHandler) Vote(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/comments/:id/flag — toggles a flag; requires auth.
 func (h *CommentsHandler) Flag(w http.ResponseWriter, r *http.Request) {
-	store := h.db(r)
+	store, siteID, ok := h.mutationTarget(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
+		return
+	}
 	claims := claimsFromContext(r)
 	if claims == nil {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized")
@@ -137,6 +198,10 @@ func (h *CommentsHandler) Flag(w http.ResponseWriter, r *http.Request) {
 	}
 	if comment == nil {
 		writeError(w, r, http.StatusNotFound, "comment not found")
+		return
+	}
+	if h.siteMismatch(comment, siteID) {
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
 		return
 	}
 	if comment.UserID == claims.Sub {
@@ -167,11 +232,28 @@ type createCommentRequest struct {
 
 // POST /api/comments
 func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
-	store := h.db(r)
 	claims := claimsFromContext(r)
 	if claims == nil {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized")
 		return
+	}
+
+	store := h.db(r)
+	var resolvedSiteID string
+	var resolvedAccountID string
+	if h.publicResolver {
+		// Public resolver mode: the tenant store comes exclusively from the
+		// explicit public-tenant context injected by the route-local body
+		// resolver. A missing context means the resolver chain was bypassed —
+		// fail deterministically and never touch the handler/global store.
+		pt, ok := db.PublicTenantFromContext(r.Context())
+		if !ok || pt.Store == nil || pt.SiteID == "" || pt.AccountID == "" {
+			writeError(w, r, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		store = pt.Store
+		resolvedSiteID = pt.SiteID
+		resolvedAccountID = pt.AccountID
 	}
 
 	var req createCommentRequest
@@ -182,6 +264,13 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if req.SiteID == "" || req.PageID == "" || req.Content == "" {
 		writeError(w, r, http.StatusBadRequest, "site_id, page_id, and content are required")
+		return
+	}
+
+	if h.publicResolver && req.SiteID != resolvedSiteID {
+		// The decoded site_id disagrees with the verified resolution context:
+		// an invariant break we must not serve from any store.
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
 		return
 	}
 
@@ -216,8 +305,20 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Run heuristic spam detection and blocked terms check. Both auto-reject
 	// and persist so admins have an audit trail; the response mirrors the
 	// pending flow so the author sees "awaiting approval" rather than an error.
+	//
+	// The blocklist is request-scoped: in public-resolver mode terms come
+	// exclusively from the resolved tenant store under the resolved account's
+	// cache scope — the constructor/global store is never consulted. In legacy
+	// cloud mode the JWT-injected tenant store is scoped by the claims'
+	// AccountID; self-hosted traffic shares the "" scope as before.
+	blockScope := ""
+	if h.publicResolver {
+		blockScope = resolvedAccountID
+	} else if h.config.CloudMode && claims != nil {
+		blockScope = claims.AccountID
+	}
 	isHeuristicSpam, _ := h.spamChecker.IsSpam(req.Content)
-	isBlocked, _ := h.blockedTermsChecker.ContainsBlockedTerm(req.Content)
+	isBlocked, _ := h.blockedTermsChecker.Check(blockScope, store, req.Content)
 	if isHeuristicSpam || isBlocked {
 		comment := &models.Comment{
 			SiteID:    req.SiteID,
@@ -236,7 +337,7 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Duplicate detection: if identical content was posted by the same user to
 	// the same page within the dedup window, return the existing comment silently.
-	if existing, err := store.FindDuplicateComment(claims.Sub, req.PageID, req.Content, time.Now().Add(-dedupWindow)); err == nil && existing != nil {
+	if existing, err := store.FindDuplicateComment(req.SiteID, claims.Sub, req.PageID, req.Content, time.Now().Add(-dedupWindow)); err == nil && existing != nil {
 		writeJSON(w, http.StatusCreated, existing)
 		return
 	}
@@ -266,7 +367,12 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Status:    status,
 	}
 
-	if err := store.CreateComment(comment); err != nil {
+	if h.config.CloudMode && status == "pending" {
+		if err := store.CreatePendingCommentWithNotification(comment); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "failed to create comment")
+			return
+		}
+	} else if err := store.CreateComment(comment); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create comment")
 		return
 	}
@@ -276,7 +382,11 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/comments/:id
 func (h *CommentsHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	store := h.db(r)
+	store, siteID, ok := h.mutationTarget(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
+		return
+	}
 	claims := claimsFromContext(r)
 	if claims == nil {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized")
@@ -293,9 +403,23 @@ func (h *CommentsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "comment not found")
 		return
 	}
+	if h.siteMismatch(comment, siteID) {
+		writeError(w, r, http.StatusInternalServerError, "internal_error")
+		return
+	}
 	if comment.UserID != claims.Sub && claims.Role != "admin" {
 		writeError(w, r, http.StatusForbidden, "forbidden")
 		return
+	}
+	// In enabled cloud public-resolver mode, admin moderation is scoped to the
+	// resolved tenant's account: an admin JWT minted for a different account
+	// must not delete comments here. Author deletion above is unaffected.
+	if h.publicResolver && claims.Role == "admin" && comment.UserID != claims.Sub {
+		pt, ok := db.PublicTenantFromContext(r.Context())
+		if !ok || pt.AccountID == "" || pt.AccountID != claims.AccountID {
+			writeError(w, r, http.StatusForbidden, "forbidden")
+			return
+		}
 	}
 
 	if err := store.DeleteComment(id); err != nil {

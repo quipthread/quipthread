@@ -1,4 +1,5 @@
 ---
+import '../../../../embed/src/editor/prose.css'
 import { ClientRouter, fade } from 'astro:transitions'
 import NavPlanSync from '../components/NavPlanSync'
 import CheckoutSuccessModal from '../components/CheckoutSuccessModal'
@@ -125,7 +126,7 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
       function resetIdle() {
         clearTimeout(idleTimer)
         idleTimer = setTimeout(async () => {
-          await fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
+          await fetch('/auth/dashboard/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
           window.location.href = '/login'
         }, IDLE_MS)
       }
@@ -138,7 +139,7 @@ const isSelfHosted = import.meta.env.PUBLIC_BUILD_TARGET === 'selfhosted'
       document.addEventListener('astro:page-load', () => {
         const btn = document.getElementById('nav-logout')
         if (btn) btn.addEventListener('click', async () => {
-          await fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
+          await fetch('/auth/dashboard/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
           window.location.href = '/login'
         })
 

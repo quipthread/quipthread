@@ -24,7 +24,7 @@ All configuration is loaded from environment variables (or a `.env` file in the 
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | `./data/comments.db` | Path to the SQLite database file, or a `libsql://` URL for a Turso database. |
+| `DATABASE_URL` | `./data/comments.db` | Path to the local SQLite database file. Self-hosted mode rejects remote `libsql://`, `http://`, and `https://` URLs before opening a driver. |
 
 ## Auth — OAuth
 
@@ -99,7 +99,7 @@ Both variables must be set to enable Turnstile bot protection. Leave both unset 
 
 | Variable | Default | Description |
 |---|---|---|
-| `TURSO_AUTH_TOKEN` | — | Auth token appended to `libsql://` database connections. Required when `DATABASE_URL` is a Turso URL. |
+| `TURSO_AUTH_TOKEN` | — | Auth token supplied privately to managed Cloud remote tenant connections. It is not appended to persisted database URLs. |
 
 ## Cloud / billing
 
@@ -122,3 +122,4 @@ Both variables must be set to enable Turnstile bot protection. Leave both unset 
 | `TENANT_DATA_DIR` | `data/tenants` | Directory for per-tenant SQLite database files. |
 | `TURSO_API_TOKEN` | — | Turso Platform API management token for provisioning per-tenant databases. |
 | `TURSO_ORGANIZATION` | — | Turso organization slug used for database provisioning. |
+| `TURSO_GROUP` | `default` | Existing Turso group for newly provisioned tenant databases. `TURSO_AUTH_TOKEN` must grant access to this group. |

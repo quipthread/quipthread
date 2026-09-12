@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { api } from '../api'
 import type { Plan } from '../lib/plan'
 import { PLAN_FEATURES, PLAN_LABELS } from '../lib/plan'
+import { queryClient } from '../lib/queryClient'
+import { queryKeys } from '../lib/queryKeys'
 
 const POLL_INTERVAL = 1500
 const MAX_ATTEMPTS = 12 // ~18 seconds
@@ -32,6 +34,8 @@ export default function CheckoutSuccessModal() {
             // Sync nav + localStorage
             document.documentElement.dataset.plan = status.plan
             localStorage.setItem('qt-plan', status.plan)
+            // Bust the shared billing cache so NavPlanSync + other components reflect the new plan
+            queryClient.invalidateQueries({ queryKey: queryKeys.billingStatus() })
           } else if (attempts.current < MAX_ATTEMPTS) {
             attempts.current++
             setTimeout(poll, POLL_INTERVAL)

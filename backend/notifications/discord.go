@@ -18,6 +18,19 @@ func NewDiscordNotifier(cfg *config.Config) *DiscordNotifier {
 }
 
 func (d *DiscordNotifier) NotifyBatch(ctx context.Context, b Batch) error {
+	if d == nil || d.cfg == nil || d.cfg.DiscordWebhookURL == "" {
+		return channelError(ChannelDiscord, ChannelErrorNotConfigured)
+	}
+	if ctx == nil {
+		return channelError(ChannelDiscord, ChannelErrorInvalidRequest)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if b.Site == nil {
+		return channelError(ChannelDiscord, ChannelErrorInvalidRequest)
+	}
+
 	var sb strings.Builder
 	for _, c := range b.Comments {
 		author := c.AuthorName

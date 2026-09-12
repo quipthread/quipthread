@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from 'preact/hooks'
+import { useQuery, useQueryClient } from '@tanstack/preact-query'
+import { useState } from 'preact/hooks'
 import { api } from '../api'
-import type { Comment, Site } from '../types'
+import { queryKeys } from '../lib/queryKeys'
+import type { Comment } from '../types'
 import { relativeTime, stripHtml, truncate } from '../utils'
+import QueryProvider from './QueryProvider'
 
 const PAGE_SIZE = 20
 
@@ -19,17 +22,10 @@ const ChevronIcon = () => (
   </svg>
 )
 
-export default function ModerationQueue() {
-  const [comments, setComments] = useState<Comment[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
+function ModerationQueueInner() {
   const [tab, setTab] = useState<'pending' | 'flagged'>('pending')
-
-  const [sites, setSites] = useState<Site[]>([])
   const [siteFilter, setSiteFilter] = useState('')
+  const [page, setPage] = useState(1)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -41,40 +37,65 @@ export default function ModerationQueue() {
   const [acting, setActing] = useState<string | null>(null)
   const [bulkActing, setBulkActing] = useState(false)
 
-  const fetchComments = useCallback(async (p: number, siteId: string, t: 'pending' | 'flagged') => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await api.comments.list({
-        flagged: t === 'flagged',
-        status: t === 'pending' ? 'pending' : undefined,
-        page: p,
+  const queryClient = useQueryClient()
+
+  const commentParams = {
+    flagged: tab === 'flagged',
+    status: tab === 'pending' ? ('pending' as const) : undefined,
+    page,
+    limit: PAGE_SIZE,
+    siteId: siteFilter || undefined,
+  }
+
+  const {
+    data: commentsData,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: queryKeys.comments(commentParams),
+    queryFn: () =>
+      api.comments.list({
+        flagged: tab === 'flagged',
+        status: tab === 'pending' ? 'pending' : undefined,
+        page,
         limit: PAGE_SIZE,
-        siteId,
-      })
-      setComments(res.comments ?? [])
-      setTotal(res.total)
-      setPage(p)
-      setSelected(new Set())
-    } catch {
-      setError('Failed to load comments.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+        siteId: siteFilter || undefined,
+      }),
+  })
 
-  useEffect(() => {
-    api.sites
-      .list()
-      .then((r) => setSites(r.sites ?? []))
-      .catch(() => {})
-  }, [])
+  const { data: sitesData } = useQuery({
+    queryKey: queryKeys.sites(),
+    queryFn: () => api.sites.list(),
+    staleTime: 30_000,
+  })
 
-  useEffect(() => {
-    fetchComments(1, siteFilter, tab)
-  }, [siteFilter, tab, fetchComments])
+  const comments = commentsData?.comments ?? []
+  const total = commentsData?.total ?? 0
+  const sites = sitesData?.sites ?? []
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const allSelected = comments.length > 0 && comments.every((c) => selected.has(c.id))
+
+  function handleTabChange(newTab: 'pending' | 'flagged') {
+    if (tab === newTab) return
+    setTab(newTab)
+    setPage(1)
+    setSelected(new Set())
+    setExpanded(null)
+    setEditing(null)
+    setReplying(null)
+  }
+
+  function handleSiteFilterChange(id: string) {
+    setSiteFilter(id)
+    setPage(1)
+    setSelected(new Set())
+  }
+
+  function goToPage(p: number) {
+    setPage(p)
+    setSelected(new Set())
+  }
 
   const toggleSelectAll = () => {
     setSelected(allSelected ? new Set() : new Set(comments.map((c) => c.id)))
@@ -88,15 +109,23 @@ export default function ModerationQueue() {
     })
   }
 
-  const removeFromList = (ids: string[]) => {
-    const set = new Set(ids)
-    setComments((prev) => prev.filter((c) => !set.has(c.id)))
-    setTotal((t) => Math.max(0, t - ids.length))
+  function removeFromCache(ids: string[]) {
+    const idSet = new Set(ids)
+    queryClient.setQueryData<{ comments: Comment[]; total: number }>(
+      queryKeys.comments(commentParams),
+      (old) =>
+        old
+          ? {
+              ...old,
+              comments: old.comments.filter((c) => !idSet.has(c.id)),
+              total: Math.max(0, old.total - ids.length),
+            }
+          : old,
+    )
+    queryClient.invalidateQueries({ queryKey: queryKeys.allComments() })
     setSelected((prev) => {
       const n = new Set(prev)
-      ids.forEach((id) => {
-        n.delete(id)
-      })
+      for (const id of ids) n.delete(id)
       return n
     })
   }
@@ -105,7 +134,7 @@ export default function ModerationQueue() {
     setActing(id)
     try {
       await api.comments.update(id, { status })
-      removeFromList([id])
+      removeFromCache([id])
       if (expanded === id) setExpanded(null)
     } finally {
       setActing(null)
@@ -117,7 +146,7 @@ export default function ModerationQueue() {
     setActing(id)
     try {
       await api.comments.delete(id)
-      removeFromList([id])
+      removeFromCache([id])
       if (expanded === id) setExpanded(null)
     } finally {
       setActing(null)
@@ -127,10 +156,15 @@ export default function ModerationQueue() {
   const bulkAction = async (status: 'approved' | 'rejected') => {
     setBulkActing(true)
     const ids = [...selected]
+    const updates = ids.map((id) => api.comments.update(id, { status }))
     try {
-      await Promise.all(ids.map((id) => api.comments.update(id, { status })))
-      removeFromList(ids)
+      await Promise.all(updates)
+      removeFromCache(ids)
     } finally {
+      const results = await Promise.allSettled(updates)
+      if (results.some((result) => result.status === 'rejected')) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.allComments() })
+      }
       setBulkActing(false)
     }
   }
@@ -156,7 +190,12 @@ export default function ModerationQueue() {
     setActing(id)
     try {
       const updated = (await api.comments.update(id, { content: editContent })) as Comment
-      setComments((prev) => prev.map((c) => (c.id === id ? updated : c)))
+      queryClient.setQueryData<{ comments: Comment[]; total: number }>(
+        queryKeys.comments(commentParams),
+        (old) =>
+          old ? { ...old, comments: old.comments.map((c) => (c.id === id ? updated : c)) } : old,
+      )
+      queryClient.invalidateQueries({ queryKey: queryKeys.allComments() })
       setEditing(null)
       setEditContent('')
     } finally {
@@ -176,6 +215,7 @@ export default function ModerationQueue() {
     setActing(id)
     try {
       await api.comments.reply(id, `<p>${replyContent.trim()}</p>`)
+      queryClient.invalidateQueries({ queryKey: queryKeys.allComments() })
       setReplying(null)
       setReplyContent('')
     } finally {
@@ -184,7 +224,6 @@ export default function ModerationQueue() {
   }
 
   const busy = acting !== null || bulkActing
-  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <>
@@ -194,14 +233,7 @@ export default function ModerationQueue() {
             type="button"
             key={t}
             className={`queue-tab${tab === t ? ' active' : ''}`}
-            onClick={() => {
-              if (tab !== t) {
-                setTab(t)
-                setExpanded(null)
-                setEditing(null)
-                setReplying(null)
-              }
-            }}
+            onClick={() => handleTabChange(t)}
           >
             {t === 'pending' ? 'Pending' : 'Flagged'}
           </button>
@@ -212,7 +244,7 @@ export default function ModerationQueue() {
         {sites.length > 1 && (
           <select
             value={siteFilter}
-            onChange={(e) => setSiteFilter((e.target as HTMLSelectElement).value)}
+            onChange={(e) => handleSiteFilterChange((e.target as HTMLSelectElement).value)}
           >
             <option value="">All sites</option>
             {sites.map((s) => (
@@ -259,10 +291,10 @@ export default function ModerationQueue() {
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="loading">Loading…</div>
-      ) : error ? (
-        <div className="error-msg">{error}</div>
+      ) : isError ? (
+        <div className="error-msg">Failed to load comments.</div>
       ) : comments.length === 0 ? (
         <div className="empty">
           {tab === 'flagged' ? 'No flagged comments.' : 'No pending comments.'}
@@ -460,7 +492,7 @@ export default function ModerationQueue() {
                         ) : (
                           <div>
                             <div
-                              className="comment-prose"
+                              className="comment-prose qt-dashboard-comment"
                               dangerouslySetInnerHTML={{ __html: c.content }}
                             />
                             <div className="expand-actions">
@@ -491,7 +523,7 @@ export default function ModerationQueue() {
                 type="button"
                 className="btn"
                 disabled={page <= 1}
-                onClick={() => fetchComments(page - 1, siteFilter, tab)}
+                onClick={() => goToPage(page - 1)}
               >
                 ←
               </button>
@@ -502,7 +534,7 @@ export default function ModerationQueue() {
                 type="button"
                 className="btn"
                 disabled={page >= totalPages}
-                onClick={() => fetchComments(page + 1, siteFilter, tab)}
+                onClick={() => goToPage(page + 1)}
               >
                 →
               </button>
@@ -511,5 +543,13 @@ export default function ModerationQueue() {
         </>
       )}
     </>
+  )
+}
+
+export default function ModerationQueue() {
+  return (
+    <QueryProvider>
+      <ModerationQueueInner />
+    </QueryProvider>
   )
 }

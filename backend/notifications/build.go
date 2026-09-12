@@ -47,3 +47,44 @@ func Build(cfg *config.Config, store db.Store) *MultiNotifier {
 
 	return NewMultiNotifier(notifiers...)
 }
+
+// BuildChannelSender constructs the explicit channel boundary without
+// starting delivery. Unlike Build, it exposes one email route: an explicitly
+// selected API provider takes precedence over SMTP.
+func BuildChannelSender(cfg *config.Config, store db.Store) *NamedChannelSender {
+	ownerEmail := func(ownerID string) string {
+		if store == nil {
+			return ""
+		}
+		u, err := store.GetUser(ownerID)
+		if err != nil || u == nil {
+			return ""
+		}
+		return u.Email
+	}
+
+	notifiers := make(map[string]Notifier)
+	if cfg.EmailProvider != "" {
+		notifiers[ChannelEmail] = NewEmailAPINotifier(cfg, ownerEmail)
+	} else if cfg.SMTPHost != "" {
+		notifiers[ChannelEmail] = NewSMTPNotifier(cfg, ownerEmail)
+	}
+	if cfg.SlackWebhookURL != "" {
+		notifiers[ChannelSlack] = NewSlackNotifier(cfg)
+	}
+	if cfg.DiscordWebhookURL != "" {
+		notifiers[ChannelDiscord] = NewDiscordNotifier(cfg)
+	}
+	if cfg.TelegramBotToken != "" || cfg.TelegramChatID != "" {
+		notifiers[ChannelTelegram] = NewTelegramNotifier(cfg)
+	}
+	if cfg.WebhookURL != "" {
+		notifiers[ChannelWebhook] = NewWebhookNotifier(cfg)
+	}
+	return NewNamedChannelSender(notifiers)
+}
+
+// BuildNamedChannelSender is an explicit-name alias for BuildChannelSender.
+func BuildNamedChannelSender(cfg *config.Config, store db.Store) *NamedChannelSender {
+	return BuildChannelSender(cfg, store)
+}

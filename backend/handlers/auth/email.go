@@ -220,6 +220,7 @@ func (h *Handler) EmailResend(w http.ResponseWriter, r *http.Request) {
 // clicked the verification link, this issues a session JWT and returns
 // {verified:true} so the original tab can redirect to onboarding.
 func (h *Handler) EmailPoll(w http.ResponseWriter, r *http.Request) {
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	if h.cloudEmailPoll(w, r) {
 		return
 	}
@@ -253,13 +254,13 @@ func (h *Handler) EmailPoll(w http.ResponseWriter, r *http.Request) {
 
 	_ = h.store.DeleteEmailToken(et.Token)
 
-	tokenStr, err := session.Issue(h.config.JWTSecret, user.ID, user.DisplayName, "email", user.Role, "")
+	tokenStr, err := session.IssueWithAudience(h.config.JWTSecret, session.DashboardAudience, user.ID, user.DisplayName, "email", user.Role, "", user.DashboardSessionGeneration)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to issue session")
 		return
 	}
 
-	session.SetCookie(w, tokenStr, r.TLS != nil)
+	session.SetCookieForAudience(w, tokenStr, session.DashboardAudience, session.IsHTTPS(r, h.config.BaseURL))
 	writeJSON(w, http.StatusOK, map[string]bool{"verified": true})
 }
 
@@ -269,6 +270,7 @@ type loginRequest struct {
 }
 
 func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	if h.cloudEmailLogin(w, r) {
 		return
 	}
@@ -315,13 +317,13 @@ func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenStr, err := session.Issue(h.config.JWTSecret, user.ID, user.DisplayName, "email", user.Role, "")
+	tokenStr, err := session.IssueWithAudience(h.config.JWTSecret, session.DashboardAudience, user.ID, user.DisplayName, "email", user.Role, "", user.DashboardSessionGeneration)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to issue token")
 		return
 	}
 
-	session.SetCookie(w, tokenStr, r.TLS != nil)
+	session.SetCookieForAudience(w, tokenStr, session.DashboardAudience, session.IsHTTPS(r, h.config.BaseURL))
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged in"})
 }
 

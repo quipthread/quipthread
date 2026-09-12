@@ -108,22 +108,14 @@ export function CommentList({
 
   const handleVote = async (id: string) => {
     if (!user) return
-    try {
-      const { upvotes, user_voted } = await toggleVote(id)
-      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, upvotes, user_voted } : c)))
-    } catch {
-      // Silently fail — the UI stays as-is
-    }
+    const { upvotes, user_voted } = await toggleVote(id, siteId)
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, upvotes, user_voted } : c)))
   }
 
   const handleFlag = async (id: string) => {
     if (!user) return
-    try {
-      const { user_flagged } = await flagComment(id)
-      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, user_flagged } : c)))
-    } catch {
-      // Silently fail — the UI stays as-is
-    }
+    const { user_flagged } = await flagComment(id, siteId)
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, user_flagged } : c)))
   }
 
   if (loading) return <div className="qt-loading">Loading…</div>

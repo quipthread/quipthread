@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useQuery } from '@tanstack/preact-query'
+import { useState } from 'preact/hooks'
 import { api } from '../api'
+import { queryKeys } from '../lib/queryKeys'
 import type { BillingStatus } from '../types'
+import QueryProvider from './QueryProvider'
 
 type Nudge = {
   level: 'warning' | 'critical'
@@ -57,30 +60,25 @@ function computeNudge(s: BillingStatus): Nudge | null {
 
 const DISMISS_KEY = 'qt-nudge-dismissed'
 
-export default function UsageNudgeBanner() {
-  const [nudge, setNudge] = useState<Nudge | null>(null)
-  const [dismissed, setDismissed] = useState(false)
+function UsageNudgeBannerInner() {
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !!window.sessionStorage.getItem(DISMISS_KEY)
+  })
 
-  useEffect(() => {
-    // Check if already dismissed this session.
-    if (sessionStorage.getItem(DISMISS_KEY)) {
-      setDismissed(true)
-      return
-    }
+  const { data } = useQuery({
+    queryKey: queryKeys.billingStatus(),
+    queryFn: () => api.billing.status(),
+    staleTime: 60_000,
+    enabled: !dismissed,
+  })
 
-    api.billing
-      .status()
-      .then((s) => {
-        const n = computeNudge(s)
-        setNudge(n)
-      })
-      .catch(() => {})
-  }, [])
+  const nudge = data ? computeNudge(data) : null
 
   if (!nudge || dismissed) return null
 
   function dismiss() {
-    sessionStorage.setItem(DISMISS_KEY, '1')
+    window.sessionStorage.setItem(DISMISS_KEY, '1')
     setDismissed(true)
   }
 
@@ -181,5 +179,13 @@ export default function UsageNudgeBanner() {
         </svg>
       </button>
     </div>
+  )
+}
+
+export default function UsageNudgeBanner() {
+  return (
+    <QueryProvider>
+      <UsageNudgeBannerInner />
+    </QueryProvider>
   )
 }

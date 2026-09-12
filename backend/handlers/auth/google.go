@@ -81,18 +81,20 @@ func (p *GoogleProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 // GoogleLink initiates an OAuth flow that links Google to the currently
 // authenticated account rather than performing a login.
 func (h *Handler) GoogleLink(w http.ResponseWriter, r *http.Request) {
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	clearReturnToCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	if h.google == nil {
 		writeError(w, r, http.StatusNotFound, "Google auth not configured")
 		return
 	}
 
-	cookie, err := r.Cookie(session.CookieName)
-	if err != nil {
+	if !h.validateDashboardUser(r, "") {
 		http.Redirect(w, r, h.config.BaseURL+"/login", http.StatusFound)
 		return
 	}
-	claims, err := session.Parse(h.config.JWTSecret, cookie.Value)
-	if err != nil || claims == nil {
+	cookie, _ := r.Cookie(session.DashboardCookieName)
+	claims, _ := session.ParseForAudience(h.config.JWTSecret, cookie.Value, session.DashboardAudience)
+	if claims == nil {
 		http.Redirect(w, r, h.config.BaseURL+"/login", http.StatusFound)
 		return
 	}
@@ -103,14 +105,21 @@ func (h *Handler) GoogleLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setLinkIntentCookie(w, claims.Sub)
-	setStateCookie(w, state)
+	setLinkIntentCookie(w, claims.Sub, session.IsHTTPS(r, h.config.BaseURL))
+	setStateCookie(w, oauthStateBinding{State: state, Audience: session.DashboardAudience, Redirect: h.config.BaseURL}, session.IsHTTPS(r, h.config.BaseURL))
 	http.Redirect(w, r, h.google.LoginURL(state), http.StatusFound)
 }
 
 func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	clearReturnToCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	if h.google == nil {
 		writeError(w, r, http.StatusNotFound, "Google auth not configured")
+		return
+	}
+	binding, err := h.resolveOAuthFlow(r)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -120,15 +129,14 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if returnTo := r.URL.Query().Get("returnTo"); returnTo != "" && h.validateReturnTo(returnTo) {
-		setReturnToCookie(w, returnTo)
-	}
-
-	setStateCookie(w, state)
+	binding.State = state
+	setStateCookie(w, binding, session.IsHTTPS(r, h.config.BaseURL))
 	http.Redirect(w, r, h.google.LoginURL(state), http.StatusFound)
 }
 
 func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
+	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	clearReturnToCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	if h.google == nil {
 		writeError(w, r, http.StatusNotFound, "Google auth not configured")
 		return
@@ -136,10 +144,24 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	state := r.URL.Query().Get("state")
 	if !validateStateCookie(r, state) {
+		clearStateCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
 		return
 	}
-	clearStateCookie(w)
+	binding, bound := consumeStateBinding(w, r, state, session.IsHTTPS(r, h.config.BaseURL))
+	clearStateCookie(w, session.IsHTTPS(r, h.config.BaseURL))
+	if !bound {
+		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
+		return
+	}
+	audience := binding.Audience
+	if !h.validRedirectForAudience(binding.Redirect, audience) {
+		if audience == session.EmbedAudience {
+			writeError(w, r, http.StatusBadRequest, "invalid OAuth redirect")
+			return
+		}
+		binding.Redirect = h.config.BaseURL
+	}
 
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
 		http.Redirect(w, r, h.config.BaseURL+"/login?error=oauth_denied", http.StatusSeeOther)
@@ -152,26 +174,29 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if accountID := consumeLinkIntentCookie(w, r); accountID != "" {
+	if accountID := consumeLinkIntentCookie(w, r, session.IsHTTPS(r, h.config.BaseURL)); accountID != "" {
+		if !h.validateDashboardUser(r, accountID) {
+			http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
+			return
+		}
 		h.handleLinkCallback(w, r, info, accountID)
 		return
 	}
 
-	if h.config.CloudMode && h.cloudUpsertAndIssueToken(w, r, info) {
+	if h.config.CloudMode && h.cloudUpsertAndIssueToken(w, r, info, audience, binding.Redirect) {
 		return
 	}
 
-	tokenStr, err := h.upsertAndIssueToken(info)
+	tokenStr, err := h.upsertAndIssueToken(info, audience)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	session.SetCookie(w, tokenStr, r.TLS != nil)
+	session.SetCookieForAudience(w, tokenStr, audience, session.IsHTTPS(r, h.config.BaseURL))
 
-	returnTo := consumeReturnToCookie(w, r)
-	if returnTo == "" || !h.validateReturnTo(returnTo) {
-		returnTo = h.config.BaseURL
+	if !h.validRedirectForAudience(binding.Redirect, audience) {
+		binding.Redirect = h.config.BaseURL
 	}
-	http.Redirect(w, r, returnTo, http.StatusFound)
+	http.Redirect(w, r, binding.Redirect, http.StatusFound)
 }
