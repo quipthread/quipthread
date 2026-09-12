@@ -10,28 +10,28 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@base-ui/react": "1.0.0",
-    "@tiptap/core": "3.20.0",
-    "@tiptap/extension-highlight": "3.20.0",
-    "@tiptap/extension-link": "^3.20.0",
-    "@tiptap/extension-placeholder": "^3.20.0",
-    "@tiptap/extension-subscript": "3.20.0",
-    "@tiptap/extension-superscript": "3.20.0",
-    "@tiptap/extension-text-align": "3.20.0",
-    "@tiptap/pm": "3.20.0",
-    "@tiptap/react": "^3.20.0",
-    "@tiptap/starter-kit": "^3.20.0",
+    "@base-ui/react": "1.8.0",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/extension-highlight": "3.31.3",
+    "@tiptap/extension-link": "^3.31.3",
+    "@tiptap/extension-placeholder": "^3.31.3",
+    "@tiptap/extension-subscript": "3.31.3",
+    "@tiptap/extension-superscript": "3.31.3",
+    "@tiptap/extension-text-align": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "lucide-react": "0.468.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "happy-dom": "20.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "happy-dom": "20.14.5",
     "typescript": "^5.9.3",
-    "vite": "^8.0.3"
+    "vite": "^8.3.0"
   }
 }

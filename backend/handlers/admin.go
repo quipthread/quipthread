@@ -145,6 +145,9 @@ func (h *AdminHandler) Reply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := store.CreateComment(reply); err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		writeError(w, r, http.StatusInternalServerError, "failed to create reply")
 		return
 	}
@@ -452,6 +455,9 @@ func (h *AdminHandler) CreateSite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := store.CreateSite(site); err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		writeError(w, r, http.StatusInternalServerError, "failed to create site")
 		return
 	}
@@ -483,6 +489,9 @@ func (h *AdminHandler) createSiteCloud(w http.ResponseWriter, r *http.Request, s
 	}
 
 	if err := store.CreateSite(site); err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		// Registry row deliberately left reserved so the claim survives for
 		// retry/reconciliation rather than being silently dropped.
 		log.Printf("site create: tenant insert failed for site %s (reservation kept): %v", site.ID, err)

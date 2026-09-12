@@ -330,7 +330,13 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			Content:   req.Content,
 			Status:    "rejected",
 		}
-		_ = store.CreateComment(comment)
+		if err := store.CreateComment(comment); err != nil {
+			if writeQuotaError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "failed to create comment")
+			return
+		}
 		writeJSON(w, http.StatusCreated, comment)
 		return
 	}
@@ -369,10 +375,16 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if h.config.CloudMode && status == "pending" {
 		if err := store.CreatePendingCommentWithNotification(comment); err != nil {
+			if writeQuotaError(w, r, err) {
+				return
+			}
 			writeError(w, r, http.StatusInternalServerError, "failed to create comment")
 			return
 		}
 	} else if err := store.CreateComment(comment); err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		writeError(w, r, http.StatusInternalServerError, "failed to create comment")
 		return
 	}

@@ -130,29 +130,40 @@ function ModRulesPanelInner() {
   if (hasAccess === null) {
     if (billingError) {
       return (
-        <div className="error-msg" role="alert">
-          Failed to load billing status.{' '}
-          <button
-            type="button"
-            className="btn"
-            disabled={billingFetching}
-            onClick={() => refetchBilling()}
-          >
-            Retry
-          </button>
+        <div>
+          <PageHeader title="Moderation Rules" />
+          <div className="error-msg" role="alert">
+            Failed to load billing status.{' '}
+            <button
+              type="button"
+              className="btn"
+              disabled={billingFetching}
+              onClick={() => refetchBilling()}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       )
     }
-    return <div className="loading">Loading…</div>
+    return (
+      <div>
+        <PageHeader title="Moderation Rules" />
+        <div className="loading">Loading…</div>
+      </div>
+    )
   }
 
   if (!hasAccess) {
     return (
-      <UpgradeGate
-        feature="Moderation Rules"
-        description="Define keyword blocklists to automatically reject comments containing unwanted words or phrases. Import curated community lists or add your own."
-        minPlan="pro"
-      />
+      <div>
+        <PageHeader title="Moderation Rules" />
+        <UpgradeGate
+          feature="Moderation Rules"
+          description="Define keyword blocklists to automatically reject comments containing unwanted words or phrases. Import curated community lists or add your own."
+          minPlan="pro"
+        />
+      </div>
     )
   }
 

@@ -6,6 +6,6 @@ import CommentsPanel from '../components/CommentsPanel'
 
 <AdminLayout title="Comments" page="comments">
   <AuthGuard client:load>
-    <CommentsPanel client:load />
+    <CommentsPanel client:only="preact" />
   </AuthGuard>
 </AdminLayout>

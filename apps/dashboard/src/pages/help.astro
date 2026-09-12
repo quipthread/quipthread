@@ -6,6 +6,6 @@ import HelpPanel from '../components/HelpPanel'
 
 <AdminLayout title="Help" page="help">
   <AuthGuard client:load>
-    <HelpPanel client:load />
+    <HelpPanel client:only="preact" />
   </AuthGuard>
 </AdminLayout>

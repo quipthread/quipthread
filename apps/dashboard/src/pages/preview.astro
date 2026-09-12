@@ -6,6 +6,6 @@ import PreviewPanel from '../components/PreviewPanel'
 
 <AdminLayout title="Preview" page="preview">
   <AuthGuard client:load>
-    <PreviewPanel client:load />
+    <PreviewPanel client:only="preact" />
   </AuthGuard>
 </AdminLayout>

@@ -6,6 +6,6 @@ import UsersPanel from '../components/UsersPanel'
 
 <AdminLayout title="Users" page="users">
   <AuthGuard client:load>
-    <UsersPanel client:load />
+    <UsersPanel client:only="preact" />
   </AuthGuard>
 </AdminLayout>

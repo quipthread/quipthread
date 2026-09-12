@@ -1331,8 +1331,9 @@ func (s *sqlStore) BulkAddBlockedTerms(terms []string) (added int, err error) {
 func (s *sqlStore) CountCommentsThisMonth() (int, error) {
 	var count int
 	err := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
-		`SELECT COUNT(*) FROM comments
-		WHERE created_at >= strftime('%Y-%m-01', 'now')`).Scan(&count)
+		`SELECT CASE WHEN EXISTS(SELECT 1 FROM cloud_quota_enabled)
+        THEN COALESCE((SELECT used FROM cloud_comment_usage WHERE month = strftime('%Y-%m','now')),0)
+        ELSE (SELECT COUNT(*) FROM comments WHERE created_at >= strftime('%Y-%m-01','now') AND created_at < strftime('%Y-%m-01','now','+1 month')) END`).Scan(&count)
 	return count, err
 }
 

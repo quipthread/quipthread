@@ -68,6 +68,11 @@ func main() {
 		log.Fatalf("open database: %v", err)
 	}
 	defer store.Close() //nolint:errcheck // deferred close on program exit
+	if cfg.CloudMode {
+		if err := db.EnableCloudQuotas(context.Background(), store); err != nil {
+			log.Fatalf("configure cloud quotas: %v", err)
+		}
+	}
 
 	// Seed the dev test site used by the / test page.
 	if s, _ := store.GetSite("dev-site"); s == nil {

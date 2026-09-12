@@ -26,16 +26,18 @@
   },
   "overrides": {
     "h3": "^1.15.10",
-    "smol-toml": "^1.6.1"
+    "smol-toml": "^1.6.1",
+    "prosemirror-model": "1.25.11",
+    "fflate": "0.7.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11"
+    "@biomejs/biome": "^2.5.13"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.5",
-    "@astrojs/starlight": "^0.41.10",
+    "@astrojs/starlight": "0.41.11",
     "@vitejs/plugin-react": "^6.1.1",
-    "astro": "^7.2.10",
-    "vite": "^8.2.2"
+    "astro": "^7.3.2",
+    "vite": "^8.3.0"
   }
 }

@@ -6,6 +6,6 @@ import AccountPanel from '../components/AccountPanel'
 
 <AdminLayout title="Account" page="account">
   <AuthGuard client:load>
-    <AccountPanel client:load />
+    <AccountPanel client:only="preact" />
   </AuthGuard>
 </AdminLayout>

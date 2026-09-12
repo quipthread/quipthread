@@ -6,6 +6,6 @@ import ModRulesPanel from '../components/ModRulesPanel'
 
 <AdminLayout title="Moderation Rules" page="moderation-rules">
   <AuthGuard client:load>
-    <ModRulesPanel client:load />
+    <ModRulesPanel client:only="preact" />
   </AuthGuard>
 </AdminLayout>

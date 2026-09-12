@@ -29,10 +29,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@clack/prompts": "^0.9.0"
+    "@clack/prompts": "^0.9.1"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.20.2",
     "typescript": "^5.9.3"
   },
   "engines": {

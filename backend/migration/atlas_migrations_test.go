@@ -33,7 +33,7 @@ func TestAtlasRunnerSeparatesTargetFromArgumentsAndCleansTempFiles(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if outcome.ExpectedVersion != "00010" {
+	if outcome.ExpectedVersion != "00011" {
 		t.Fatalf("expected migration version = %q", outcome.ExpectedVersion)
 	}
 	data, err := os.ReadFile(recordPath)
@@ -92,15 +92,15 @@ func TestAtlasRunnerPinnedCLIAppliesAllSQLiteMigrationsAndIsIdempotent(t *testin
 	if err != nil {
 		t.Fatalf("first pinned Atlas apply failed: outcome=%#v err=%v", first, err)
 	}
-	if first.Applied != 10 || first.ExpectedVersion != "00010" {
-		t.Fatalf("first apply outcome=%#v, want ten migrations through 00010", first)
+	if first.Applied != 11 || first.ExpectedVersion != "00011" {
+		t.Fatalf("first apply outcome=%#v, want eleven migrations through 00011", first)
 	}
 	second, err := runner.Apply(context.Background(), Target{AccountID: "pinned-cli-contract", TargetURL: "sqlite://" + databasePath})
 	if err != nil {
 		t.Fatalf("second pinned Atlas apply failed: outcome=%#v err=%v", second, err)
 	}
-	if second.Applied != 0 || second.ExpectedVersion != "00010" {
-		t.Fatalf("second apply outcome=%#v, want no-op at 00010", second)
+	if second.Applied != 0 || second.ExpectedVersion != "00011" {
+		t.Fatalf("second apply outcome=%#v, want no-op at 00011", second)
 	}
 
 	db, err := sql.Open("sqlite", databasePath)
@@ -124,7 +124,7 @@ func TestAtlasRunnerPinnedCLIAppliesAllSQLiteMigrationsAndIsIdempotent(t *testin
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	wantRevisions := []string{"00001", "00002", "00003", "00004", "00005", "00006", "00007", "00008", "00009", "00010"}
+	wantRevisions := []string{"00001", "00002", "00003", "00004", "00005", "00006", "00007", "00008", "00009", "00010", "00011"}
 	if strings.Join(revisions, ",") != strings.Join(wantRevisions, ",") {
 		t.Fatalf("revision IDs = %v, want %v", revisions, wantRevisions)
 	}
@@ -351,7 +351,7 @@ func TestAtlasMigrationIntegrityArtifactMatchesAtlasSum(t *testing.T) {
 	if err := expected.UnmarshalText(data); err != nil {
 		t.Fatalf("parse committed atlas.sum: %v", err)
 	}
-	if actual.Sum() != expected.Sum() || len(actual) != 10 || len(expected) != len(actual) {
+	if actual.Sum() != expected.Sum() || len(actual) != 11 || len(expected) != len(actual) {
 		t.Fatalf("Atlas migration checksum mismatch: actual=%s expected=%s", actual.Sum(), expected.Sum())
 	}
 }

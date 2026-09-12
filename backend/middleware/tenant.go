@@ -436,6 +436,11 @@ func OpenTenantStoreContext(ctx context.Context, acc *cloud.Account, cfg *config
 	if acc == nil || cfg == nil {
 		return nil, errors.New("tenant store account and config are required")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var store db.Store
+	var err error
 	if acc.DBType == "turso" {
 		if acc.ProvisioningStatus != "" && acc.ProvisioningStatus != cloud.AccountReady {
 			return nil, errors.New("tenant database is not ready")
@@ -443,12 +448,19 @@ func OpenTenantStoreContext(ctx context.Context, acc *cloud.Account, cfg *config
 		if acc.DBURL == "" {
 			return nil, errors.New("tenant database target is empty")
 		}
-		return db.NewLibSQLStoreWithAuthTokenContext(ctx, acc.DBURL, cfg.TursoAuthToken)
+		store, err = db.NewLibSQLStoreWithAuthTokenContext(ctx, acc.DBURL, cfg.TursoAuthToken)
+	} else {
+		store, err = db.NewSQLiteStore(acc.DBURL)
 	}
-	if err := ctx.Err(); err != nil {
+	if err != nil {
 		return nil, err
 	}
-	return db.NewSQLiteStore(acc.DBURL)
+	if cfg.CloudMode {
+		if err := db.EnableCloudQuotas(ctx, store); err != nil {
+			return nil, errors.Join(err, store.Close())
+		}
+	}
+	return store, nil
 }
 
 // openTenantStore is the resolver-facing open seam; overridable in tests so

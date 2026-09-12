@@ -238,6 +238,9 @@ func TestCreatePendingCommentWithNotificationRejectsLeasedOrSentDigest(t *testin
 func TestCreatePendingCommentWithNotificationRollsBackCommentOnOutboxFailure(t *testing.T) {
 	store := newTestStore(t)
 	seedPendingCommentTenant(t, store, "site-1", nil)
+	if err := EnableCloudQuotas(t.Context(), store); err != nil {
+		t.Fatal(err)
+	}
 	s := store.(*SQLiteStore)
 	if _, err := s.db.Exec(`
 		CREATE TRIGGER fail_notification_outbox
@@ -259,6 +262,10 @@ func TestCreatePendingCommentWithNotificationRollsBackCommentOnOutboxFailure(t *
 	}
 	if comments != 0 || outbox != 0 {
 		t.Fatalf("rollback left comments=%d outbox=%d", comments, outbox)
+	}
+	used, err := store.CountCommentsThisMonth()
+	if err != nil || used != 0 {
+		t.Fatalf("rollback left usage=%d, %v", used, err)
 	}
 }
 

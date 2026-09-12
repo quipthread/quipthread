@@ -76,7 +76,7 @@ docker cp "${CONTAINER}:/data/db.sqlite" "${WORK_DIR}/first.db"
 
 first_revisions="$(sqlite3 "${WORK_DIR}/first.db" 'SELECT version FROM atlas_schema_revisions ORDER BY version;')"
 first_count="$(printf '%s\n' "${first_revisions}" | awk 'NF { count++ } END { print count + 0 }')"
-[ "${first_count}" = 10 ]
+[ "${first_count}" = 11 ]
 generation_columns="$(sqlite3 "${WORK_DIR}/first.db" "SELECT name FROM pragma_table_info('users') WHERE name IN ('dashboard_session_generation', 'embed_session_generation') ORDER BY name;")"
 [ "${generation_columns}" = "dashboard_session_generation
 embed_session_generation" ]

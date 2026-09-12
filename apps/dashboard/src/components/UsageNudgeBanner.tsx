@@ -2,91 +2,36 @@ import { useQuery } from '@tanstack/preact-query'
 import { useState } from 'preact/hooks'
 import { api } from '../api'
 import { queryKeys } from '../lib/queryKeys'
-import type { BillingStatus } from '../types'
+import { computeNudge } from '../lib/usageNudge'
 import QueryProvider from './QueryProvider'
 
-type Nudge = {
-  level: 'warning' | 'critical'
-  message: string
-  detail: string
-  pct?: number // 0–100, for comment quota progress bar
-}
-
-function computeNudge(s: BillingStatus): Nudge | null {
-  if (s.plan !== 'hobby') return null
-
-  const commentPct =
-    s.comments_limit > 0 ? Math.round((s.comments_this_month / s.comments_limit) * 100) : 0
-
-  // Comment quota takes priority over site limit.
-  if (s.comments_limit > 0) {
-    if (commentPct >= 100) {
-      return {
-        level: 'critical',
-        message: 'Monthly comment limit reached',
-        detail: `${s.comments_this_month.toLocaleString()} / ${s.comments_limit.toLocaleString()} comments used. New comments are paused until next month.`,
-        pct: 100,
-      }
-    }
-    if (commentPct >= 95) {
-      return {
-        level: 'critical',
-        message: 'Almost out of comments',
-        detail: `${s.comments_this_month.toLocaleString()} of ${s.comments_limit.toLocaleString()} used this month.`,
-        pct: commentPct,
-      }
-    }
-    if (commentPct >= 80) {
-      return {
-        level: 'warning',
-        message: 'Approaching comment limit',
-        detail: `${s.comments_this_month.toLocaleString()} of ${s.comments_limit.toLocaleString()} used this month.`,
-        pct: commentPct,
-      }
-    }
-  }
-
-  // Site limit nudge (only if not already showing comment nudge).
-  if (s.sites_limit !== null && s.sites_limit > 0 && s.sites_count >= s.sites_limit) {
-    return {
-      level: 'warning',
-      message: 'Site limit reached',
-      detail: `You're on the Hobby plan, which includes 1 site.`,
-    }
-  }
-
-  return null
-}
-
-const DISMISS_KEY = 'qt-nudge-dismissed'
-
 function UsageNudgeBannerInner() {
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return !!window.sessionStorage.getItem(DISMISS_KEY)
-  })
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
 
   const { data } = useQuery({
     queryKey: queryKeys.billingStatus(),
     queryFn: () => api.billing.status(),
     staleTime: 60_000,
-    enabled: !dismissed,
+    refetchInterval: 60_000,
   })
 
   const nudge = data ? computeNudge(data) : null
 
-  if (!nudge || dismissed) return null
+  const period = new Date().toISOString().slice(0, 7)
+  const key = nudge
+    ? `${data?.plan}:${period}:${nudge.metric}:${nudge.level}:${nudge.pct === 100}`
+    : null
+  if (!nudge || dismissedKey === key) return null
 
   function dismiss() {
-    window.sessionStorage.setItem(DISMISS_KEY, '1')
-    setDismissed(true)
+    setDismissedKey(key)
   }
 
   const isCritical = nudge.level === 'critical'
   const bg = isCritical ? 'var(--red-bg)' : 'var(--amber-bg)'
   const border = isCritical ? 'var(--red-border)' : 'var(--amber-border)'
   const textColor = isCritical ? 'var(--red-text)' : 'var(--amber)'
-  const barFill = isCritical ? '#ef4444' : '#e07f32'
+  const barFill = isCritical ? 'var(--red-text)' : 'var(--amber)'
 
   return (
     <div
@@ -149,10 +94,11 @@ function UsageNudgeBannerInner() {
             <div
               style={{
                 height: '100%',
-                width: `${nudge.pct}%`,
+                width: '100%',
+                transform: `scaleX(${nudge.pct / 100})`,
+                transformOrigin: 'left',
                 background: barFill,
                 borderRadius: 9999,
-                transition: 'width 0.3s ease',
               }}
             />
           </div>

@@ -5,6 +5,7 @@ import { queryKeys } from '../lib/queryKeys'
 import type { AnalyticsData, Site } from '../types'
 import EmbedCodeGenerator from './EmbedCodeGenerator'
 import QueryProvider from './QueryProvider'
+import PageHeader from './shared/PageHeader'
 import ThemeSwatches from './ThemeSwatches'
 
 const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
@@ -134,27 +135,35 @@ function PreviewPanelInner() {
     return nonZero?.date ?? null
   })()
 
-  if (plan === null) return <div className="loading">Loading…</div>
+  if (plan === null)
+    return (
+      <div>
+        <PageHeader title="Preview" />
+        <div className="loading">Loading…</div>
+      </div>
+    )
 
   return (
     <div>
       {/* Page header */}
-      <div className="page-header">
-        <h1>Preview</h1>
-        {sites.length > 1 && (
-          <select
-            value={activeSiteId}
-            onChange={(e) => handleSiteChange((e.target as HTMLSelectElement).value)}
-            style={{ fontSize: '0.875rem' }}
-          >
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.domain}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+      <PageHeader
+        title="Preview"
+        action={
+          sites.length > 1 && (
+            <select
+              value={activeSiteId}
+              onChange={(e) => handleSiteChange((e.target as HTMLSelectElement).value)}
+              style={{ fontSize: '0.875rem' }}
+            >
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.domain}
+                </option>
+              ))}
+            </select>
+          )
+        }
+      />
 
       {sites.length === 0 ? (
         <div className="empty">

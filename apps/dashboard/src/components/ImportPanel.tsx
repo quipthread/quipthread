@@ -6,6 +6,7 @@ import { queryKeys } from '../lib/queryKeys'
 import type { ColumnMapping, ImportResult, TableInfo } from '../types'
 import QueryProvider from './QueryProvider'
 import SelectDropdown from './SelectDropdown'
+import PageHeader from './shared/PageHeader'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -322,9 +323,7 @@ function ImportPanelInner() {
     <div class="import-panel">
       <style>{styles}</style>
 
-      <div class="page-header">
-        <h1>Import Comments</h1>
-      </div>
+      <PageHeader title="Import Comments" />
 
       {phase === 'done' && result && (
         <div class="import-done">
@@ -450,7 +449,7 @@ export default function ImportPanel() {
 
 const styles = `
 .import-panel {
-  max-width: 760px;
+  width: 100%;
 }
 
 .import-form {

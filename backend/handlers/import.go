@@ -78,6 +78,9 @@ func (h *AdminHandler) importFromReader(
 
 	commentsInserted, err := store.ImportComments(siteID, result.Comments)
 	if err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		writeError(w, r, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}
@@ -179,6 +182,9 @@ func (h *AdminHandler) ImportQuipthreadDB(w http.ResponseWriter, r *http.Request
 
 	commentsInserted, err := store.ImportComments(siteID, result.Comments)
 	if err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		writeError(w, r, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}
@@ -288,6 +294,9 @@ func (h *AdminHandler) ImportSQLiteRun(w http.ResponseWriter, r *http.Request) {
 
 	commentsInserted, err := store.ImportComments(siteID, result.Comments)
 	if err != nil {
+		if writeQuotaError(w, r, err) {
+			return
+		}
 		writeError(w, r, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}

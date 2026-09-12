@@ -1,4 +1,4 @@
-h1:t6dRqOXDFeT9nY6NK+LXaywJg5W0RMOuVNL9zsCAMmk=
+h1:WoeftFJ/QtVwm/7uV8i11J6g9uN/iA7FaoYOzN0H9ps=
 00001_baseline.sql h1:AlGOhbDEEn1LEFluKUR3VvdFzoS1D0K1+C+dpmTJQU8=
 00002_sso.sql h1:GDug0ccfDRt835AvUFNAiqs6AE/lKZg54Wgk2fg+5XY=
 00003_notification_outbox.sql h1:EgSIJYmoMaTOS0llj4oufkCWHjRju6UDtJwD5uJa/1Q=
@@ -9,3 +9,4 @@ h1:t6dRqOXDFeT9nY6NK+LXaywJg5W0RMOuVNL9zsCAMmk=
 00008_notification_outbox_channel_parent_guards.sql h1:6Ntly3msZgwfpz6L4ALHKt0ssCvGPuCtxsLyq4x0lpY=
 00009_notification_outbox_channel_skipped.sql h1:dbwOVNBe/7fOP5DOq5JNFUatez7VMbv8NCp3boixUnA=
 00010_session_generation.sql h1:ABrv/nVK+YD6/HwT9mrWB6Uvqt5NEZ0x5nw6MSvfOdw=
+00011_cloud_quotas.sql h1:9+OG633exRpEvjC1oSsNUIpcHx6GtqW/1uaEe0jhpko=

@@ -724,14 +724,22 @@ function AccountPanelInner() {
 
   if (accountError) {
     return (
-      <div class="error-msg" style={{ marginTop: '2rem' }}>
-        Failed to load account.
+      <div>
+        <PageHeader title="Account" />
+        <div class="error-msg" role="alert">
+          Failed to load account.
+        </div>
       </div>
     )
   }
 
   if (!account) {
-    return <div class="loading">Loading…</div>
+    return (
+      <div>
+        <PageHeader title="Account" />
+        <div class="loading">Loading…</div>
+      </div>
+    )
   }
 
   return (

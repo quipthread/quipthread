@@ -6,6 +6,7 @@ import { queryKeys } from '../lib/queryKeys'
 import type { AnalyticsData } from '../types'
 import QueryProvider from './QueryProvider'
 import SelectDropdown from './SelectDropdown'
+import PageHeader from './shared/PageHeader'
 import UpgradeGate from './UpgradeGate'
 
 // recharts prop types reference React.ReactNode, but @astrojs/preact compat aliases
@@ -338,29 +339,41 @@ function AnalyticsPanelInner() {
 
   if (plan === null && billingError) {
     return (
-      <div className="error-msg" role="alert">
-        Failed to load billing status.{' '}
-        <button
-          type="button"
-          className="btn"
-          disabled={billingFetching}
-          onClick={() => refetchBilling()}
-        >
-          Retry
-        </button>
+      <div>
+        <PageHeader title="Analytics" />
+        <div className="error-msg" role="alert">
+          Failed to load billing status.{' '}
+          <button
+            type="button"
+            className="btn"
+            disabled={billingFetching}
+            onClick={() => refetchBilling()}
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
 
-  if (plan === null) return <div className="loading">Loading…</div>
+  if (plan === null)
+    return (
+      <div>
+        <PageHeader title="Analytics" />
+        <div className="loading">Loading…</div>
+      </div>
+    )
 
   if (!hasAccess) {
     return (
-      <UpgradeGate
-        feature="Analytics"
-        description="Track comment volume over time, see your most active pages, top commenters, and more."
-        minPlan="starter"
-      />
+      <div>
+        <PageHeader title="Analytics" />
+        <UpgradeGate
+          feature="Analytics"
+          description="Track comment volume over time, see your most active pages, top commenters, and more."
+          minPlan="starter"
+        />
+      </div>
     )
   }
 
@@ -372,34 +385,27 @@ function AnalyticsPanelInner() {
   return (
     <div>
       {/* Header */}
-      <div
-        className="page-header"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap' as const,
-          gap: '0.75rem',
-        }}
-      >
-        <h1>Analytics</h1>
-        <div
-          className="analytics-controls"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
-        >
-          {(sites.length > 1 || isBusiness) && (
-            <SelectDropdown
-              value={siteId}
-              options={[
-                ...(isBusiness ? [{ value: 'all', label: 'All sites' }] : []),
-                ...sites.map((s) => ({ value: s.id, label: s.domain })),
-              ]}
-              onChange={setSiteId}
-            />
-          )}
-          <RangeToggle value={range} onChange={setRange} />
-        </div>
-      </div>
+      <PageHeader
+        title="Analytics"
+        action={
+          <div
+            className="analytics-controls"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+          >
+            {(sites.length > 1 || isBusiness) && (
+              <SelectDropdown
+                value={siteId}
+                options={[
+                  ...(isBusiness ? [{ value: 'all', label: 'All sites' }] : []),
+                  ...sites.map((s) => ({ value: s.id, label: s.domain })),
+                ]}
+                onChange={setSiteId}
+              />
+            )}
+            <RangeToggle value={range} onChange={setRange} />
+          </div>
+        }
+      />
 
       {error && (
         <div
