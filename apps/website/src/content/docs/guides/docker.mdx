@@ -1,139 +1,141 @@
 ---
-title: Docker Deployment
-description: Deploy Quipthread using Docker Compose with automatic TLS via Caddy.
+title: Docker deployment
+description: Run Quipthread with Docker Compose, Caddy HTTPS, and optional SQLite backups.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+Docker Compose runs Quipthread and Caddy on your server. Quipthread stores comments and account data in a persistent SQLite volume. Caddy handles HTTPS.
 
-The repository ships a production-ready Docker Compose setup that pulls a pre-built image from the GitHub Container Registry. No local build toolchain required.
+You need Docker Engine with the Compose plugin, a Linux AMD64 or ARM64 server, and a domain pointing to that server. Allow inbound TCP ports 80 and 443. UDP port 443 is optional for HTTP/3.
 
-- **Pre-built image** — `ghcr.io/quipthread/quipthread:latest`, published automatically on every release
-- **Caddy** — automatic HTTPS via Let's Encrypt
-- **Litestream** — optional continuous SQLite backup to S3 or any S3-compatible bucket (Cloudflare R2, MinIO, etc.)
-
-## Quick start
-
-### 1. Clone the repository
+## 1. Get the deployment files
 
 ```bash
 git clone https://github.com/quipthread/quipthread
 cd quipthread
-```
-
-### 2. Create your `.env`
-
-```bash
 cp .env.docker.example .env
+chmod 600 .env
 ```
 
-Open `.env` and fill in at minimum:
+The repository provides `.env.docker.example` as the Docker configuration template.
 
-```bash
-JWT_SECRET=<output of: openssl rand -hex 32>
+## 2. Configure the instance
+
+Generate a secret with `openssl rand -hex 32`, then edit `.env`:
+
+```dotenv
+JWT_SECRET=replace-with-your-generated-secret
 BASE_URL=https://comments.example.com
-ALLOWED_ORIGINS=https://comments.example.com
+ALLOWED_ORIGINS=https://publisher.example.com
+DATABASE_URL=/data/db.sqlite
+PORT=8080
+TRUST_PROXY=true
 
-# At least one auth provider
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
+GITHUB_CLIENT_ID=replace-with-your-client-id
+GITHUB_CLIENT_SECRET=replace-with-your-client-secret
 ```
 
-See [Environment Variables](/docs/reference/environment-variables/) for the full list. For OAuth setup, see [OAuth Setup](/docs/guides/oauth-setup/).
+Set `BASE_URL` to the address of Quipthread. Set `ALLOWED_ORIGINS` to the exact origins of the websites that embed comments, separated by commas. Include the scheme and any non-default port; omit paths and wildcards. Dashboard requests from `BASE_URL` are accepted separately.
 
-### 3. Update the Caddyfile
+Configure GitHub, Google, or [email authentication](/docs/guides/email-auth/). Register OAuth callbacks as `https://comments.example.com/auth/github/callback` or `https://comments.example.com/auth/google/callback`. See [OAuth setup](/docs/guides/oauth-setup/) and the [environment variable reference](/docs/reference/environment-variables/).
 
-Edit `deploy/Caddyfile` and replace `example.com` with your domain:
+Keep `PORT=8080` with the supplied Caddy configuration. `TRUST_PROXY=true` lets rate limiting use the client IP forwarded by Caddy. The Compose file keeps the app port private; expose it only through your trusted proxy.
 
-```
-comments.example.com {
-    reverse_proxy app:8080
-    encode zstd gzip
-}
-```
+## 3. Configure HTTPS
 
-Caddy automatically obtains and renews a TLS certificate from Let's Encrypt. Your server needs ports 80 and 443 open.
+Edit `deploy/Caddyfile`: replace `example.com` with `comments.example.com` and replace the example email address. Keep the existing proxy and header configuration.
 
-### 4. Deploy
+Point your domain's DNS records to this server. Caddy obtains and renews a certificate automatically. If you use another proxy or CDN, ensure it permits certificate validation and routes traffic to Caddy.
+
+## 4. Choose an image and start
+
+### Use the published release
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-`docker compose pull` fetches the latest pre-built image. The container starts in seconds — no build step needed on your server.
+The Compose file uses `ghcr.io/quipthread/quipthread:latest`. This tag changes when a public `v*` tag triggers the release workflow; merging code into `main` does not publish a new image. For repeatable deployments, set the app image in `docker-compose.yml` to a published version tag or digest.
 
-Navigate to `https://comments.example.com/login`. The first user to sign in is promoted to admin automatically.
 
----
 
-## Local testing (no domain required)
+### Build the checked-out source
 
-To test locally without a domain or TLS:
-
-1. Start only the app service and expose port 8080 directly:
-
-```bash
-docker compose run --service-ports -e DATABASE_URL=/data/db.sqlite app
-```
-
-2. Or add a `docker-compose.override.yml` (gitignored) to expose the port:
+Create `compose.source.yml`:
 
 ```yaml
 services:
   app:
-    ports:
-      - "8080:8080"
+    image: quipthread:selfhosted-local
+    build:
+      context: .
+      dockerfile: Dockerfile
 ```
 
-Then `docker compose up app` and access `http://localhost:8080`.
-
----
-
-## Litestream backup (optional)
-
-Litestream replicates your SQLite database to an S3-compatible bucket in near real-time. If your server loses its volume, you restore from the replica with no data loss beyond the last few seconds.
-
-Add to your `.env`:
+Then run:
 
 ```bash
+docker compose -f docker-compose.yml -f compose.source.yml build app
+docker compose -f docker-compose.yml -f compose.source.yml up -d
+```
+
+Use the same two `-f` options for subsequent Compose commands when running this local image. Docker builds the dashboard, embed widget, and backend, and packages the pinned Atlas migration CLI. You do not need Go or Bun installed on the host.
+
+## 5. Verify startup
+
+```bash
+docker compose logs --tail=100 app caddy
+curl --fail https://comments.example.com/health
+```
+
+The health response should report `status: ok` and `database: ok`. Open `https://comments.example.com/login`, sign in, and create a site in the dashboard. The first account receives admin access, so complete this step before sharing the instance publicly.
+
+Follow the [embed setup instructions](/docs/guides/self-hosting/#5-embed-the-widget) to add comments to your website.
+
+## Test locally without HTTPS
+
+Use a separate checkout and Compose project for testing. Configure real OAuth credentials with a localhost callback, or configure email authentication with a test SMTP server. Then publish the app port explicitly:
+
+```bash
+docker compose run --rm --no-deps \
+  --publish 127.0.0.1:8080:8080 \
+  -e BASE_URL=http://localhost:8080 \
+  -e ALLOWED_ORIGINS=http://localhost:8080 \
+  -e TRUST_PROXY=false \
+  app
+```
+
+Open `http://localhost:8080/login`. If your test website uses another port, include that origin in `ALLOWED_ORIGINS`. This checks local startup and dashboard access; use HTTPS to test cross-site authentication in its production configuration.
+
+The app service has no host port mapping by default, so `--service-ports` alone does not expose it. Do not run a second app container against a database already in use.
+
+## Back up SQLite with Litestream
+
+The image packages Litestream v0.3.14. Set these variables in `.env` to enable replication:
+
+```dotenv
 LITESTREAM_REPLICA_URL=s3://your-bucket/quipthread/db.sqlite
-LITESTREAM_ACCESS_KEY_ID=...
-LITESTREAM_SECRET_ACCESS_KEY=...
+LITESTREAM_ACCESS_KEY_ID=replace-with-your-access-key
+LITESTREAM_SECRET_ACCESS_KEY=replace-with-your-secret-key
 ```
 
-The entrypoint script automatically detects these variables and starts Litestream replication. Leave them unset to run without backup.
+Restart the app after changing its environment. The entrypoint generates `/tmp/litestream.yml` from these variables. Editing a host-side `deploy/litestream.yml` has no effect on this setup.
 
-**Using Cloudflare R2:**
+On startup, the entrypoint restores from the replica only if the local database is absent. It checks the integrity of a restored database before starting Quipthread. Restore errors stop startup; a missing replica allows a fresh database to be created.
 
-Add to `deploy/litestream.yml`:
+Replication is asynchronous. Recent writes may be lost if they have not reached the replica, and a misconfigured backup may contain no usable data. Check replication logs and test a restore before relying on it. Keep an independent backup before upgrades.
 
-```yaml
-access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
-secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+For a separate-target restore and validation procedure, use the [self-hosted restore runbook](https://github.com/quipthread/quipthread/blob/main/docs/runbooks/self-hosted-restore.md). Custom S3 endpoints may need additional Litestream configuration; the supplied entrypoint does not accept an endpoint variable or a mounted config file. No MinIO Compose overlay is included.
 
-dbs:
-  - path: /data/db.sqlite
-    replicas:
-      - url: ${LITESTREAM_REPLICA_URL}
-        endpoint: https://<account-id>.r2.cloudflarestorage.com
-        force-path-style: true
-```
+## Upgrade
 
-**Local dev with MinIO:**
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
-```
-
-This overlay starts a MinIO container so you can test Litestream replication locally without a real S3 bucket.
-
----
-
-## Upgrading
+Back up the database, then pull the next published image and recreate the service:
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-The Go binary runs database migrations automatically on startup — no manual schema changes needed.
+For source builds, update your checkout and repeat the source-build commands instead. Startup verifies Atlas and runs database migrations before serving requests. If migration fails, inspect the app logs before retrying.
+
+The named data volume survives container replacement and `docker compose down`. **Do not use `docker compose down -v` to upgrade:** it deletes the database volume and Caddy's certificate storage. An older image may not support an upgraded database; retain a matching pre-upgrade backup for rollback.

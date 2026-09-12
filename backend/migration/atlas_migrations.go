@@ -212,8 +212,12 @@ func (r *Runner) apply(ctx context.Context, target Target, adoptLegacy bool) (Ou
 		}
 		return Outcome{Kind: OutcomeBinaryFailed}, &OutcomeError{Kind: OutcomeBinaryFailed}
 	}
+	atlasURL, err := atlasDatabaseURL(databaseURL)
+	if err != nil {
+		return configurationOutcome(nil)
+	}
 	if err := client.SetEnv(atlasexec.Environ{
-		AtlasDatabaseURL: databaseURL,
+		AtlasDatabaseURL: atlasURL,
 	}); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return configurationOutcome(ctxErr)

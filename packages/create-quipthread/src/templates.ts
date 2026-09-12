@@ -1,4 +1,4 @@
-import type { Framework } from './index.js'
+import type { Framework } from './types.js'
 
 export interface Config {
   framework: Framework

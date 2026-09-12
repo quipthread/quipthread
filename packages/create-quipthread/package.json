@@ -1,6 +1,6 @@
 {
   "name": "@quipthread/create-quipthread",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Set up Quipthread: add comments to your site, scaffold a self-hosted project, or deploy to a platform",
   "type": "module",
   "bin": {
@@ -8,7 +8,9 @@
   },
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun run build.ts"
+    "build": "bun run build.ts",
+    "check": "tsc --noEmit",
+    "prepack": "bun run build"
   },
   "files": [
     "dist"

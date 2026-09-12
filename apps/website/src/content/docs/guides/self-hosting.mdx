@@ -11,7 +11,9 @@ This guide walks you through deploying Quipthread on your own server and embeddi
 
 - A Linux server or VPS
 - A domain or subdomain pointing to it
-- Go 1.23+ and [Bun](https://bun.sh) installed (for building from source)
+- Go 1.26.4 or newer and [Bun](https://bun.sh) installed (for building from source)
+- Linux AMD64 or ARM64 for the pinned [Atlas migration CLI](https://atlasgo.io/docs#installation)
+- `curl`, `sha256sum`, and permission to install Atlas at `/usr/local/bin/atlas`
 
 ## 1. Clone and build
 
@@ -20,24 +22,58 @@ git clone https://github.com/quipthread/quipthread
 cd quipthread
 
 # Build the dashboard and embed widget, then copy assets into backend/static/
-bun install
+bun install --frozen-lockfile
 bun run build:assets:selfhosted
 
 # Build the Go binary with embedded assets
 cd backend
-go build -tags=selfhosted,production -o quipthread .
+CGO_ENABLED=0 go build -tags=selfhosted,production -o quipthread .
 ```
 
 The resulting `quipthread` binary includes the dashboard and embed widget — no separate static file server needed.
 
+### Install the migration CLI
+
+The backend requires Atlas v1.3.0 at `/usr/local/bin/atlas`, even when serving a database that is already migrated.
+
+Download the pinned binary for your server: [Linux AMD64](https://release.ariga.io/atlas/atlas-linux-amd64-v1.3.0) or [Linux ARM64](https://release.ariga.io/atlas/atlas-linux-arm64-v1.3.0). See the [Atlas installation documentation](https://atlasgo.io/docs#installation) for background. Quipthread verifies this exact version and checksum, so use the pinned download rather than the latest release.
+
+The commands below download the correct binary, verify it against the repository checksum, and install it. Run them from the `backend` directory on your Linux server:
+
+```bash
+(
+  set -eu
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo "Atlas requires Linux AMD64 or ARM64" >&2; exit 1 ;;
+  esac
+  artifact="atlas-linux-${arch}-v1.3.0"
+  checksum="$(awk -v key="linux/${arch}/${artifact}" '$2 == key { print $1 }' migration/atlas_cli.sha256)"
+  test -n "$checksum"
+  download_dir="$(mktemp -d)"
+  trap 'rm -rf "$download_dir"' EXIT
+  curl --fail --silent --show-error --location \
+    "https://release.ariga.io/atlas/${artifact}" --output "$download_dir/atlas"
+  printf '%s  %s\n' "$checksum" "$download_dir/atlas" | sha256sum --check --status
+  sudo install -m 0555 "$download_dir/atlas" /usr/local/bin/atlas
+  /usr/local/bin/atlas version
+)
+```
+
+Keep the Atlas version and checksum aligned with the checkout you build. The Docker image performs this installation for you.
+
 ## 2. Configure environment
 
-Create a `.env` file next to the binary. At minimum:
+Create a `.env` file in the `backend` directory and run the binary from that directory. Avoid a conflicting `.env` in the parent directory, which the loader reads first. At minimum:
 
 ```bash
 # Required
 JWT_SECRET=<output of: openssl rand -hex 32>
 BASE_URL=https://comments.example.com
+ALLOWED_ORIGINS=https://publisher.example.com
+DATABASE_URL=./data/comments.db
+TRUST_PROXY=true
 
 # At least one auth provider
 GITHUB_CLIENT_ID=...
@@ -47,7 +83,7 @@ GITHUB_CLIENT_SECRET=...
 See [Environment Variables](/docs/reference/environment-variables/) for the full list. For OAuth app setup, see [OAuth Setup](/docs/guides/oauth-setup/).
 
 <Aside type="caution">
-  `BASE_URL` must exactly match the callback URL you register in your GitHub or Google OAuth app settings (e.g. `https://comments.example.com/auth/github/callback`).
+  `BASE_URL` is the Quipthread origin, such as `https://comments.example.com`. Register the full callback URL separately: `https://comments.example.com/auth/github/callback` for GitHub. Set `ALLOWED_ORIGINS` to the exact origins of the websites embedding comments; it is required in production.
 </Aside>
 
 ## 3. Run the backend
@@ -57,7 +93,9 @@ See [Environment Variables](/docs/reference/environment-variables/) for the full
 # Listening on :8080
 ```
 
-Proxy it behind Caddy or nginx to serve HTTPS.
+Keep this process running with a service manager such as systemd. Its working directory must contain `.env`, and its service account needs write access to the database directory. Startup runs migrations automatically and stops if migration fails.
+
+Proxy it behind Caddy or nginx to serve HTTPS. With `TRUST_PROXY=true`, restrict direct access to port 8080 so only your trusted proxy can reach it. Use `TRUST_PROXY=false` when accessing the app directly.
 
 **Caddy example:**
 
@@ -93,6 +131,6 @@ Replace `YOUR_SITE_ID` with the ID from the dashboard, and set `data-page-id` to
 
 ## 6. Verify
 
-Open a page with the embed and you should see the comment widget. Post a test comment — it will appear under **Moderation** in the dashboard pending approval.
+Open a page with the embed and you should see the comment widget. Post a test comment and check it under **Moderation** in the dashboard. Its status depends on your site’s moderation settings.
 
 You can also visit `https://comments.example.com/dev` to test the widget in isolation against the built-in dev test page.

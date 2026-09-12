@@ -1,6 +1,5 @@
 # ── Global options ────────────────────────────────────────────────────────────
-# Email is used by Let's Encrypt for certificate expiry notifications.
-# Recommended — omitting it means silent cert renewal failures.
+# Email identifies the ACME account. Check Caddy logs for renewal failures.
 {
   email you@example.com
 }

@@ -19,7 +19,7 @@ COPY embed embed/
 RUN cd embed && bun run build
 
 # ── Stage 4: Package the pinned Atlas CLI ─────────────────────────────────────
-FROM alpine:3.17 AS atlas
+FROM alpine:3.24 AS atlas
 ARG TARGETARCH
 ARG ATLAS_VERSION=v1.3.0
 WORKDIR /tmp/atlas
@@ -53,8 +53,11 @@ COPY --from=embed-build /app/embed/dist/embed.iife.js ./static/embed.js
 RUN CGO_ENABLED=0 GOOS=linux go build -tags=selfhosted,production -ldflags="-s -w" -o /quipthread .
 
 # ── Stage 6: Runtime ──────────────────────────────────────────────────────────
-FROM litestream/litestream:0.3@sha256:c5a1e1b01916b3a110f6600820ef176d048d9b9c2411ef0a680de0caa68934a5
-RUN apk add --no-cache sqlite
+FROM litestream/litestream:0.3@sha256:c5a1e1b01916b3a110f6600820ef176d048d9b9c2411ef0a680de0caa68934a5 AS litestream
+
+FROM alpine:3.24
+RUN apk add --no-cache ca-certificates sqlite
+COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
 COPY --from=go-build /quipthread /usr/local/bin/quipthread
 COPY --from=atlas /out/atlas /usr/local/bin/atlas
 COPY deploy/entrypoint.sh /entrypoint.sh

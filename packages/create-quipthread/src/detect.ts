@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Framework } from './index.js'
+import type { Framework } from './types.js'
 
 export function detectFramework(cwd: string): Framework | null {
   const has = (rel: string) => existsSync(join(cwd, rel))

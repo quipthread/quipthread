@@ -9,11 +9,11 @@ Quipthread can notify you when new comments are submitted. Notifications are sen
 
 ## Supported channels
 
-Any combination of channels can be active simultaneously.
+Self-hosted Docker and source builds support SMTP email only. The email API, Telegram, Slack, Discord, and webhook channels below apply to managed cloud builds. Multiple channels can be active in a cloud deployment.
 
 ### Email
 
-Delivered via SMTP or an email API provider (same configuration as [email auth](/docs/guides/email-auth/)). Set `NOTIFY_EMAIL_TO` to specify a fallback recipient when the site owner has no email address on their account.
+Self-hosted builds deliver notifications through SMTP. Cloud builds also support email API providers. Authentication emails always require [SMTP](/docs/guides/email-auth/). Set `NOTIFY_EMAIL_TO` to specify a fallback recipient when the site owner has no email address on their account.
 
 ```bash
 # SMTP (reuses the SMTP_* vars)
@@ -22,7 +22,7 @@ SMTP_USER=user@example.com
 SMTP_PASS=your-password
 SMTP_FROM=noreply@example.com
 
-# Or email API
+# Or email API (cloud builds only)
 EMAIL_PROVIDER=resend
 EMAIL_API_KEY=your-api-key
 

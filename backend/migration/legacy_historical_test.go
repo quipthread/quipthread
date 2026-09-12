@@ -11,6 +11,11 @@ import (
 
 func historicalDatabase(t *testing.T) (*sql.DB, string) {
 	t.Helper()
+	return legacyFixtureDatabase(t, "historical_goose_schema.sql")
+}
+
+func legacyFixtureDatabase(t *testing.T, fixtureName string) (*sql.DB, string) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "historical.db")
 	conn, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -21,7 +26,7 @@ func historicalDatabase(t *testing.T) (*sql.DB, string) {
 			t.Error(err)
 		}
 	})
-	fixture, err := os.ReadFile("testdata/historical_goose_schema.sql")
+	fixture, err := os.ReadFile(filepath.Join("testdata", fixtureName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,28 +104,32 @@ func TestHistoricalGooseDatabaseUpgradesWithAtlas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Given the historical production DDL and a synthetic existing user.
-	conn, targetURL := historicalDatabase(t)
-	if _, err := conn.ExecContext(t.Context(), `INSERT INTO users(id,display_name) VALUES ('existing','Preserve me')`); err != nil {
-		t.Fatal(err)
-	}
-	// When the real Atlas runner upgrades the database twice.
-	for boot := range 2 {
-		outcome, err := runner.ApplyExisting(t.Context(), Target{AccountID: "historical", TargetURL: targetURL})
-		if err != nil {
-			t.Fatalf("boot %d: %+v %v", boot, outcome, err)
-		}
-		if boot == 1 && outcome.Applied != 0 {
-			t.Fatalf("second boot reapplied %d migrations", outcome.Applied)
-		}
-	}
-	// Then the existing user has both baseline and new migration fields intact.
-	var name string
-	var shadow, dashboard, embed int
-	if err := conn.QueryRowContext(t.Context(), `SELECT display_name,shadow_banned,dashboard_session_generation,embed_session_generation FROM users WHERE id='existing'`).Scan(&name, &shadow, &dashboard, &embed); err != nil {
-		t.Fatal(err)
-	}
-	if name != "Preserve me" || shadow != 0 || dashboard != 0 || embed != 0 {
-		t.Fatal("historical user changed")
+	for _, fixture := range []string{"historical_goose_schema.sql", "released_v0_1_1_schema.sql"} {
+		t.Run(fixture, func(t *testing.T) {
+			// Given the historical production DDL and a synthetic existing user.
+			conn, targetURL := legacyFixtureDatabase(t, fixture)
+			if _, err := conn.ExecContext(t.Context(), `INSERT INTO users(id,display_name) VALUES ('existing','Preserve me')`); err != nil {
+				t.Fatal(err)
+			}
+			// When the real Atlas runner upgrades the database twice.
+			for boot := range 2 {
+				outcome, err := runner.ApplyExisting(t.Context(), Target{AccountID: "historical", TargetURL: targetURL})
+				if err != nil {
+					t.Fatalf("boot %d: %+v %v", boot, outcome, err)
+				}
+				if boot == 1 && outcome.Applied != 0 {
+					t.Fatalf("second boot reapplied %d migrations", outcome.Applied)
+				}
+			}
+			// Then the existing user has both baseline and new migration fields intact.
+			var name string
+			var shadow, dashboard, embed int
+			if err := conn.QueryRowContext(t.Context(), `SELECT display_name,shadow_banned,dashboard_session_generation,embed_session_generation FROM users WHERE id='existing'`).Scan(&name, &shadow, &dashboard, &embed); err != nil {
+				t.Fatal(err)
+			}
+			if name != "Preserve me" || shadow != 0 || dashboard != 0 || embed != 0 {
+				t.Fatal("historical user changed")
+			}
+		})
 	}
 }

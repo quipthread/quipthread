@@ -4,6 +4,18 @@ import { deployFlow } from './flows/deploy.js'
 import { newProjectFlow } from './flows/new-project.js'
 
 async function main() {
+  const args = process.argv.slice(2)
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(
+      'Usage: create-quipthread\n\nInteractive setup: add comments, create a Docker project, or prepare platform deployment.\nRun in a new directory for setup. Platform deployment requires a Dockerfile.\nOptions: --help, -h',
+    )
+    return
+  }
+  if (args.length > 0) {
+    console.error('Unknown option. Run create-quipthread --help for usage.')
+    process.exitCode = 1
+    return
+  }
   console.log()
   intro(' create-quipthread ')
 

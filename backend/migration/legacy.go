@@ -92,7 +92,7 @@ func legacyBaseline(ctx context.Context, databaseURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := completeHistoricalBaseline(ctx, tx, actual, expected); err != nil {
+	if err := completeHistoricalBaseline(ctx, tx, actual, expected, expectedDB); err != nil {
 		return "", err
 	}
 	if err := tx.Commit(); err != nil {
