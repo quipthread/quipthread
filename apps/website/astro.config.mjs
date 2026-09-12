@@ -81,24 +81,25 @@ export default defineConfig({
       customCss: ['./src/styles/custom.css'],
       sidebar: [
         {
-          label: 'Getting Started',
+          label: 'Get started',
           items: [
-            { label: 'Overview', slug: 'docs' },
+            { label: 'Choose a setup', slug: 'docs' },
             { label: 'Cloud (Managed)', slug: 'docs/cloud/getting-started' },
-            { label: 'Self-Hosting', slug: 'docs/guides/self-hosting' },
+            { label: 'Run with Docker', slug: 'docs/guides/docker' },
           ],
         },
         {
-          label: 'Self-Hosting Guides',
+          label: 'Self-hosting',
           items: [
-            { label: 'OAuth Setup', slug: 'docs/guides/oauth-setup' },
-            { label: 'Email Auth', slug: 'docs/guides/email-auth' },
+            { label: 'GitHub or Google sign-in', slug: 'docs/guides/oauth-setup' },
+            { label: 'Email sign-in', slug: 'docs/guides/email-auth' },
             { label: 'Notifications', slug: 'docs/guides/notifications' },
-            { label: 'Docker', slug: 'docs/guides/docker' },
+            { label: 'Backups and restore', slug: 'docs/guides/backups' },
+            { label: 'Build from source', slug: 'docs/guides/self-hosting' },
           ],
         },
         {
-          label: 'Embed Widget',
+          label: 'Comment widget',
           items: [
             { label: 'Reference', slug: 'docs/embed/reference' },
             { label: 'Theming', slug: 'docs/embed/theming' },
@@ -108,13 +109,13 @@ export default defineConfig({
           label: 'Dashboard',
           items: [
             { label: 'Moderation', slug: 'docs/dashboard/moderation' },
-            { label: 'Import & Export', slug: 'docs/dashboard/import-export' },
-            { label: 'Security & Spam Protection', slug: 'docs/dashboard/security' },
+            { label: 'Import and export', slug: 'docs/dashboard/import-export' },
+            { label: 'Security and spam', slug: 'docs/dashboard/security' },
           ],
         },
         {
           label: 'Reference',
-          items: [{ label: 'Environment Variables', slug: 'docs/reference/environment-variables' }],
+          items: [{ label: 'Environment variables', slug: 'docs/reference/environment-variables' }],
         },
       ],
     }),

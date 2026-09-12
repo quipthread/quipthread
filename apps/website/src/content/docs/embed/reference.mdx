@@ -1,5 +1,5 @@
 ---
-title: Embed Widget Reference
+title: Add the comment widget
 description: All data attributes and configuration options for the Quipthread embed script.
 ---
 
@@ -25,7 +25,7 @@ The script discovers your Quipthread instance automatically from the `src` URL �
 
 ## Container element
 
-The widget mounts into a `<div id="comments">`. The element must exist in the DOM before the script runs, or the script will exit silently. All configuration is placed as `data-*` attributes on this element.
+The widget mounts into a `<div id="comments">`. Place the element before the script in your HTML. All configuration is placed as `data-*` attributes on this element.
 
 ## Attributes
 
@@ -67,7 +67,7 @@ The `async` attribute is recommended. The script defers mounting until `DOMConte
 
 Readers can upvote comments. Voting is a toggle — clicking the upvote button again removes the vote. A user must be signed in to vote; the button is rendered for all users but requires authentication to submit.
 
-The vote count and the current user's vote state are included in every comment load response. No additional configuration is needed.
+No additional configuration is needed for voting.
 
 ## Comment sort order
 
@@ -83,4 +83,4 @@ Sort preference is not persisted — it resets to newest on page reload.
 
 ## Browser compatibility
 
-The widget targets modern browsers (ES2020+). It uses `createRoot` from React 19, `MutationObserver`, and `fetch`. It does not support IE11 or other legacy environments.
+Use a current version of Chrome, Firefox, Safari, or Edge. Internet Explorer is not supported.

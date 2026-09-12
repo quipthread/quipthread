@@ -20,7 +20,7 @@ The widget ships with a set of built-in theme presets. The active theme can be s
 ></div>
 ```
 
-**Via the dashboard** — open the Sites tab, find your site, and choose a theme from the theme picker. This value is fetched by the widget on load.
+**Via the dashboard** — open **Sites**, select **Configure**, then choose your site and theme in the preview. The widget uses the saved setting on load.
 
 **Priority order:**
 1. `data-theme` on the container element (non-`auto` value)
@@ -29,7 +29,7 @@ The widget ships with a set of built-in theme presets. The active theme can be s
 
 ## The `auto` theme
 
-When the theme is `auto` (or not specified), the widget uses a CSS `prefers-color-scheme` media query to switch between a light and dark appearance automatically. This is the default.
+When `data-theme` is `auto` or omitted, the widget follows the site’s dashboard setting. If that setting is also automatic, it follows the reader’s system light or dark preference.
 
 ## Dynamic theme switching
 

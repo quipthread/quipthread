@@ -1,5 +1,5 @@
 ---
-title: Security & Spam Protection
+title: Security and spam
 description: Built-in protections against spam and abuse, and guidance on IP-level blocking.
 ---
 
@@ -18,7 +18,7 @@ Comment submissions are rate-limited per IP address. The default is 5 submission
 Every comment passes through a heuristic check before being stored. Comments are auto-rejected if they:
 
 - Contain fewer than 2 characters of plain text
-- Exceed 10,000 characters
+- Exceed 10,000 bytes of submitted content
 - Contain dangerous HTML (`<script>`, `<iframe>`, `javascript:`, etc.)
 - Exceed the configured link density threshold (`SPAM_MAX_LINKS`)
 - Contain a run of 10 or more identical characters
@@ -31,7 +31,7 @@ The **Mod Rules** tab lets you maintain a list of blocked terms. Any comment con
 
 ### Cloudflare Turnstile
 
-Turnstile adds a bot challenge before the comment form is submitted. Configure your site key and secret key in the dashboard under **Account → Security**. Turnstile runs entirely client-side and does not affect the comment submission UX for real users.
+Turnstile adds a bot challenge before the comment form is submitted. Configure your site key and secret key in the dashboard under **Account → Security**. The widget obtains a challenge token in the browser, and the backend verifies it before accepting the comment.
 
 ### User banning and shadow banning
 
@@ -43,9 +43,7 @@ Quipthread does not maintain an in-app IP blocklist. IP blocking is deliberately
 
 ### Cloud (managed)
 
-Cloud deployments run behind Cloudflare. To block an IP address or range, contact support — blocks are applied at the Cloudflare WAF level and take effect immediately across all traffic.
-
-For your own sites embedding the cloud widget, note that IP blocking applies to requests to `app.quipthread.com`. If a visitor can reach your page, they can still see existing comments; the block prevents them from submitting new comments.
+For infrastructure-level abuse affecting your cloud instance, contact support. Use the dashboard to ban individual commenters. Blocking a visitor on your own website does not necessarily block direct requests to the comment service.
 
 ### Self-hosted
 
@@ -72,5 +70,5 @@ deny 198.51.100.0/24;
 If you proxy your self-hosted instance through Cloudflare, you can use Cloudflare Firewall Rules or WAF Custom Rules to block by IP, country, ASN, or threat score — without touching your server configuration.
 
 <Aside>
-  Set `TRUST_PROXY=true` in your environment when running behind a reverse proxy. This tells Quipthread to read the real client IP from `X-Forwarded-For` so rate limiting applies to the actual visitor, not the proxy.
+  Set `TRUST_PROXY=true` in your environment when running behind a reverse proxy. Keep the app port private so requests can reach it only through that trusted proxy.
 </Aside>

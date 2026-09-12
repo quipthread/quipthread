@@ -7,11 +7,11 @@ import { Aside } from '@astrojs/starlight/components';
 
 Quipthread can notify you when new comments are submitted. Notifications are sent in batches after a configurable cooldown period to avoid alert fatigue.
 
-## Supported channels
+## Choose the right setup
 
 Self-hosted Docker and source builds support SMTP email only. The email API, Telegram, Slack, Discord, and webhook channels below apply to managed cloud builds. Multiple channels can be active in a cloud deployment.
 
-### Email
+## Self-hosted email
 
 Self-hosted builds deliver notifications through SMTP. Cloud builds also support email API providers. Authentication emails always require [SMTP](/docs/guides/email-auth/). Set `NOTIFY_EMAIL_TO` to specify a fallback recipient when the site owner has no email address on their account.
 
@@ -22,12 +22,20 @@ SMTP_USER=user@example.com
 SMTP_PASS=your-password
 SMTP_FROM=noreply@example.com
 
-# Or email API (cloud builds only)
-EMAIL_PROVIDER=resend
-EMAIL_API_KEY=your-api-key
-
 # Fallback recipient
 NOTIFY_EMAIL_TO=you@example.com
+```
+
+<details>
+<summary>Additional channels for cloud deployment operators</summary>
+
+These environment variables configure the managed backend. They are not settings that cloud customers need to add to their websites.
+
+### Email API
+
+```dotenv
+EMAIL_PROVIDER=resend
+EMAIL_API_KEY=your-api-key
 ```
 
 ### Telegram
@@ -62,6 +70,8 @@ WEBHOOK_URL=https://your-endpoint.example.com/hook
 ```
 
 Quipthread posts a JSON payload to this URL for each notification batch.
+
+</details>
 
 ## Batching and cooldown
 

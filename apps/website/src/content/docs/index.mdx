@@ -1,33 +1,28 @@
 ---
-title: Overview
-description: Quipthread is an open source comment system — use the managed cloud or self-host on your own infrastructure.
+title: Get started
+description: Choose Quipthread Cloud or Docker, then add comments to your website.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+Quipthread adds threaded comments, sign-in, and moderation to your website.
 
-Quipthread is an open source comment system for any website. You can use the managed cloud (no server required) or run the single Go binary on your own infrastructure.
+## Choose how to run it
 
-## What you get
+| Option | What you manage | Start here |
+|---|---|---|
+| Quipthread Cloud | Your sites and comments | [Set up a cloud account](/docs/cloud/getting-started/) |
+| Self-host with Docker | Your server, domain, and backups | [Run with Docker](/docs/guides/docker/) |
 
-- **Threaded comments** — two-level reply threads with a EditorCN rich text editor (headings, emphasis, links, lists, quotes, code blocks, highlighting, and alignment)
-- **Moderation queue** — approve, reject, or delete comments from the dashboard; bulk actions supported
-- **Multi-provider auth** — GitHub OAuth, Google OAuth, and email+password
-- **Analytics** — comment and user activity charts with 7-day, 30-day, and all-time views
-- **Moderation rules** — blocked terms list with optional URL import; matched comments are auto-rejected
-- **Notifications** — email (SMTP or API), Telegram, Slack, Discord, and generic webhook
-- **Import and export** — migrate from Disqus, WordPress, Remark42, or import native JSON/SQLite; export as JSON or CSV
-- **No external database required** — ships with SQLite; Turso/libSQL supported for cloud deployments
+Docker includes the app, dashboard, and migration tools. If you need to build from source, follow the [source-build guide](/docs/guides/self-hosting/).
 
-## Two paths
+## Add comments to your website
 
-### Use the managed cloud
+Create a site in the dashboard and copy its embed snippet into your page. The [embed guide](/docs/embed/reference/) explains the required attributes; [themes](/docs/embed/theming/) control its appearance.
 
-Sign up at [app.quipthread.com/signup](https://app.quipthread.com/signup) and get started in minutes. No server, no binary, no configuration required.
+## Manage your comments
 
-[Get started with Quipthread Cloud](/docs/cloud/getting-started/)
+- [Moderation](/docs/dashboard/moderation/): approve, reject, edit, and reply.
+- [Import and export](/docs/dashboard/import-export/): move comments between platforms.
+- [Security and spam](/docs/dashboard/security/): manage abuse and bot protection.
+- [Notifications](/docs/guides/notifications/): receive moderation alerts.
 
-### Self-host
-
-Run the backend on any Linux server. One binary, one `.env` file, no external dependencies.
-
-[Self-Hosting Guide](/docs/guides/self-hosting/)
+If you self-host, set up [backups and restore](/docs/guides/backups/) before relying on the instance.

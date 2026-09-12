@@ -1,11 +1,11 @@
 ---
-title: Self-Hosting Guide
+title: Build from source
 description: Deploy Quipthread on your own server.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-This guide walks you through deploying Quipthread on your own server and embedding the comment widget on your site. For containerized deployments, see the [Docker guide](/docs/guides/docker/).
+Use this guide when you need to build Quipthread from source. For most self-hosted installations, [run the published Docker image](/docs/guides/docker/) instead. It includes the migration CLI and does not require Go or Bun on the host.
 
 ## Prerequisites
 
@@ -131,6 +131,20 @@ Replace `YOUR_SITE_ID` with the ID from the dashboard, and set `data-page-id` to
 
 ## 6. Verify
 
-Open a page with the embed and you should see the comment widget. Post a test comment and check it under **Moderation** in the dashboard. Its status depends on your site’s moderation settings.
+Open a page with the embed and you should see the comment widget. Post a test comment and check it under **Moderation** in the dashboard. A new commenter’s first comment waits for moderator approval.
 
 You can also visit `https://comments.example.com/dev` to test the widget in isolation against the built-in dev test page.
+
+## Build a Docker image from source
+
+From the repository root, build the image:
+
+```bash
+docker build -t quipthread:local .
+```
+
+Use `quipthread:local` in place of the published image in the [Docker Compose or docker run example](/docs/guides/docker/). The Docker build installs its own build tools.
+
+## Protect your data
+
+Use the [backup and restore guide](/docs/guides/backups/) for the Docker image. A directly installed Go binary does not start Litestream for you; configure your own SQLite backup process before using it in production.

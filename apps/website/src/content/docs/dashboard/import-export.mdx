@@ -1,5 +1,5 @@
 ---
-title: Import & Export
+title: Import and export
 description: Import comments from other platforms and export your data.
 ---
 
@@ -16,23 +16,23 @@ The **Import** tab in the dashboard lets you migrate comment data from other sys
 | Disqus XML | Export file from Disqus (`disqus-export.xml`) |
 | WordPress WXR | WordPress export file containing comments |
 | Remark42 JSON | Remark42 backup JSON |
-| Native JSON | Quipthread's own export format (round-trips cleanly) |
+| Native JSON | Quipthread comment export format |
 | SQLite file | Attach a Quipthread SQLite database file directly |
 
 ### How to import
 
 1. Open the **Import** tab in the dashboard.
 2. Select the source format.
-3. Upload the export file.
-4. Comments are inserted into the selected site.
+3. Choose the destination site and upload the file.
+4. Run the import and review the result.
 
 <Aside>
-  Imported comments do not count toward monthly comment limits.
+  On Quipthread Cloud, imported comments count toward your monthly comment allowance. Check **Billing** before a large import.
 </Aside>
 
 ## Export
 
-Export your comment data from the **Sites** tab. Click the expand arrow on a site row to reveal the export controls.
+Export your comment data from the **Sites** tab. Select **Export** on a site row to reveal the export controls.
 
 ### Supported export formats
 
@@ -41,7 +41,7 @@ Export your comment data from the **Sites** tab. Click the expand arrow on a sit
 | Native JSON | All plans |
 | CSV | Starter plan and above (cloud only) |
 
-The native JSON format is the recommended format for backups — it round-trips cleanly through the importer.
+Use native JSON to move comments between Quipthread instances. An export is not a complete instance backup: it does not replace the database, account, and configuration backups described in [Backups and restore](/docs/guides/backups/).
 
 ### Filter options
 
@@ -55,8 +55,6 @@ Before exporting you can narrow the data:
 
 ### How to export
 
-1. Open the **Sites** tab and expand the export accordion for your site.
+1. Open the **Sites** tab and select **Export** for your site.
 2. Choose the format and set any filters.
 3. Click **Export** — the browser will download the file directly.
-
-Exports stream from the server, so large datasets do not require the entire result set to be held in memory.

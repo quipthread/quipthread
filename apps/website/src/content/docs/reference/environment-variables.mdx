@@ -1,11 +1,11 @@
 ---
-title: Environment Variables
+title: Environment variables
 description: Configure a self-hosted Quipthread backend and its Docker backups.
 ---
 
-The backend reads process environment variables, then loads `../.env` and `.env` without overwriting values already set. Docker Compose injects the `.env` file through `env_file`. Keep one configuration source per deployment to avoid conflicting values.
+This is the full reference for self-hosted instances. Start with the small `.env` example in the [Docker guide](/docs/guides/docker/); add other settings only when you need them.
 
-Production builds require `JWT_SECRET`, at least one exact `ALLOWED_ORIGINS` entry, a valid `BASE_URL`, and at least one complete authentication provider. Email authentication requires `SMTP_HOST` and `SMTP_FROM`. Invalid production configuration stops startup.
+Production startup requires a secret, the Quipthread URL, allowed publisher origins, and a sign-in provider. Email sign-in also requires an SMTP host and sender address.
 
 ## Required
 
@@ -103,8 +103,12 @@ These variables are read by the Docker entrypoint, not by the Go backend:
 | `LITESTREAM_ACCESS_KEY_ID` | — | Access key for the replica bucket. |
 | `LITESTREAM_SECRET_ACCESS_KEY` | — | Secret key for the replica bucket. |
 
-See [Docker backups](/docs/guides/docker/#back-up-sqlite-with-litestream) for setup and restore behavior.
+See [Backups and restore](/docs/guides/backups/) for setup and restore behavior.
 
 ## Managed cloud settings
 
 Self-hosted builds use local SQLite and do not include managed billing or tenant provisioning. Leave `CLOUD_MODE` unset or `false`; setting it to `true` does not convert a self-hosted image into the managed platform. Turso and Stripe credentials are not needed for self-hosting.
+
+## How configuration is loaded
+
+Process environment variables take priority. The backend then loads `../.env` and `.env` without overwriting values already set. Docker Compose passes `.env` through `env_file`. Keep one configuration source per deployment to avoid conflicting values.

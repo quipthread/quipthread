@@ -1,0 +1,40 @@
+---
+title: Backups and restore
+description: Protect your self-hosted SQLite database and recover it safely.
+---
+
+Your Docker data volume survives container replacement, but it does not protect against a lost server or damaged disk. Keep a backup outside the server and test that you can restore it.
+
+This guide uses the `app` service from the [Docker Compose example](/docs/guides/docker/#2-start-quipthread). If you use `docker run`, pass the same backup variables through its `.env` file and recreate the container after changing them.
+
+## Enable automatic backups
+
+The image packages Litestream v0.3.14. Set these variables in `.env` to enable replication:
+
+```dotenv
+LITESTREAM_REPLICA_URL=s3://your-bucket/quipthread/db.sqlite
+LITESTREAM_ACCESS_KEY_ID=replace-with-your-access-key
+LITESTREAM_SECRET_ACCESS_KEY=replace-with-your-secret-key
+```
+
+Recreate the app after changing its environment with `docker compose up -d`. If you use the HTTPS overlay, include both `-f` options from the Docker guide.
+
+On startup, the entrypoint restores from the replica only if the local database is absent. It checks the integrity of a restored database before starting Quipthread. Restore errors stop startup; a missing replica allows a fresh database to be created.
+
+Replication is asynchronous. Recent writes may be lost if they have not reached the replica, and a misconfigured backup may contain no usable data. Check replication logs and test a restore before relying on it. Keep an independent backup before upgrades.
+
+The bundled setup reads these environment variables, not a mounted Litestream configuration file. Custom S3 endpoints require a separate configuration and are not covered by this example.
+
+## Before an upgrade
+
+Confirm that replication is working and retain a separate pre-upgrade database backup. A comment export preserves comment data, but is not a complete backup of accounts, settings, and the database.
+
+Keep a copy of your `.env`, deployment files, and the image version with the backup. Store credentials securely.
+
+## Restore a database
+
+Follow the [step-by-step restore procedure](https://github.com/quipthread/quipthread/blob/main/docs/runbooks/self-hosted-restore.md). It stops the app, restores to a separate file, checks database integrity, and preserves the previous database before switching over.
+
+Do not delete the live database simply to trigger automatic restore. Validate a separate restored copy first. A rollback may require both the previous image and its matching database backup.
+
+**Do not run `docker compose down -v` during an upgrade or restore.** It deletes the named data volume, including your database.
