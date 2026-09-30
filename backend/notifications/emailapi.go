@@ -7,13 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/mailer"
 )
 
-// EmailAPINotifier sends HTML email digests via Resend, Postmark, or Sendgrid.
-// Selected by cfg.EmailProvider.
+// EmailAPINotifier sends HTML email digests through an HTTP email provider.
+// Selected by cfg.EmailProvider: cloudflare, postmark, sendgrid, or ses.
 type EmailAPINotifier struct {
 	cfg               *config.Config
 	ownerEmail        func(ownerID string) string
@@ -33,10 +34,7 @@ func NewContextEmailAPINotifier(cfg *config.Config, ownerEmailContext func(conte
 }
 
 func (e *EmailAPINotifier) NotifyBatch(ctx context.Context, b Batch) error {
-	if e == nil || e.cfg == nil || e.cfg.EmailProvider == "" || e.cfg.EmailAPIKey == "" || e.cfg.SMTPFrom == "" {
-		return channelError(ChannelEmail, ChannelErrorNotConfigured)
-	}
-	if e.cfg.EmailProvider == "ses" && (e.cfg.SMTPHost == "" || e.cfg.SMTPPort == "") {
+	if e == nil || e.cfg == nil || !emailAPIProviderReady(e.cfg) {
 		return channelError(ChannelEmail, ChannelErrorNotConfigured)
 	}
 	if ctx == nil {
@@ -75,21 +73,61 @@ func (e *EmailAPINotifier) NotifyBatch(ctx context.Context, b Batch) error {
 	subject := fmt.Sprintf("[Quipthread] %d comment(s) awaiting approval on %s",
 		len(b.Comments), b.Site.Domain)
 	body := buildEmailHTML(b)
-	if e.providerSend != nil {
-		return e.providerSend(ctx, e.cfg, to, subject, body)
-	}
-
-	switch e.cfg.EmailProvider {
-	case "resend":
-		return sendResend(ctx, e.cfg, to, subject, body)
-	case "postmark":
-		return sendPostmark(ctx, e.cfg, to, subject, body)
-	case "sendgrid":
-		return sendSendgrid(ctx, e.cfg, to, subject, body)
-	case "ses":
-		return channelErrorFromProvider(ChannelEmail, sendSES(e.cfg, to, subject, body))
-	default:
+	send, ok := emailProviderSender(e.cfg.EmailProvider)
+	if !ok {
 		return channelError(ChannelEmail, ChannelErrorNotConfigured)
+	}
+	if e.providerSend != nil {
+		send = e.providerSend
+	}
+	return channelErrorFromProvider(ChannelEmail, send(ctx, e.cfg, to, subject, body))
+}
+
+// emailProviderSender resolves EMAIL_PROVIDER to the shared delivery helper.
+// The bool is the routing decision that the digest notifier and cloud channel
+// eligibility both consume: false means the value selects no HTTP provider.
+func emailProviderSender(provider string) (func(context.Context, *config.Config, string, string, string) error, bool) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "cloudflare":
+		return mailer.SendCloudflare, true
+	case "postmark":
+		return sendPostmark, true
+	case "sendgrid":
+		return sendSendgrid, true
+	case "ses":
+		return sendSESContext, true
+	default:
+		return nil, false
+	}
+}
+
+// sendSESContext adapts the SMTP-backed SES sender to the HTTP provider shape
+// so a single dispatch path serves every provider.
+func sendSESContext(ctx context.Context, cfg *config.Config, to, subject, html string) error {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	return sendSES(cfg, to, subject, html)
+}
+
+// emailAPIProviderReady reports whether EMAIL_PROVIDER selects an HTTP mail
+// provider that has every credential it needs. An empty provider means SMTP,
+// and an unknown one is not an API provider at all.
+func emailAPIProviderReady(cfg *config.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.EmailProvider)) {
+	case "cloudflare":
+		return cfg.CloudflareAPIToken != "" && cfg.CloudflareAccountID != "" && cfg.SMTPFrom != ""
+	case "postmark", "sendgrid":
+		return cfg.EmailAPIKey != "" && cfg.SMTPFrom != ""
+	case "ses":
+		return cfg.SMTPHost != "" && cfg.SMTPPort != "" && cfg.SMTPFrom != ""
+	default:
+		return false
 	}
 }
 
@@ -98,18 +136,6 @@ func channelErrorFromProvider(channel string, err error) error {
 		return nil
 	}
 	return safeChannelError(channel, err)
-}
-
-func sendResend(ctx context.Context, cfg *config.Config, to, subject, html string) error {
-	payload := map[string]interface{}{
-		"from":    cfg.SMTPFrom,
-		"to":      []string{to},
-		"subject": subject,
-		"html":    html,
-	}
-	return postJSON(ctx, "https://api.resend.com/emails",
-		map[string]string{"Authorization": "Bearer " + cfg.EmailAPIKey},
-		payload)
 }
 
 func sendPostmark(ctx context.Context, cfg *config.Config, to, subject, html string) error {

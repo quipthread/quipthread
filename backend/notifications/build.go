@@ -3,6 +3,8 @@
 package notifications
 
 import (
+	"strings"
+
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
 )
@@ -21,12 +23,10 @@ func Build(cfg *config.Config, store db.Store) *MultiNotifier {
 
 	var notifiers []Notifier
 
-	if cfg.SMTPHost != "" {
-		notifiers = append(notifiers, NewSMTPNotifier(cfg, ownerEmail))
-	}
-
-	if cfg.EmailProvider != "" && cfg.EmailAPIKey != "" {
+	if emailAPIProviderReady(cfg) {
 		notifiers = append(notifiers, NewEmailAPINotifier(cfg, ownerEmail))
+	} else if cfg.SMTPHost != "" && strings.TrimSpace(cfg.EmailProvider) == "" {
+		notifiers = append(notifiers, NewSMTPNotifier(cfg, ownerEmail))
 	}
 
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
@@ -64,9 +64,9 @@ func BuildChannelSender(cfg *config.Config, store db.Store) *NamedChannelSender 
 	}
 
 	notifiers := make(map[string]Notifier)
-	if cfg.EmailProvider != "" {
+	if emailAPIProviderReady(cfg) {
 		notifiers[ChannelEmail] = NewEmailAPINotifier(cfg, ownerEmail)
-	} else if cfg.SMTPHost != "" {
+	} else if cfg.SMTPHost != "" && strings.TrimSpace(cfg.EmailProvider) == "" {
 		notifiers[ChannelEmail] = NewSMTPNotifier(cfg, ownerEmail)
 	}
 	if cfg.SlackWebhookURL != "" {

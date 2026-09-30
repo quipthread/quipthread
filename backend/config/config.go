@@ -57,8 +57,14 @@ type Config struct {
 	TelegramChatID    string // TELEGRAM_CHAT_ID
 	SlackWebhookURL   string // SLACK_WEBHOOK_URL
 	DiscordWebhookURL string // DISCORD_WEBHOOK_URL
-	EmailProvider     string // EMAIL_PROVIDER: resend | postmark | sendgrid | ses
-	EmailAPIKey       string // EMAIL_API_KEY
+	EmailProvider     string // EMAIL_PROVIDER: cloudflare | postmark | sendgrid | ses (empty = SMTP)
+	EmailAPIKey       string // EMAIL_API_KEY — postmark/sendgrid credentials
+	EmailReplyTo      string // EMAIL_REPLY_TO — optional Reply-To; omitted when empty
+
+	// Cloudflare Email Sending (REST). Used for authentication mail and
+	// notification digests when EMAIL_PROVIDER=cloudflare.
+	CloudflareAPIToken  string // CLOUDFLARE_API_TOKEN — Bearer token with email sending permission
+	CloudflareAccountID string // CLOUDFLARE_ACCOUNT_ID — account that owns the sending domain
 
 	// Cloudflare Turnstile (optional bot protection)
 	TurnstileSiteKey   string // TURNSTILE_SITE_KEY — served to the embed widget
@@ -82,7 +88,7 @@ type Config struct {
 	StripePrices        StripePrices
 
 	// Cloud multi-tenant
-	MasterDatabaseURL                string // MASTER_DATABASE_URL — Turso URL for cloud master DB; empty = local SQLite
+	MasterDatabaseURL                string // MASTER_DATABASE_URL — local cloud master DB path; remote libsql:// and https:// are rejected. Empty = data/cloud.db
 	TenantDataDir                    string // TENANT_DATA_DIR — directory for per-tenant SQLite files; default "data/tenants"
 	CloudNotificationDeliveryEnabled bool   // CLOUD_NOTIFICATION_DELIVERY_ENABLED — dedicated opt-in; disabled by default
 
@@ -163,6 +169,10 @@ func Load() *Config {
 		DiscordWebhookURL: os.Getenv("DISCORD_WEBHOOK_URL"),
 		EmailProvider:     os.Getenv("EMAIL_PROVIDER"),
 		EmailAPIKey:       os.Getenv("EMAIL_API_KEY"),
+		EmailReplyTo:      os.Getenv("EMAIL_REPLY_TO"),
+
+		CloudflareAPIToken:  os.Getenv("CLOUDFLARE_API_TOKEN"),
+		CloudflareAccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
 
 		TurnstileSiteKey:   os.Getenv("TURNSTILE_SITE_KEY"),
 		TurnstileSecretKey: os.Getenv("TURNSTILE_SECRET_KEY"),
@@ -241,8 +251,13 @@ func ValidateProductionConfig(cfg *Config) error {
 	if !cfg.EmailAuthEnabled && !githubConfigured && !googleConfigured {
 		return errors.New("at least one authentication provider must be configured")
 	}
-	if cfg.EmailAuthEnabled && (strings.TrimSpace(cfg.SMTPHost) == "" || strings.TrimSpace(cfg.SMTPFrom) == "") {
-		return errors.New("email authentication requires SMTP_HOST and SMTP_FROM")
+	if err := validateEmailProvider(cfg); err != nil {
+		return err
+	}
+	if cfg.EmailAuthEnabled {
+		if err := validateEmailAuthSender(cfg); err != nil {
+			return err
+		}
 	}
 
 	if err := validateRateLimit(cfg.RateLimitComments); err != nil {
@@ -275,6 +290,48 @@ func Validate(cfg *Config) error {
 	}
 	if productionBuild {
 		return ValidateProductionConfig(cfg)
+	}
+	return nil
+}
+
+// emailAPIProviders are the EMAIL_PROVIDER values with a concrete delivery
+// path in this build: Cloudflare Email Sending over REST, or the Postmark,
+// SendGrid, and SES senders. An empty value keeps the legacy SMTP path.
+var emailAPIProviders = map[string]struct{}{
+	"cloudflare": {},
+	"postmark":   {},
+	"sendgrid":   {},
+	"ses":        {},
+}
+
+// validateEmailProvider rejects unknown EMAIL_PROVIDER values so a removed or
+// misspelled provider fails at startup instead of silently falling back to
+// another sender at delivery time.
+func validateEmailProvider(cfg *Config) error {
+	provider := strings.ToLower(strings.TrimSpace(cfg.EmailProvider))
+	if provider == "" {
+		return nil
+	}
+	if _, ok := emailAPIProviders[provider]; ok {
+		return nil
+	}
+	return fmt.Errorf("EMAIL_PROVIDER %q is not supported", cfg.EmailProvider)
+}
+
+// validateEmailAuthSender requires a complete sender for the selected
+// provider. Cloudflare sends over HTTPS, so SMTP_HOST is not required there.
+func validateEmailAuthSender(cfg *Config) error {
+	if strings.TrimSpace(cfg.SMTPFrom) == "" {
+		return errors.New("email authentication requires SMTP_FROM")
+	}
+	if strings.EqualFold(strings.TrimSpace(cfg.EmailProvider), "cloudflare") {
+		if strings.TrimSpace(cfg.CloudflareAPIToken) == "" || strings.TrimSpace(cfg.CloudflareAccountID) == "" {
+			return errors.New("EMAIL_PROVIDER=cloudflare requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID")
+		}
+		return nil
+	}
+	if strings.TrimSpace(cfg.SMTPHost) == "" {
+		return errors.New("email authentication requires SMTP_HOST and SMTP_FROM")
 	}
 	return nil
 }

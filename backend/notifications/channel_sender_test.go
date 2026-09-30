@@ -181,7 +181,7 @@ func TestNamedChannelSenderRejectsMalformedBatchBeforeProvider(t *testing.T) {
 }
 
 func TestEmailNotifiersTreatMissingRecipientAsFailure(t *testing.T) {
-	cfg := &config.Config{EmailProvider: "resend", EmailAPIKey: "api-key", SMTPFrom: "from@example.test"}
+	cfg := &config.Config{EmailProvider: "cloudflare", CloudflareAPIToken: "api-token", CloudflareAccountID: "account-1", SMTPFrom: "from@example.test"}
 	email := NewEmailAPINotifier(cfg, func(string) string { return "" })
 	err := email.NotifyBatch(context.Background(), testBatch())
 	if !errors.Is(err, ErrRecipientUnavailable) {

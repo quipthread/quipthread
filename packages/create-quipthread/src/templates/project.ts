@@ -120,7 +120,6 @@ export function dotEnv(cfg: ProjectConfig): string {
 
   lines.push('# Notifications (optional — all channels are opt-in)')
   lines.push('# NOTIFY_BATCH_SIZE=5')
-  lines.push('# NOTIFY_COOLDOWN_HOURS=24')
   lines.push('# NOTIFY_EMAIL_TO=')
   lines.push('# TELEGRAM_BOT_TOKEN=')
   lines.push('# TELEGRAM_CHAT_ID=')

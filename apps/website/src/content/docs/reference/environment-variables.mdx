@@ -50,8 +50,18 @@ See [OAuth Setup](/docs/guides/oauth-setup/) for how to create these credentials
 | `SMTP_USER` | — | SMTP authentication username. |
 | `SMTP_PASS` | — | SMTP authentication password. |
 | `SMTP_FROM` | — | Sender address for all outgoing email. |
+| `EMAIL_PROVIDER` | SMTP | Delivery path. Empty uses SMTP; `cloudflare` sends authentication email and notification digests over the Cloudflare Email Sending REST API; `postmark` and `sendgrid` send notification digests over their HTTP APIs while authentication email falls back to SMTP; `ses` uses SMTP. An unknown value fails at startup. |
+| `EMAIL_REPLY_TO` | — | Optional Reply-To for Cloudflare authentication and notification email. Only `EMAIL_PROVIDER=cloudflare` sets it; SMTP, Postmark, SendGrid, and SES ignore it. When empty, replies go to `SMTP_FROM`; no address is hardcoded. |
+| `CLOUDFLARE_API_TOKEN` | — | Cloudflare API token with email sending permission. Required when `EMAIL_PROVIDER=cloudflare`; distinct from any Turso token. |
+| `CLOUDFLARE_ACCOUNT_ID` | — | Cloudflare account that owns the sending domain. Required when `EMAIL_PROVIDER=cloudflare`. |
 
 See [Email Authentication](/docs/guides/email-auth/) for details.
+
+The sender selection is compiled into every build, so it is available
+self-hosted, but the supported self-hosted configuration is SMTP. The Cloudflare
+Email Sending path is the managed-cloud default: when `EMAIL_PROVIDER=cloudflare`
+is set, `SMTP_FROM` is the sender and its domain must be onboarded to Email
+Sending, and `SMTP_HOST` is not required because delivery is over HTTPS.
 
 ## CORS
 
@@ -79,7 +89,7 @@ Self-hosted builds support SMTP email notifications. Configure the `SMTP_*` sett
 | Variable | Default | Description |
 |---|---|---|
 | `NOTIFY_BATCH_SIZE` | `5` | Number of pending comments to accumulate before sending a notification. |
-| `NOTIFY_COOLDOWN_HOURS` | `24` | Minimum hours between notification sends. |
+| `NOTIFY_COOLDOWN_HOURS` | `24` | **Legacy (inactive).** Parsed for compatibility but read nowhere at runtime. Self-hosted dispatch uses 5 minutes; cloud dispatch uses the site interval or a 5-minute default. Setting this variable has no effect. |
 | `NOTIFY_EMAIL_TO` | — | Fallback notification recipient email address, used when the site owner has no email address on their account. |
 
 See [Notifications](/docs/guides/notifications/) for delivery settings and channel availability.

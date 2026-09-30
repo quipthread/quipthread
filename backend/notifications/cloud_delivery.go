@@ -124,11 +124,11 @@ func CloudEligibleChannelNames(cfg *config.Config) []string {
 		return nil
 	}
 	channels := make([]string, 0, 5)
-	switch strings.ToLower(cfg.EmailProvider) {
-	case "resend", "postmark", "sendgrid":
-		if cfg.EmailAPIKey != "" && cfg.SMTPFrom != "" {
-			channels = append(channels, ChannelEmail)
-		}
+	// HTTP providers are eligible for cloud digests. SES stays excluded
+	// because it is delivered over SMTP, and plain SMTP is never a cloud
+	// digest channel.
+	if provider := strings.ToLower(strings.TrimSpace(cfg.EmailProvider)); provider != "ses" && emailAPIProviderReady(cfg) {
+		channels = append(channels, ChannelEmail)
 	}
 	if cfg.SlackWebhookURL != "" {
 		channels = append(channels, ChannelSlack)

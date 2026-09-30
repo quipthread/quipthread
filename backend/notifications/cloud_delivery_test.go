@@ -498,7 +498,7 @@ func TestRunCloudTenantDeliveryPassApprovalLocatorFailureSendsNothing(t *testing
 }
 
 func TestNewCloudTenantChannelSenderFactoryBindsEmailRecipientToLease(t *testing.T) {
-	cfg := &config.Config{EmailProvider: "resend", EmailAPIKey: "api-key", SMTPFrom: "from@example.test"}
+	cfg := &config.Config{EmailProvider: "cloudflare", CloudflareAPIToken: "api-token", CloudflareAccountID: "account-1", SMTPFrom: "from@example.test"}
 	factory := NewCloudTenantChannelSenderFactory(cfg)
 	a := factory(newDeliveryLease("tenant-a", true)).(*NamedChannelSender)
 	b := factory(newDeliveryLease("tenant-b", true)).(*NamedChannelSender)
@@ -526,7 +526,7 @@ func TestRunCloudTenantDeliveryPassCancelledRecipientLookupSkipsProviderAndRelea
 	}
 	var providerCalls int
 	baseFactory := NewCloudTenantChannelSenderFactory(&config.Config{
-		EmailProvider: "resend", EmailAPIKey: "api-key", SMTPFrom: "from@example.test",
+		EmailProvider: "cloudflare", CloudflareAPIToken: "api-token", CloudflareAccountID: "account-1", SMTPFrom: "from@example.test",
 	})
 	options := deliveryOptions(&now, &deliverySender{}, ChannelEmail)
 	options.TenantTimeout = 25 * time.Millisecond

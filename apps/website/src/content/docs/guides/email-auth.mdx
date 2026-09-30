@@ -21,9 +21,9 @@ SMTP_PASS=your-password
 SMTP_FROM=noreply@example.com
 ```
 
-Production startup requires `SMTP_HOST` and `SMTP_FROM` when email authentication is enabled. Supply credentials if your SMTP server requires authentication. Use a provider's STARTTLS endpoint, typically port 587; the current sender does not establish implicit TLS connections on port 465.
+Production startup requires `SMTP_FROM` when email authentication is enabled, and `SMTP_HOST` unless `EMAIL_PROVIDER=cloudflare` is set. Supply credentials if your SMTP server requires authentication. Use a provider's STARTTLS endpoint, typically port 587; the current SMTP sender does not establish implicit TLS connections on port 465.
 
-Self-hosted builds use SMTP for both authentication emails and comment notifications. `EMAIL_PROVIDER` and `EMAIL_API_KEY` are not supported in these builds.
+The managed cloud build delivers authentication email through the Cloudflare Email Sending REST API. Set `EMAIL_PROVIDER=cloudflare` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, plus `SMTP_FROM` as the sender; that path sends over HTTPS, so `SMTP_HOST` is not required. The sender source is not build-tagged, so a self-hosted build that sets these variables also uses the Cloudflare path, but the supported self-hosted configuration is SMTP.
 
 ## What email auth enables
 

@@ -1,6 +1,7 @@
 package mailer
 
 import (
+	"context"
 	"fmt"
 	"net/smtp"
 	"strings"
@@ -8,9 +9,32 @@ import (
 	"github.com/quipthread/quipthread/config"
 )
 
-// SendTransactional sends a single HTML email via SMTP.
-// Returns nil immediately if SMTP is not configured.
+// SendTransactional sends a single HTML email through the configured provider.
+// An empty EMAIL_PROVIDER keeps the SMTP sender, EMAIL_PROVIDER=cloudflare
+// uses the Cloudflare Email Sending REST API, and postmark/sendgrid/ses keep
+// the existing SMTP path. Unknown provider values fail instead of silently
+// degrading to SMTP.
 func SendTransactional(cfg *config.Config, to, subject, body string) error {
+	if cfg == nil {
+		return fmt.Errorf("%w: nil configuration", ErrNotConfigured)
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.EmailProvider)) {
+	case "":
+		return sendSMTP(cfg, to, subject, body)
+	case "cloudflare":
+		ctx, cancel := context.WithTimeout(context.Background(), cloudflareSendTimeout)
+		defer cancel()
+		return SendCloudflare(ctx, cfg, to, subject, body)
+	case "postmark", "sendgrid", "ses":
+		return sendSMTP(cfg, to, subject, body)
+	default:
+		return fmt.Errorf("%w: %q", ErrUnknownProvider, cfg.EmailProvider)
+	}
+}
+
+// sendSMTP sends via SMTP. It returns nil when SMTP is not configured so
+// self-hosted installs can run without mail credentials.
+func sendSMTP(cfg *config.Config, to, subject, body string) error {
 	if cfg.SMTPHost == "" || cfg.SMTPFrom == "" {
 		return nil
 	}

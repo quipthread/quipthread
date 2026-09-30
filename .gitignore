@@ -23,6 +23,7 @@ embed/dist/
 apps/*/dist/
 apps/*/.astro/
 backend/static/
+output/
 
 # macOS
 .DS_Store
