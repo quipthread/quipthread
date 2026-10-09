@@ -1,13 +1,14 @@
 # ── Stage 1: Install workspace dependencies ───────────────────────────────────
-FROM oven/bun:1-alpine AS deps
+FROM oven/bun:1.4.2-alpine AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/dashboard/package.json apps/dashboard/
 COPY apps/website/package.json apps/website/
 COPY embed/package.json embed/
+COPY packages/create-quipthread/package.json packages/create-quipthread/
 # Shared plan catalog: a source-only workspace package the dashboard imports.
 COPY packages/plans packages/plans/
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # ── Stage 2: Build dashboard ──────────────────────────────────────────────────
 FROM deps AS dashboard-build
