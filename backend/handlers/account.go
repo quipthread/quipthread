@@ -155,7 +155,7 @@ func (h *AccountHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusInternalServerError, "failed to revoke sessions")
 		return
 	}
-	session.ClearCookieForAudience(w, session.DashboardAudience, session.IsHTTPS(r, h.cfg.BaseURL))
+	session.ClearDashboardCookie(w, session.IsHTTPS(r, h.cfg.BaseURL))
 	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.cfg.BaseURL))
 	session.ClearIndicatorCookie(w, h.cfg.CookieDomain, session.IsHTTPS(r, h.cfg.BaseURL))
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

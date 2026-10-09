@@ -5,17 +5,18 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
+	"github.com/quipthread/quipthread/middleware"
 	"github.com/quipthread/quipthread/models"
 	"github.com/quipthread/quipthread/session"
 )
@@ -29,12 +30,15 @@ type Provider interface {
 
 // UserInfo is the normalised identity returned by every provider.
 type UserInfo struct {
-	ProviderID  string
-	Provider    string
-	Email       string
-	DisplayName string
-	AvatarURL   string
-	Username    string // human-readable handle; populated by providers that expose one (e.g. GitHub login)
+	ProviderID string
+	Provider   string
+	Email      string
+	// EmailVerified reports that the provider vouches the user owns Email.
+	// Only verified emails may match or create cloud accounts.
+	EmailVerified bool
+	DisplayName   string
+	AvatarURL     string
+	Username      string // human-readable handle; populated by providers that expose one (e.g. GitHub login)
 }
 
 // Handler holds shared dependencies for all auth sub-handlers.
@@ -42,9 +46,16 @@ type Handler struct {
 	store       db.Store
 	config      *config.Config
 	cloudExtras //nolint:unused // populated by provider_cloud.go in cloud builds
+	embedSites  *middleware.EmbedSites
 	github      *GithubProvider
 	google      *GoogleProvider
 	email       *EmailProvider
+}
+
+// SetEmbedSites wires the resolver used by embed sign-in flows (OAuth and
+// SSO) to find a site's owning store.
+func (h *Handler) SetEmbedSites(sites *middleware.EmbedSites) {
+	h.embedSites = sites
 }
 
 // newHandler constructs the base Handler without any cloud extras set.
@@ -67,11 +78,6 @@ func newHandler(store db.Store, cfg *config.Config) *Handler {
 	return h
 }
 
-// Me is the dashboard compatibility alias.
-func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
-	h.MeForAudience(w, r, session.DashboardAudience)
-}
-
 func (h *Handler) DashboardMe(w http.ResponseWriter, r *http.Request) {
 	h.MeForAudience(w, r, session.DashboardAudience)
 }
@@ -84,7 +90,13 @@ func (h *Handler) MeForAudience(w http.ResponseWriter, r *http.Request, audience
 	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	claims, _ := r.Context().Value(session.UserKey).(*session.Claims)
 	if claims == nil {
-		cookie, err := r.Cookie(session.CookieNameForAudience(audience))
+		// Embed tokens are only accepted through the site-binding auth
+		// middleware, which places verified claims in the context.
+		if audience == session.EmbedAudience {
+			writeError(w, r, http.StatusUnauthorized, "not authenticated")
+			return
+		}
+		cookie, err := r.Cookie(session.DashboardCookieName)
 		if err != nil {
 			writeError(w, r, http.StatusUnauthorized, "not authenticated")
 			return
@@ -107,10 +119,11 @@ func (h *Handler) MeForAudience(w http.ResponseWriter, r *http.Request, audience
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"id":           claims.Sub,
-		"display_name": claims.DisplayName,
-		"provider":     claims.Provider,
-		"role":         claims.Role,
+		"id":             claims.Sub,
+		"display_name":   claims.DisplayName,
+		"provider":       claims.Provider,
+		"role":           claims.Role,
+		"is_team_member": claims.IsTeamMember,
 	})
 }
 
@@ -137,21 +150,8 @@ func (h *Handler) validateDashboardUser(r *http.Request, expectedUserID string) 
 	return err == nil && user != nil && !user.Banned && audienceGeneration(user, session.DashboardAudience) == claims.SessionGeneration
 }
 
-// Logout is the dashboard compatibility alias.
-func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	h.DashboardLogout(w, r)
-}
-
 func (h *Handler) DashboardLogout(w http.ResponseWriter, r *http.Request) {
-	session.ClearCookieForAudience(w, session.DashboardAudience, session.IsHTTPS(r, h.config.BaseURL))
-	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
-	session.ClearIndicatorCookie(w, h.config.CookieDomain, session.IsHTTPS(r, h.config.BaseURL))
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "logged out"}) //nolint:errcheck,gosec // error response; connection may already be broken
-}
-
-func (h *Handler) EmbedLogout(w http.ResponseWriter, r *http.Request) {
-	session.ClearCookieForAudience(w, session.EmbedAudience, session.IsHTTPS(r, h.config.BaseURL))
+	session.ClearDashboardCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	session.ClearLegacyCookie(w, session.IsHTTPS(r, h.config.BaseURL))
 	session.ClearIndicatorCookie(w, h.config.CookieDomain, session.IsHTTPS(r, h.config.BaseURL))
 	w.Header().Set("Content-Type", "application/json")
@@ -175,6 +175,7 @@ type oauthStateBinding struct {
 	State    string `json:"state"`
 	Audience string `json:"audience"`
 	Redirect string `json:"redirect"`
+	SiteID   string `json:"site_id,omitempty"`
 }
 
 func setOAuthCookie(w http.ResponseWriter, name, value string, secure bool, maxAge int) {
@@ -222,92 +223,160 @@ func consumeStateBinding(w http.ResponseWriter, r *http.Request, state string, s
 
 const returnToCookieName = "quipthread_return_to"
 
-// validateReturnTo returns true if returnTo is a safe http/https URL whose
-// origin matches either the configured BASE_URL or one of AllowedOrigins.
-// When AllowedOrigins is empty, any http/https URL is accepted.
-func (h *Handler) validateReturnTo(returnTo string) bool {
-	u, err := url.Parse(returnTo)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return false
-	}
-	origin := u.Scheme + "://" + u.Host
-
-	// Always allow returnTo on the same origin as BASE_URL (covers /admin/*).
-	if base, err := url.Parse(h.config.BaseURL); err == nil {
-		baseOrigin := base.Scheme + "://" + base.Host
-		if origin == baseOrigin {
-			return true
-		}
-	}
-
-	if len(h.config.AllowedOrigins) == 0 {
-		return true
-	}
-	for _, allowed := range h.config.AllowedOrigins {
-		if strings.TrimRight(allowed, "/") == origin {
-			return true
-		}
-	}
-	return false
-}
-
-func requestedOAuthAudience(r *http.Request) string {
-	audience := r.URL.Query().Get("audience")
-	if audience == "" {
-		return ""
-	}
-	if audience == session.DashboardAudience || audience == session.EmbedAudience {
-		return audience
-	}
-	return session.DashboardAudience
-}
-
 func (h *Handler) resolveOAuthFlow(r *http.Request) (oauthStateBinding, error) {
-	requested := r.URL.Query().Get("audience")
-	audience := requestedOAuthAudience(r)
-	explicit := requested != ""
-	if explicit && audience != session.DashboardAudience && audience != session.EmbedAudience {
+	q := r.URL.Query()
+	switch q.Get("audience") {
+	case "", session.DashboardAudience:
+		// Dashboard redirects are always constrained to the configured base URL.
+		return oauthStateBinding{Audience: session.DashboardAudience, Redirect: h.config.BaseURL}, nil
+	case session.EmbedAudience:
+		site, returnTo, err := h.resolveEmbedReturn(q.Get("siteId"), q.Get("returnTo"))
+		if err != nil {
+			return oauthStateBinding{}, err
+		}
+		site.Release()
+		return oauthStateBinding{Audience: session.EmbedAudience, Redirect: returnTo, SiteID: site.Site.ID}, nil
+	default:
 		return oauthStateBinding{}, fmt.Errorf("invalid OAuth audience")
 	}
-
-	returnTo := r.URL.Query().Get("returnTo")
-	validReturnTo := returnTo != "" && h.validateReturnTo(returnTo)
-	external := validReturnTo && !h.isBaseOrigin(returnTo)
-	if !explicit {
-		if external {
-			audience = session.EmbedAudience
-		} else {
-			audience = session.DashboardAudience
-		}
-	}
-
-	redirect := h.config.BaseURL
-	if audience == session.EmbedAudience {
-		if !external {
-			return oauthStateBinding{}, fmt.Errorf("embed OAuth requires an allowed publisher returnTo")
-		}
-		redirect = returnTo
-	}
-	// Dashboard redirects are always constrained to the configured base URL,
-	// even when a caller supplied an allowed external returnTo.
-	return oauthStateBinding{Audience: audience, Redirect: redirect}, nil
 }
 
-func (h *Handler) isBaseOrigin(raw string) bool {
-	requested, err := url.Parse(raw)
-	base, baseErr := url.Parse(h.config.BaseURL)
-	return err == nil && baseErr == nil && requested.Scheme == base.Scheme && requested.Host == base.Host
+// resolveEmbedReturn resolves the embed site and validates that returnTo is
+// a page on that site's own origin. It returns returnTo without any fragment,
+// since the fragment carries the OAuth result back to the embed. The caller
+// must Release the returned site.
+func (h *Handler) resolveEmbedReturn(siteID, returnTo string) (*middleware.EmbedSite, string, error) {
+	if h.embedSites == nil {
+		return nil, "", fmt.Errorf("embed sign-in is not available")
+	}
+	if siteID == "" || returnTo == "" {
+		return nil, "", fmt.Errorf("embed sign-in requires siteId and returnTo")
+	}
+	u, err := url.Parse(returnTo)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return nil, "", fmt.Errorf("invalid returnTo")
+	}
+	u.Fragment = ""
+	u.RawFragment = ""
+	site, err := h.embedSites.Resolve(siteID)
+	if err != nil {
+		return nil, "", fmt.Errorf("unknown site")
+	}
+	if !h.embedSites.OriginAllowed(site.Site, u.Scheme+"://"+u.Host) {
+		site.Release()
+		return nil, "", fmt.Errorf("returnTo is not on this site's domain")
+	}
+	return site, u.String(), nil
 }
 
 func clearReturnToCookie(w http.ResponseWriter, secure bool) {
 	setOAuthCookie(w, returnToCookieName, "", secure, -1)
 }
 
-func (h *Handler) validRedirectForAudience(redirect, audience string) bool {
-	if audience == session.DashboardAudience {
-		return h.isBaseOrigin(redirect)
+// --- OAuth callback -----------------------------------------------------------
+
+// oauthCallback completes a GitHub or Google login. Embed logins return a
+// site-bound token to the publisher page; dashboard logins set the session
+// cookie (or link an identity) and redirect into the dashboard.
+func (h *Handler) oauthCallback(w http.ResponseWriter, r *http.Request, exchange func(context.Context, *http.Request) (*UserInfo, error)) {
+	secure := session.IsHTTPS(r, h.config.BaseURL)
+	state := r.URL.Query().Get("state")
+	if !validateStateCookie(r, state) {
+		clearStateCookie(w, secure)
+		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
+		return
 	}
-	return audience == session.EmbedAudience && h.validateReturnTo(redirect) && !h.isBaseOrigin(redirect)
+	binding, bound := consumeStateBinding(w, r, state, secure)
+	clearStateCookie(w, secure)
+	if !bound {
+		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
+		return
+	}
+
+	if binding.Audience == session.EmbedAudience {
+		h.embedOAuthCallback(w, r, binding, exchange)
+		return
+	}
+
+	if errParam := r.URL.Query().Get("error"); errParam != "" {
+		http.Redirect(w, r, h.config.BaseURL+"/login?error=oauth_denied", http.StatusSeeOther)
+		return
+	}
+
+	info, err := exchange(r.Context(), r)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if accountID := consumeLinkIntentCookie(w, r, secure); accountID != "" {
+		if !h.validateDashboardUser(r, accountID) {
+			http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
+			return
+		}
+		h.handleLinkCallback(w, r, info, accountID)
+		return
+	}
+
+	if h.config.CloudMode && h.cloudUpsertAndIssueToken(w, r, info) {
+		return
+	}
+
+	tokenStr, err := h.upsertAndIssueToken(info)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	session.SetCookie(w, tokenStr, secure)
+	http.Redirect(w, r, h.config.BaseURL, http.StatusFound)
+}
+
+// embedOAuthCallback signs a reader in to one publisher site. The reader is
+// stored in the site's own tenant store (never as a Quipthread account), and
+// the site-bound token is returned in the URL fragment of the validated
+// publisher page, where the embed stores it and removes it from the URL.
+// Fragments are never sent to servers.
+func (h *Handler) embedOAuthCallback(w http.ResponseWriter, r *http.Request, binding oauthStateBinding, exchange func(context.Context, *http.Request) (*UserInfo, error)) {
+	site, redirect, err := h.resolveEmbedReturn(binding.SiteID, binding.Redirect)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid OAuth redirect")
+		return
+	}
+	defer site.Release()
+
+	w.Header().Set("Cache-Control", "no-store")
+	fail := func(code string) {
+		http.Redirect(w, r, redirect+"#qt_auth_error="+code, http.StatusFound)
+	}
+
+	if r.URL.Query().Get("error") != "" {
+		fail("denied")
+		return
+	}
+	info, err := exchange(r.Context(), r)
+	if err != nil {
+		log.Printf("auth: embed oauth exchange for site %s: %v", binding.SiteID, err) //nolint:gosec // G706: site ID is validated against the registry
+		fail("provider_error")
+		return
+	}
+	// Readers never become admins through the embed; existing users keep
+	// their role, so site owners can still moderate from their own pages.
+	user, err := upsertIdentityUser(site.Store, info, "commenter")
+	if err != nil {
+		if errors.Is(err, errAccountBanned) {
+			fail("banned")
+			return
+		}
+		log.Printf("auth: embed oauth upsert for site %s: %v", binding.SiteID, err) //nolint:gosec // G706: site ID is validated against the registry
+		fail("server_error")
+		return
+	}
+	tok, err := session.IssueEmbed(h.config.JWTSecret, user.ID, user.DisplayName, info.Provider, user.Role, site.AccountID, binding.SiteID, user.EmbedSessionGeneration)
+	if err != nil {
+		fail("server_error")
+		return
+	}
+	http.Redirect(w, r, redirect+"#qt_auth="+url.QueryEscape(tok), http.StatusFound)
 }
 
 // --- link intent cookie helpers ---------------------------------------------
@@ -363,52 +432,58 @@ func (h *Handler) handleLinkCallback(w http.ResponseWriter, r *http.Request, inf
 
 // --- shared upsert + JWT issue ----------------------------------------------
 
-// upsertAndIssueToken finds or creates the user for the given provider identity,
-// then issues a session JWT. Returns the signed token string.
-func (h *Handler) upsertAndIssueToken(info *UserInfo, audiences ...string) (string, error) {
-	audience := session.DashboardAudience
-	if len(audiences) > 0 && audiences[0] != "" {
-		audience = audiences[0]
+// upsertAndIssueToken finds or creates the user for the given provider identity
+// in the deployment store, then issues a dashboard session JWT.
+func (h *Handler) upsertAndIssueToken(info *UserInfo) (string, error) {
+	// First user to register becomes admin automatically.
+	role := "commenter"
+	if _, total, err := h.store.ListUsers(1, 1); err == nil && total == 0 {
+		role = "admin"
 	}
-	identity, err := h.store.GetIdentity(info.Provider, info.ProviderID)
+	user, err := upsertIdentityUser(h.store, info, role)
 	if err != nil {
-		return "", fmt.Errorf("get identity: %w", err)
+		return "", err
+	}
+	return session.IssueWithAudience(h.config.JWTSecret, session.DashboardAudience, user.ID, user.DisplayName, info.Provider, user.Role, "", user.DashboardSessionGeneration)
+}
+
+var errAccountBanned = errors.New("account is banned")
+
+// upsertIdentityUser finds the user linked to the provider identity in store,
+// refreshing their profile, or creates one with newUserRole. Banned users are
+// rejected.
+func upsertIdentityUser(store db.Store, info *UserInfo, newUserRole string) (*models.User, error) {
+	identity, err := store.GetIdentity(info.Provider, info.ProviderID)
+	if err != nil {
+		return nil, fmt.Errorf("get identity: %w", err)
 	}
 
 	var userID string
-
 	if identity == nil {
-		// First user to register becomes admin automatically.
-		role := "commenter"
-		if _, total, err := h.store.ListUsers(1, 1); err == nil && total == 0 {
-			role = "admin"
-		}
-
 		u := &models.User{
 			DisplayName: info.DisplayName,
 			Email:       info.Email,
 			AvatarURL:   info.AvatarURL,
-			Role:        role,
+			Role:        newUserRole,
 		}
-		if err := h.store.UpsertUser(u); err != nil {
-			return "", fmt.Errorf("upsert user: %w", err)
+		if err := store.UpsertUser(u); err != nil {
+			return nil, fmt.Errorf("upsert user: %w", err)
 		}
-
 		ident := &models.UserIdentity{
 			UserID:     u.ID,
 			Provider:   info.Provider,
 			ProviderID: info.ProviderID,
 			Username:   info.Username,
 		}
-		if err := h.store.CreateIdentity(ident); err != nil {
-			return "", fmt.Errorf("create identity: %w", err)
+		if err := store.CreateIdentity(ident); err != nil {
+			return nil, fmt.Errorf("create identity: %w", err)
 		}
 		userID = u.ID
 	} else {
 		userID = identity.UserID
-		u, err := h.store.GetUser(userID)
+		u, err := store.GetUser(userID)
 		if err != nil {
-			return "", fmt.Errorf("get user: %w", err)
+			return nil, fmt.Errorf("get user: %w", err)
 		}
 		if u != nil {
 			u.DisplayName = info.DisplayName
@@ -416,26 +491,25 @@ func (h *Handler) upsertAndIssueToken(info *UserInfo, audiences ...string) (stri
 			if info.Email != "" {
 				u.Email = info.Email
 			}
-			if err := h.store.UpsertUser(u); err != nil {
+			if err := store.UpsertUser(u); err != nil {
 				log.Printf("auth: upsert user profile on login %s: %v", userID, err) //nolint:gosec // G706: userID is an internal UUID, not user-controlled format string
 			}
 		}
 		if info.Username != "" {
-			if err := h.store.UpdateIdentityUsername(userID, info.Provider, info.Username); err != nil {
+			if err := store.UpdateIdentityUsername(userID, info.Provider, info.Username); err != nil {
 				log.Printf("auth: update identity username %s: %v", userID, err) //nolint:gosec // G706: userID is an internal UUID, not user-controlled format string
 			}
 		}
 	}
 
-	user, err := h.store.GetUser(userID)
+	user, err := store.GetUser(userID)
 	if err != nil || user == nil {
-		return "", fmt.Errorf("could not load user after upsert")
+		return nil, fmt.Errorf("could not load user after upsert")
 	}
 	if user.Banned {
-		return "", fmt.Errorf("account is banned")
+		return nil, errAccountBanned
 	}
-
-	return session.IssueWithAudience(h.config.JWTSecret, audience, user.ID, user.DisplayName, info.Provider, user.Role, "", audienceGeneration(user, audience))
+	return user, nil
 }
 
 func audienceGeneration(user *models.User, audience string) int64 {

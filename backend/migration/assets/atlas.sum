@@ -1,4 +1,4 @@
-h1:WoeftFJ/QtVwm/7uV8i11J6g9uN/iA7FaoYOzN0H9ps=
+h1:g/lf4M0hV/JSNUT6r83+ZTwQ09de5eP3lgxjkvFRtEs=
 00001_baseline.sql h1:AlGOhbDEEn1LEFluKUR3VvdFzoS1D0K1+C+dpmTJQU8=
 00002_sso.sql h1:GDug0ccfDRt835AvUFNAiqs6AE/lKZg54Wgk2fg+5XY=
 00003_notification_outbox.sql h1:EgSIJYmoMaTOS0llj4oufkCWHjRju6UDtJwD5uJa/1Q=
@@ -10,3 +10,4 @@ h1:WoeftFJ/QtVwm/7uV8i11J6g9uN/iA7FaoYOzN0H9ps=
 00009_notification_outbox_channel_skipped.sql h1:dbwOVNBe/7fOP5DOq5JNFUatez7VMbv8NCp3boixUnA=
 00010_session_generation.sql h1:ABrv/nVK+YD6/HwT9mrWB6Uvqt5NEZ0x5nw6MSvfOdw=
 00011_cloud_quotas.sql h1:9+OG633exRpEvjC1oSsNUIpcHx6GtqW/1uaEe0jhpko=
+00012_subscription_cancel_at.sql h1:YrtoHnRNmmF6D5FzTWCWWtcu9wH8OsDHYJ5oFTlxZd4=

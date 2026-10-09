@@ -1,93 +1,40 @@
 ---
 title: Notifications
-description: Configure new-comment notifications via email, Telegram, Slack, Discord, or webhook.
+description: Receive email digests of comments waiting for moderation.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Quipthread can notify you when new comments are submitted. Notifications are sent in batches to avoid alert fatigue.
+Quipthread emails you when new comments need moderation. Comments are grouped into digests to avoid a message for every comment, and each comment in a digest has links to approve or reject it straight from the email.
 
-## Choose the right setup
+Comments that are approved automatically, from commenters you have approved before, do not trigger a notification.
 
-Self-hosted Docker and source builds support SMTP email only. The email API, Telegram, Slack, Discord, and webhook channels below apply to managed cloud builds. Multiple channels can be active in a cloud deployment.
+## Quipthread Cloud
 
-## Self-hosted email
+Digests go to the email address on the account that owns the site. There is nothing to configure.
 
-Self-hosted builds deliver notifications through SMTP. Cloud builds can send both authentication email and digest notifications through the Cloudflare Email Sending API. Self-hosted authentication email still requires [SMTP](/docs/guides/email-auth/). Set `NOTIFY_EMAIL_TO` to specify a fallback recipient when the site owner has no email address on their account.
+Comments are collected in 5-minute windows, and each window's digest goes out when the window closes, so you hear about a new comment within about 5 minutes. On the Pro plan and above, you can change the window per site on the **Sites** page under **Notifications**: 1, 5, 15, or 30 minutes, or 1 hour.
 
-```bash
-# SMTP (reuses the SMTP_* vars)
+## Self-hosted
+
+Self-hosted instances send digests over SMTP, using the same settings as [email sign-in](/docs/guides/email-auth/):
+
+```dotenv
 SMTP_HOST=smtp.example.com
 SMTP_USER=user@example.com
 SMTP_PASS=your-password
 SMTP_FROM=noreply@example.com
 
-# Fallback recipient
+# Optional: recipient when the site owner's account has no email address
 NOTIFY_EMAIL_TO=you@example.com
 ```
 
-<details>
-<summary>Additional channels for cloud deployment operators</summary>
-
-These environment variables configure the managed backend. They are not settings that cloud customers need to add to their websites.
-
-### Email API (Cloudflare Email Sending)
-
-Notification digests are sent through the Cloudflare Email Sending REST API. `SMTP_FROM` is the sender and its domain must be onboarded to Email Sending before the first send. `EMAIL_REPLY_TO` is optional; when it is omitted, replies go to the sender address.
+A digest goes out as soon as comments are waiting if no digest was sent in the last 5 minutes. Otherwise it waits until 5 minutes have passed, or until `NOTIFY_BATCH_SIZE` comments are waiting, whichever comes first.
 
 ```dotenv
-EMAIL_PROVIDER=cloudflare
-CLOUDFLARE_API_TOKEN=your-api-token-with-email-sending-permission
-CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
-SMTP_FROM=hello@quipthread.com
-EMAIL_REPLY_TO=support@quipthread.com
+NOTIFY_BATCH_SIZE=5      # default: 5
 ```
-
-### Telegram
-
-```bash
-TELEGRAM_BOT_TOKEN=your-bot-token
-TELEGRAM_CHAT_ID=your-chat-id
-```
-
-Create a bot via [@BotFather](https://t.me/botfather) to get the token. The chat ID can be a personal chat, group, or channel.
-
-### Slack
-
-```bash
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-```
-
-Create an incoming webhook in your Slack workspace's app settings.
-
-### Discord
-
-```bash
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-```
-
-Create a webhook in your Discord server's channel settings.
-
-### Generic webhook
-
-```bash
-WEBHOOK_URL=https://your-endpoint.example.com/hook
-```
-
-Quipthread posts a JSON payload to this URL for each notification batch.
-
-</details>
-
-## Batching and cooldown
-
-To prevent notification floods, Quipthread groups pending comments before sending. A batch goes out once `NOTIFY_BATCH_SIZE` comments are queued, or after the notification interval elapses, whichever comes first. Self-hosted deployments use a 5-minute interval. Cloud deployments use the site's notification interval, with a 5-minute default. `NOTIFY_COOLDOWN_HOURS` does not change either interval.
-
-```bash
-NOTIFY_BATCH_SIZE=5      # default: 5 — send when this many comments are queued
-```
-
-A notification is triggered when new comments are submitted that require moderation. Comments that auto-approve (from users with previously approved comments) do not trigger notifications.
 
 <Aside>
-  At least one email delivery method or external channel must be configured for notifications to be sent. Setting `NOTIFY_EMAIL_TO` alone is not sufficient without SMTP or email API credentials.
+  Notifications need working SMTP settings. Setting `NOTIFY_EMAIL_TO` alone does not send anything.
 </Aside>

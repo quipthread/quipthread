@@ -26,12 +26,9 @@ type AdminHandler struct {
 	cloud  cloudpkg.Store // cloud control-plane store; nil in self-hosted mode
 }
 
-func NewAdminHandler(store db.Store, cfg *config.Config) *AdminHandler {
-	return NewAdminHandlerWithCloud(store, cfg, nil)
-}
-
-// NewAdminHandlerWithCloud constructs an AdminHandler with an optional cloud
-// control-plane store used for dark-deployment site registry dual writes.
+// NewAdminHandlerWithCloud constructs an AdminHandler. cs is the cloud
+// control-plane store, which keeps the site registry in step with site
+// changes; it is nil in self-hosted mode.
 func NewAdminHandlerWithCloud(store db.Store, cfg *config.Config, cs cloudpkg.Store) *AdminHandler {
 	return &AdminHandler{store: store, config: cfg, cloud: cs}
 }

@@ -45,6 +45,8 @@ func EnforceExactOrigin(baseURL string) func(http.Handler) http.Handler {
 
 // EnforceEmbedOrigin protects self-hosted embed mutations using the explicit
 // publisher allowlist. Cloud routes use site-bound origin enforcement instead.
+// Bearer tokens are not ambient credentials, so this is defense in depth: it
+// applies to unsafe requests that carry an embed bearer token.
 func EnforceEmbedOrigin(allowedOrigins []string) func(http.Handler) http.Handler {
 	allowed := make(map[string]struct{}, len(allowedOrigins))
 	valid := len(allowedOrigins) > 0
@@ -59,7 +61,7 @@ func EnforceEmbedOrigin(allowedOrigins []string) func(http.Handler) http.Handler
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !isUnsafeMethod(r.Method) || !hasCookie(r, session.EmbedCookieName) {
+			if !isUnsafeMethod(r.Method) || session.BearerToken(r) == "" {
 				next.ServeHTTP(w, r)
 				return
 			}

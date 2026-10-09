@@ -26,25 +26,34 @@ func TestRequestSecurityRouterSeparatesDashboardAndPublisherOrigins(t *testing.T
 		}))
 	})
 
-	request := func(method, path, origin, cookie string) *httptest.ResponseRecorder {
+	// Dashboard requests carry the session cookie; embed requests carry a
+	// bearer token and never a cookie.
+	request := func(method, path, origin string, embed bool) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, nil)
 		req.Header.Set("Origin", origin)
-		req.AddCookie(&http.Cookie{Name: cookie, Value: "session"})
+		if embed {
+			req.Header.Set("Authorization", "Bearer session")
+		} else {
+			req.AddCookie(&http.Cookie{Name: session.DashboardCookieName, Value: "session"})
+		}
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 		return rr
 	}
 
-	if rr := request(http.MethodPost, "/api/admin/test", "https://app.example", session.DashboardCookieName); rr.Code != http.StatusNoContent {
+	if rr := request(http.MethodPost, "/api/admin/test", "https://app.example", false); rr.Code != http.StatusNoContent {
 		t.Fatalf("dashboard POST status = %d, want 204", rr.Code)
 	}
-	if rr := request(http.MethodPost, "/api/comments/test", "https://publisher.example", session.EmbedCookieName); rr.Code != http.StatusNoContent {
+	if rr := request(http.MethodPost, "/api/admin/test", "https://publisher.example", false); rr.Code != http.StatusForbidden {
+		t.Fatalf("publisher origin on dashboard POST status = %d, want 403", rr.Code)
+	}
+	if rr := request(http.MethodPost, "/api/comments/test", "https://publisher.example", true); rr.Code != http.StatusNoContent {
 		t.Fatalf("publisher embed mutation status = %d, want 204", rr.Code)
 	}
-	if rr := request(http.MethodPost, "/api/comments/test", "https://app.example", session.EmbedCookieName); rr.Code != http.StatusForbidden {
+	if rr := request(http.MethodPost, "/api/comments/test", "https://app.example", true); rr.Code != http.StatusForbidden {
 		t.Fatalf("dashboard origin on embed mutation status = %d, want 403", rr.Code)
 	}
-	if rr := request(http.MethodPost, "/api/comments/test", "https://evil.example", session.EmbedCookieName); rr.Code != http.StatusForbidden {
+	if rr := request(http.MethodPost, "/api/comments/test", "https://evil.example", true); rr.Code != http.StatusForbidden {
 		t.Fatalf("evil embed mutation status = %d, want 403", rr.Code)
 	}
 }

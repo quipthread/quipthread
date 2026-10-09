@@ -77,12 +77,6 @@ func (c *termsCache) invalidateAll() {
 	c.scopes = make(map[string]*termsScope)
 }
 
-func (c *termsCache) invalidate(scope string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.scopes, scope)
-}
-
 var globalTermsCache = &termsCache{}
 
 // InvalidateBlockedTermsCache flushes every cached scope so the next comment
@@ -94,41 +88,15 @@ func InvalidateBlockedTermsCache() {
 	globalTermsCache.invalidateAll()
 }
 
-// InvalidateBlockedTermsCacheFor flushes only the named tenant scope. Use it
-// when the mutated tenant store is known (e.g. request-scoped admin paths) so
-// unrelated tenants keep their warm caches.
-func InvalidateBlockedTermsCacheFor(scope string) {
-	globalTermsCache.invalidate(scope)
-}
-
-// BlockedTermsChecker checks comment content against a blocklist. The store
-// held by the checker is only the legacy/self-hosted target used by
-// ContainsBlockedTerm; request-scoped paths must call Check with the explicit
-// tenant store and scope instead.
-type BlockedTermsChecker struct {
-	store db.Store
-}
-
-func NewBlockedTermsChecker(store db.Store) *BlockedTermsChecker {
-	return &BlockedTermsChecker{store: store}
-}
-
-// ContainsBlockedTerm checks content against the constructor store's blocklist
-// under the shared self-hosted scope. Cloud tenants must never use this path;
-// use Check with the resolved tenant store and account scope.
-func (c *BlockedTermsChecker) ContainsBlockedTerm(content string) (bool, string) {
-	return c.Check("", c.store, content)
-}
-
-// Check returns true if the content contains any blocked term from store,
-// caching the compiled list under scope. Plain terms are matched
+// CheckBlockedTerms reports whether content contains any blocked term from
+// store, caching the compiled list under scope. Plain terms are matched
 // case-insensitively as substrings; regex terms are matched against the
 // original content using the compiled pattern.
 //
 // On cache refresh errors the check fails open — comments are allowed through
 // rather than blocking all submissions due to a transient DB failure — and
 // only for the tenant whose refresh failed.
-func (c *BlockedTermsChecker) Check(scope string, store db.Store, content string) (bool, string) {
+func CheckBlockedTerms(scope string, store db.Store, content string) (bool, string) {
 	entries, err := globalTermsCache.get(scope, store)
 	if err != nil || len(entries) == 0 {
 		return false, ""

@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/react'
-import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import type { RichTextEditorIcons } from './icons'
 import type { RichTextEditorLabels } from './labels'
 
@@ -18,13 +18,11 @@ export type RichTextEditorContentProps = {
 }
 
 export type RichTextEditorToolbarProps = RichTextEditorContentProps & {
-  readonly ref?: Ref<HTMLFieldSetElement>
   readonly sticky?: boolean
   readonly stickyOffset?: number | string
 }
 
 export type RichTextEditorControlProps = Readonly<ButtonHTMLAttributes<HTMLButtonElement>> & {
-  readonly ref?: Ref<HTMLButtonElement>
   readonly active?: boolean
   readonly interactive?: boolean
 }

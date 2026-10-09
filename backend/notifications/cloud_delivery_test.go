@@ -659,6 +659,27 @@ func TestRunCloudTenantDeliveryPassDelayedProviderReclaimsExpiredLease(t *testin
 	}
 }
 
+// Chat and webhook settings are server-wide; in cloud they would send every
+// customer's comments to the same destination.
+func TestCloudEligibleChannelNamesIgnoreServerWideChatAndWebhooks(t *testing.T) {
+	cfg := &config.Config{
+		EmailProvider: "cloudflare", CloudflareAPIToken: "api-token", CloudflareAccountID: "account-1", SMTPFrom: "from@example.test",
+		SlackWebhookURL: "https://hooks.slack.test/x", DiscordWebhookURL: "https://discord.test/x",
+		TelegramBotToken: "bot", TelegramChatID: "chat", WebhookURL: "https://hooks.example.test/x",
+	}
+	if got := fmt.Sprint(CloudEligibleChannelNames(cfg)); got != "[email]" {
+		t.Fatalf("cloud channels = %s, want [email]", got)
+	}
+	sender := NewCloudTenantChannelSenderFactory(cfg)(nil).(*NamedChannelSender)
+	if len(sender.notifiers) != 1 || sender.notifiers[ChannelEmail] == nil {
+		t.Fatalf("cloud sender notifiers = %v, want email only", sender.notifiers)
+	}
+	cfg.EmailProvider = ""
+	if got := fmt.Sprint(CloudEligibleChannelNames(cfg)); got != "[]" {
+		t.Fatalf("cloud channels without an email provider = %s, want none", got)
+	}
+}
+
 func TestCloudEligibleChannelNamesExcludeSMTPAndSES(t *testing.T) {
 	if got := fmt.Sprint(CloudEligibleChannelNames(&config.Config{SMTPHost: "smtp", SMTPFrom: "from"})); got != "[]" {
 		t.Fatalf("SMTP channels=%s", got)

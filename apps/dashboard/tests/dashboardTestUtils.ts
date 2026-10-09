@@ -1,4 +1,7 @@
 import '../../../embed/tests/setup'
+// The dashboard builds with preact({ compat: true }), which maps onChange on
+// text fields to the input event; load compat so tests run the same way.
+import 'preact/compat'
 import { afterEach, beforeEach, spyOn } from 'bun:test'
 import { notifyManager } from '@tanstack/preact-query'
 import { render, type VNode } from 'preact'

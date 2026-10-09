@@ -1,7 +1,36 @@
-import composerCSS from './editor/composer.css?inline'
 import proseCSS from './editor/prose.css?inline'
 
 const CSS = `
+/* Stand-in for the editor until its chunk loads; sized like the composer
+   (toolbar strip plus content area) so the swap does not shift the page. */
+.qt-root .qt-composer-standin {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--qt-border);
+  border-radius: 10px;
+  background: var(--qt-bg);
+  color: var(--qt-text-muted);
+  font: inherit;
+  text-align: start;
+  padding: 0;
+  cursor: text;
+}
+.qt-root .qt-composer-standin::before {
+  content: '';
+  display: block;
+  height: 32px;
+  background: var(--qt-bg-alt);
+  border-radius: 10px 10px 0 0;
+}
+.qt-root .qt-composer-standin span {
+  display: block;
+  padding: 8px 10px;
+  min-height: 100px;
+}
+.qt-root .qt-composer-standin:focus-visible {
+  outline: 2px solid var(--qt-accent);
+  outline-offset: 2px;
+}
 .qt-root {
   --qt-bg: #ffffff;
   --qt-bg-alt: #f5f5f5;
@@ -778,6 +807,6 @@ export function injectStyles(): void {
   if (injected) return
   injected = true
   const style = document.createElement('style')
-  style.textContent = CSS + composerCSS + proseCSS
+  style.textContent = CSS + proseCSS
   document.head.appendChild(style)
 }

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/quipthread/quipthread/cloud"
@@ -18,3 +19,6 @@ const cloudRuntimeBuild = false
 func openCloudStore(_ *config.Config) (cloud.Store, error) {
 	return nil, fmt.Errorf("CLOUD_MODE=true requires a cloud build; rebuild with -tags cloud or unset CLOUD_MODE")
 }
+
+// auditSiteRegistry is a no-op in non-cloud builds, which have no registry.
+func auditSiteRegistry(_ context.Context, _ *config.Config, _ cloud.Store) {}

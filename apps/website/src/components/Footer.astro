@@ -7,10 +7,15 @@ const { year } = Astro.props
 
 <footer>
   <div class="container footer-inner">
-    <span>© {year} Quipthread.</span>
-    <div class="footer-links">
-      <a href="/privacy">Privacy</a>
-      <a href="/terms">Terms</a>
+    <span class="footer-copy">© {year} Quipthread.</span>
+    <div class="footer-center">
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </div>
+      <p class="footer-credit">
+        Made with care by <a href="https://v3digital.studio" target="_blank" rel="noopener">V3 Digital Studio</a>
+      </p>
     </div>
     <a href="https://github.com/quipthread/quipthread" target="_blank" rel="noopener noreferrer" class="gh-link">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

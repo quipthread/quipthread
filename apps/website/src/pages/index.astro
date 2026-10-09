@@ -4,137 +4,55 @@ import Layout from '../layouts/Layout.astro'
 import FeatureCard from '../components/FeatureCard.astro'
 import PricingCard from '../components/PricingCard.astro'
 import HeroWidget from '../components/HeroWidget.astro'
+import {
+  annualMonthlyCents,
+  annualSavings,
+  commentsLabel,
+  formatPrice,
+  getPlan,
+  PLANS,
+  type Plan,
+  SELF_SERVE_PLANS,
+  sitesLabel,
+} from '@quipthread/plans'
 
 const backendUrl = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:8080'
 const loginUrl = `${backendUrl}/login`
 const signupUrl = `${backendUrl}/signup`
 const year = new Date().getFullYear()
 
-const monthlyPlans = [
-  {
-    tier: 'Hobby',
-    plan: 'hobby',
-    price: 'Free',
-    description: 'Personal blogs and portfolio sites.',
-    features: [
-      { text: '1 site' },
-      { text: '1,000 comments / month' },
-      { text: 'All auth providers' },
-      { text: 'Comment approval flows' },
-      { text: 'Email notifications' },
-      { text: 'Quick-approve via email' },
-      { text: 'Moderation dashboard', muted: true },
-      { text: 'Comment export', muted: true },
-      { text: 'Analytics', muted: true },
-    ],
-    ctaText: 'Get started',
-    ctaHref: signupUrl,
-  },
-  {
-    tier: 'Starter',
-    plan: 'starter',
-    price: '$9',
-    period: '/ month',
-    description: 'Indie developers and content creators.',
-    features: [
-      { text: '5 sites' },
-      { text: '10,000 comments / month' },
-      { text: 'All Hobby features included' },
-      { text: 'Moderation dashboard' },
-      { text: 'Comment export (JSON, CSV)' },
-      { text: 'Import (Disqus, WordPress, Remark42)' },
-      { text: 'Basic analytics' },
-      { text: 'Email support (48h)' },
-      { text: 'Moderation rules engine', muted: true },
-    ],
-    ctaText: 'Start free trial',
-    ctaHref: signupUrl,
-  },
-  {
-    tier: 'Pro',
-    plan: 'pro',
-    price: '$24',
-    period: '/ month',
-    description: 'Professional developers and small teams.',
-    features: [
-      { text: '20 sites' },
-      { text: '50,000 comments / month' },
-      { text: 'All Starter features included' },
-      { text: 'Moderation rules engine' },
-      { text: 'Advanced analytics' },
-      { text: 'Notification channels (Slack, Discord, Telegram, webhooks)' },
-      { text: 'Priority support (24h)' },
-    ],
-    ctaText: 'Start free trial',
-    ctaHref: signupUrl,
-    ctaPrimary: true,
-    featured: true,
-  },
-  {
-    tier: 'Business',
-    plan: 'business',
-    price: '$79',
-    period: '/ month',
-    description: 'Agencies and platforms embedding comments into products.',
-    features: [
-      { text: 'Unlimited sites' },
-      { text: '250,000 comments / month' },
-      { text: 'All Pro features included' },
-      { text: 'Dedicated DB per site' },
-      { text: 'Dedicated support (4h SLA)' },
-    ],
-    ctaText: 'Start free trial',
-    ctaHref: signupUrl,
-  },
-]
+// Pricing comes from the shared plan catalog (@quipthread/plans), as the
+// dashboard's billing page does.
+const pricedTiers = PLANS.filter((plan) => plan.id !== 'enterprise')
+const enterprise = getPlan('enterprise')
+const enterpriseExtras = enterprise.features.filter((f) => !f.startsWith('Everything in')).join(', ')
+const startingPrice = formatPrice(Math.min(...SELF_SERVE_PLANS.map((plan) => plan.prices?.month ?? Infinity)))
 
-const annualPlans = [
-  {
-    tier: 'Hobby',
-    plan: 'hobby',
-    price: 'Free',
-    description: 'Personal blogs and portfolio sites.',
-    billingNote: 'Always free',
-    features: monthlyPlans[0].features,
-    ctaText: 'Get started',
-    ctaHref: signupUrl,
-  },
-  {
-    tier: 'Starter',
-    plan: 'starter',
-    price: '$7.50',
+function pricingCard(plan: Plan, annual: boolean) {
+  const features = [sitesLabel(plan), commentsLabel(plan), ...plan.features].map((text) => ({ text }))
+  const cta = plan.prices
+    ? { ctaText: 'Start free trial', ctaHref: signupUrl }
+    : { ctaText: 'Get started', ctaHref: signupUrl }
+  const featured = plan.id === 'pro' ? { ctaPrimary: true, featured: true } : {}
+  if (!plan.prices) {
+    return { tier: plan.name, plan: plan.id, price: 'Free', description: plan.description, features, ...cta, ...(annual ? { billingNote: 'Always free' } : {}) }
+  }
+  const { cents } = annualSavings(plan.prices)
+  return {
+    tier: plan.name,
+    plan: plan.id,
+    price: formatPrice(annual ? annualMonthlyCents(plan.prices) : plan.prices.month),
     period: '/ month',
-    description: 'Indie developers and content creators.',
-    billingNote: '$90 / year — 2 months free',
-    features: monthlyPlans[1].features,
-    ctaText: 'Start free trial',
-    ctaHref: signupUrl,
-  },
-  {
-    tier: 'Pro',
-    plan: 'pro',
-    price: '$19',
-    period: '/ month',
-    description: 'Professional developers and small teams.',
-    billingNote: '$228 / year — 2 months free',
-    features: monthlyPlans[2].features,
-    ctaText: 'Start free trial',
-    ctaHref: signupUrl,
-    ctaPrimary: true,
-    featured: true,
-  },
-  {
-    tier: 'Business',
-    plan: 'business',
-    price: '$62.50',
-    period: '/ month',
-    description: 'Agencies and platforms embedding comments into products.',
-    billingNote: '$750 / year',
-    features: monthlyPlans[3].features,
-    ctaText: 'Start free trial',
-    ctaHref: signupUrl,
-  },
-]
+    description: plan.description,
+    features,
+    ...cta,
+    ...featured,
+    ...(annual ? { billingNote: `${formatPrice(plan.prices.year)} / year, save ${formatPrice(cents)}` } : {}),
+  }
+}
+
+const monthlyPlans = pricedTiers.map((plan) => pricingCard(plan, false))
+const annualPlans = pricedTiers.map((plan) => pricingCard(plan, true))
 ---
 
 <Layout loginUrl={loginUrl} year={year}>
@@ -266,8 +184,8 @@ const annualPlans = [
       <article class="card enterprise-card">
         <div class="enterprise-content">
           <div>
-            <strong>Enterprise</strong>
-            <p>Volume limits, custom data residency, contracts, dedicated onboarding, and a dedicated support channel.</p>
+            <strong>{enterprise.name}</strong>
+            <p>{[enterprise.description, enterpriseExtras && `${enterpriseExtras}.`].filter(Boolean).join(' ')}</p>
           </div>
           <a href="mailto:hello@quipthread.com" class="button outline">Contact us</a>
         </div>
@@ -303,7 +221,7 @@ const annualPlans = [
             <tr>
               <td>Cost</td>
               <td>Free</td>
-              <td>From $9 / month</td>
+              <td>From {startingPrice} / month</td>
               <td>Free</td>
             </tr>
             <tr>
@@ -345,7 +263,7 @@ const annualPlans = [
             <tr>
               <td>Support</td>
               <td>Community</td>
-              <td>Email / Dedicated</td>
+              <td>Email</td>
               <td>Community</td>
             </tr>
           </tbody>

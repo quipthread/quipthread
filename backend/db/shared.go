@@ -1014,17 +1014,18 @@ func boolInt(b bool) int {
 func (s *sqlStore) GetSubscription() (*models.Subscription, error) {
 	row := s.db.QueryRow( //nolint:noctx // DB layer; full context threading deferred
 		`SELECT stripe_customer_id, stripe_sub_id, plan, status, interval,
-		       trial_ends_at, current_period_end, updated_at
+		       trial_ends_at, current_period_end, cancel_at, updated_at
 		FROM subscriptions WHERE id = 'account'`)
 
 	var (
 		sub              models.Subscription
 		trialEndsAt      sql.NullTime
 		currentPeriodEnd sql.NullTime
+		cancelAt         sql.NullTime
 	)
 	err := row.Scan(
 		&sub.StripeCustomerID, &sub.StripeSubID, &sub.Plan, &sub.Status, &sub.Interval,
-		&trialEndsAt, &currentPeriodEnd, &sub.UpdatedAt,
+		&trialEndsAt, &currentPeriodEnd, &cancelAt, &sub.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return &models.Subscription{Plan: "hobby", Status: "active"}, nil
@@ -1038,6 +1039,9 @@ func (s *sqlStore) GetSubscription() (*models.Subscription, error) {
 	if currentPeriodEnd.Valid {
 		sub.CurrentPeriodEnd = &currentPeriodEnd.Time
 	}
+	if cancelAt.Valid {
+		sub.CancelAt = &cancelAt.Time
+	}
 	return &sub, nil
 }
 
@@ -1046,8 +1050,8 @@ func (s *sqlStore) UpsertSubscription(sub *models.Subscription) error {
 	_, err := s.db.Exec( //nolint:noctx // DB layer; full context threading deferred
 		`INSERT INTO subscriptions
 		  (id, stripe_customer_id, stripe_sub_id, plan, status, interval,
-		   trial_ends_at, current_period_end, updated_at)
-		VALUES ('account', ?, ?, ?, ?, ?, ?, ?, ?)
+		   trial_ends_at, current_period_end, cancel_at, updated_at)
+		VALUES ('account', ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 		  stripe_customer_id = excluded.stripe_customer_id,
 		  stripe_sub_id      = excluded.stripe_sub_id,
@@ -1056,9 +1060,10 @@ func (s *sqlStore) UpsertSubscription(sub *models.Subscription) error {
 		  interval           = excluded.interval,
 		  trial_ends_at      = excluded.trial_ends_at,
 		  current_period_end = excluded.current_period_end,
+		  cancel_at          = excluded.cancel_at,
 		  updated_at         = excluded.updated_at`,
 		sub.StripeCustomerID, sub.StripeSubID, sub.Plan, sub.Status, sub.Interval,
-		nullTime(sub.TrialEndsAt), nullTime(sub.CurrentPeriodEnd), sub.UpdatedAt,
+		nullTime(sub.TrialEndsAt), nullTime(sub.CurrentPeriodEnd), nullTime(sub.CancelAt), sub.UpdatedAt,
 	)
 	return err
 }

@@ -137,6 +137,16 @@ func WelcomeEmailBody(displayName string) string {
 	return emailShell(body)
 }
 
+// AccountDeletedEmailBody confirms that a cloud account and its data were deleted.
+func AccountDeletedEmailBody() string {
+	return emailShell(`
+    <p>Hi,</p>
+    <p>Your Quipthread account has been deleted, along with its sites, comments, and readers. Any subscription was cancelled.</p>
+    <p>If you didn&#39;t ask for this, reply to this email right away.</p>
+    <p>The Quipthread Team</p>
+`)
+}
+
 // InviteEmailBody returns the HTML body for a team member invitation.
 func InviteEmailBody(inviterEmail, acceptURL string) string {
 	body := fmt.Sprintf(`

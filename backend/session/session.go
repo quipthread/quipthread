@@ -20,7 +20,6 @@ const (
 	EmbedAudience     = "embed"
 
 	DashboardCookieName = "quipthread_dashboard_session"
-	EmbedCookieName     = "quipthread_embed_session"
 	LegacyCookieName    = "quipthread_session"
 
 	// CookieName is retained as the dashboard name for source compatibility.
@@ -33,57 +32,72 @@ type contextKey string
 const UserKey contextKey = "session_user"
 
 type Claims struct {
-	Sub               string `json:"sub"`
-	DisplayName       string `json:"display_name"`
-	Provider          string `json:"provider"`
-	Role              string `json:"role"`
-	AccountID         string `json:"account_id,omitempty"`
-	IsTeamMember      bool   `json:"is_team_member,omitempty"`
+	Sub          string `json:"sub"`
+	DisplayName  string `json:"display_name"`
+	Provider     string `json:"provider"`
+	Role         string `json:"role"`
+	AccountID    string `json:"account_id,omitempty"`
+	IsTeamMember bool   `json:"is_team_member,omitempty"`
+	// SiteID binds an embed token to the one site it was issued for. Embed
+	// tokens are bearer credentials held by the publisher's page, so a token
+	// issued on one site must never authenticate requests for another.
+	SiteID            string `json:"site_id,omitempty"`
 	SessionGeneration int64  `json:"session_generation"`
 	jwt.RegisteredClaims
 }
 
-// Issue issues a dashboard session. It remains as a compatibility wrapper for
-// callers that predate audience-specific sessions.
-func Issue(secret, userID, displayName, provider, role, accountID string) (string, error) {
-	return IssueWithAudience(secret, DashboardAudience, userID, displayName, provider, role, accountID, 0)
-}
-
-// IssueWithAudience issues a session in one of the two explicit trust domains.
+// IssueWithAudience issues a dashboard session. Embed tokens are site-bound
+// and must be issued with IssueEmbed; asking for the embed audience here fails.
 func IssueWithAudience(secret, audience, userID, displayName, provider, role, accountID string, generation int64) (string, error) {
 	return issue(secret, audience, userID, displayName, provider, role, accountID, generation, false)
-}
-
-// IssueTeamMember issues a dashboard team-member session for compatibility
-// with the existing cloud invitation flow.
-func IssueTeamMember(secret, userID, displayName, provider, ownerAccountID string) (string, error) {
-	return IssueTeamMemberWithGeneration(secret, userID, displayName, provider, ownerAccountID, 0)
 }
 
 func IssueTeamMemberWithGeneration(secret, userID, displayName, provider, ownerAccountID string, generation int64) (string, error) {
 	return issue(secret, DashboardAudience, userID, displayName, provider, "admin", ownerAccountID, generation, true)
 }
 
+// IssueEmbed issues a site-bound embed bearer token. accountID is the site
+// owner's account in cloud mode and empty for self-hosted deployments.
+func IssueEmbed(secret, userID, displayName, provider, role, accountID, siteID string, generation int64) (string, error) {
+	if siteID == "" {
+		return "", fmt.Errorf("embed token requires a site id")
+	}
+	return issueClaims(secret, EmbedAudience, Claims{
+		Sub: userID, DisplayName: displayName, Provider: provider, Role: role,
+		AccountID: accountID, SiteID: siteID, SessionGeneration: generation,
+	})
+}
+
 func issue(secret, audience, userID, displayName, provider, role, accountID string, generation int64, teamMember bool) (string, error) {
+	if audience == EmbedAudience {
+		return "", fmt.Errorf("embed tokens must be issued with IssueEmbed")
+	}
+	return issueClaims(secret, audience, Claims{
+		Sub: userID, DisplayName: displayName, Provider: provider, Role: role,
+		AccountID: accountID, IsTeamMember: teamMember, SessionGeneration: generation,
+	})
+}
+
+func issueClaims(secret, audience string, claims Claims) (string, error) {
 	if audience != DashboardAudience && audience != EmbedAudience {
 		return "", fmt.Errorf("unsupported session audience: %s", audience)
 	}
-	claims := Claims{
-		Sub: userID, DisplayName: displayName, Provider: provider, Role: role,
-		AccountID: accountID, IsTeamMember: teamMember, SessionGeneration: generation,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Audience:  jwt.ClaimStrings{audience},
-		},
+	claims.RegisteredClaims = jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Audience:  jwt.ClaimStrings{audience},
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
 }
 
-// Parse validates a dashboard session. Legacy tokens without an audience are
-// intentionally rejected by the same parser used for the new cookies.
-func Parse(secret, tokenStr string) (*Claims, error) {
-	return ParseForAudience(secret, tokenStr, DashboardAudience)
+// BearerToken returns the token from an "Authorization: Bearer" header, or "".
+func BearerToken(r *http.Request) string {
+	const prefix = "bearer "
+	h := strings.TrimSpace(r.Header.Get("Authorization"))
+	if len(h) <= len(prefix) || !strings.EqualFold(h[:len(prefix)], prefix) {
+		return ""
+	}
+	return strings.TrimSpace(h[len(prefix):])
 }
 
 // ParseForAudience accepts only an HS256 token with exactly the requested
@@ -111,35 +125,23 @@ func ParseForAudience(secret, tokenStr, audience string) (*Claims, error) {
 	return claims, nil
 }
 
-// SetCookie issues a dashboard cookie for source compatibility.
+// SetCookie issues the dashboard session cookie. Embed sessions never use
+// cookies: they are site-bound bearer tokens held by the publisher's page.
 func SetCookie(w http.ResponseWriter, token string, secure bool) {
-	SetCookieForAudience(w, token, DashboardAudience, secure)
-}
-
-func SetCookieForAudience(w http.ResponseWriter, token, audience string, secure bool) {
-	setAudienceCookie(w, token, audience, secure, 30*24*60*60)
+	setDashboardCookie(w, token, secure, 30*24*60*60)
 	ClearLegacyCookie(w, secure)
 }
 
-func setAudienceCookie(w http.ResponseWriter, token, audience string, secure bool, maxAge int) {
-	sameSite := http.SameSiteLaxMode
-	if audience == EmbedAudience && secure {
-		// SameSite=None; Secure is required for cross-origin widget requests.
-		sameSite = http.SameSiteNoneMode
-	}
-	// #nosec G124 -- Secure follows the deployment's HTTPS setting; secure embed cookies require SameSite=None.
+func setDashboardCookie(w http.ResponseWriter, token string, secure bool, maxAge int) {
+	// #nosec G124 -- Secure follows the deployment's HTTPS setting so local HTTP development works; the cookie is HttpOnly and Lax.
 	http.SetCookie(w, &http.Cookie{
-		Name: cookieName(audience), Value: token, Path: "/", HttpOnly: true,
-		Secure: secure, SameSite: sameSite, MaxAge: maxAge,
+		Name: DashboardCookieName, Value: token, Path: "/", HttpOnly: true,
+		Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: maxAge,
 	})
 }
 
-func ClearCookie(w http.ResponseWriter) {
-	ClearCookieForAudience(w, DashboardAudience, false)
-}
-
-func ClearCookieForAudience(w http.ResponseWriter, audience string, secure bool) {
-	setAudienceCookie(w, "", audience, secure, -1)
+func ClearDashboardCookie(w http.ResponseWriter, secure bool) {
+	setDashboardCookie(w, "", secure, -1)
 }
 
 // ClearLegacyCookie implements the hard cutover: the old cookie is cleared,
@@ -151,15 +153,6 @@ func ClearLegacyCookie(w http.ResponseWriter, secure bool) {
 	}
 	// #nosec G124 -- Match the legacy cross-origin cookie scope on HTTPS, with Lax for local HTTP.
 	http.SetCookie(w, &http.Cookie{Name: LegacyCookieName, Value: "", Path: "/", HttpOnly: true, Secure: secure, SameSite: sameSite, MaxAge: -1})
-}
-
-func CookieNameForAudience(audience string) string { return cookieName(audience) }
-
-func cookieName(audience string) string {
-	if audience == EmbedAudience {
-		return EmbedCookieName
-	}
-	return DashboardCookieName
 }
 
 // SetIndicatorCookie sets a non-HttpOnly cookie that marketing pages can read

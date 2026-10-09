@@ -9,9 +9,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ${{ matrix.runner }}
@@ -24,7 +21,7 @@ jobs:
           - platform: linux/arm64
             runner: blacksmith-2vcpu-ubuntu-2404-arm
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -34,7 +31,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Blacksmith Docker builder
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: Dockerfile-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
 
       - name: Extract metadata
         id: meta
@@ -58,7 +57,7 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
@@ -70,7 +69,7 @@ jobs:
     needs: build
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-*
@@ -93,9 +92,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest
-
-      - name: Set up Blacksmith Docker builder
-        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Create and push manifest
         working-directory: /tmp/digests

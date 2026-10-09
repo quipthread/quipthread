@@ -96,7 +96,7 @@ describe('comment moderation cache consistency', () => {
             if (!textarea) throw new Error('Comment textarea missing')
             await act(async () => {
               textarea.value = 'Updated content'
-              textarea.dispatchEvent(new window.Event('change', { bubbles: true }))
+              textarea.dispatchEvent(new window.Event('input', { bubbles: true }))
             })
             await fixture.click(action === 'Edit' ? 'Save changes' : 'Send reply')
             break

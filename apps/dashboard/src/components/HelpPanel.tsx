@@ -10,7 +10,7 @@ import PageHeader from './shared/PageHeader'
 const FAQ_ITEMS = [
   {
     q: 'How does comment moderation work?',
-    a: 'By default, comments from first-time commenters are held for approval. Once a commenter is approved once, their future comments are auto-approved. You can change this behavior per-site in the Sites tab.',
+    a: "A commenter's first comment on a site waits for your approval. After you approve one, their later comments on that site go live immediately. Comments that look like spam or contain one of your blocked terms are rejected automatically.",
     gate: null,
   },
   {
@@ -20,7 +20,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What counts toward my monthly comment limit?',
-    a: 'Every new comment submitted counts, including ones that are pending moderation or later rejected. Deleted comments are not subtracted from your count.',
+    a: 'Every new comment submitted counts, including ones that are pending moderation or later rejected, and so does every imported comment. Deleted comments are not subtracted from your count.',
     gate: 'billing' as const,
   },
   {
@@ -30,7 +30,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I import comments from another platform?',
-    a: 'Yes — the Import tab supports Disqus, WordPress, Remark42, and native Quipthread exports. Imports do not count toward your monthly comment limit.',
+    a: 'Yes. The Import tab supports Disqus, WordPress, Remark42, and native Quipthread exports.',
     gate: null,
   },
   {
@@ -40,7 +40,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do I get support?',
-    a: 'Open an issue on GitHub or reach out via the contact on our website.',
+    a: 'Open an issue on GitHub. Quipthread Cloud customers can also email support@quipthread.com.',
     gate: null,
   },
 ]
@@ -159,7 +159,7 @@ function HelpPanelInner() {
       <section style={{ marginBottom: '2.5rem' }}>
         <h2 style={sectionHeadingStyle}>Resources</h2>
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.625rem' }}>
-          <ResourceLink href="/docs/" label="Documentation" />
+          <ResourceLink href="https://quipthread.com/docs/" label="Documentation" />
           <ResourceLink href="https://github.com/quipthread/quipthread" label="GitHub" />
           <ResourceLink
             href="https://github.com/quipthread/quipthread/issues"

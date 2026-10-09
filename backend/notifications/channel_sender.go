@@ -107,11 +107,6 @@ func NewNamedChannelSender(notifiers map[string]Notifier) *NamedChannelSender {
 	return &NamedChannelSender{notifiers: owned}
 }
 
-// NewChannelSender is the concise constructor for the ChannelSender boundary.
-func NewChannelSender(notifiers map[string]Notifier) *NamedChannelSender {
-	return NewNamedChannelSender(notifiers)
-}
-
 // Send invokes exactly the selected logical channel. Underlying provider
 // errors are reduced to ChannelError before crossing this boundary.
 func (s *NamedChannelSender) Send(ctx context.Context, channel string, b Batch) error {

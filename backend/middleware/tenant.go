@@ -23,6 +23,7 @@ import (
 	"github.com/quipthread/quipthread/cloud"
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
+	"github.com/quipthread/quipthread/models"
 	"github.com/quipthread/quipthread/session"
 )
 
@@ -73,12 +74,6 @@ func (l *StoreLease) Release() {
 		return
 	}
 	l.once.Do(l.release)
-}
-
-// UnmanagedLease wraps a store not owned by the cache (e.g. a global fallback
-// store). Its Release is a no-op.
-func UnmanagedLease(s db.Store) *StoreLease {
-	return &StoreLease{store: s}
 }
 
 // storeCacheEntry is a cache-owned tenant store with its validation metadata
@@ -480,27 +475,27 @@ func isPublicEmbedRoute(r *http.Request) bool {
 }
 
 // isPublicCommentPostRoute reports whether the request targets exactly
-// POST /api/comments while the public site resolver feature is enabled. In
-// that mode the tenant for this route comes from the body-aware resolver
-// (site_id in the JSON body), so the global JWT-based injection must bypass
+// POST /api/comments in cloud mode, where the tenant for this route comes
+// from the body-aware resolver (site_id in the JSON body), so the global
+// JWT-based injection must bypass
 // it — a session cookie must never be able to select its tenant store.
 func isPublicCommentPostRoute(cfg *config.Config, r *http.Request) bool {
-	return cfg.PublicSiteResolverEnabled &&
+	return cfg.CloudMode &&
 		r.Method == http.MethodPost &&
 		r.URL.Path == "/api/comments"
 }
 
 // isPublicCommentMutationRoute reports whether the request targets exactly one
 // of the public comment mutation endpoints — DELETE /api/comments/{id},
-// POST /api/comments/{id}/vote, POST /api/comments/{id}/flag — while the
-// public site resolver feature is enabled. Their tenant comes from the
-// required siteId query parameter via the route-local query resolver, so the
+// POST /api/comments/{id}/vote, POST /api/comments/{id}/flag — in cloud
+// mode. Their tenant comes from the required siteId query parameter via the
+// route-local query resolver, so the
 // global JWT-based injection must bypass them: a session cookie must never be
 // able to select their tenant store. Matching is exact method + path segment
 // shape; other methods, trailing slashes, unknown subresources, and nested
 // paths stay subject to JWT injection.
 func isPublicCommentMutationRoute(cfg *config.Config, r *http.Request) bool {
-	if !cfg.PublicSiteResolverEnabled {
+	if !cfg.CloudMode {
 		return false
 	}
 	segs := strings.Split(r.URL.Path, "/")
@@ -530,10 +525,10 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 			// Public embed endpoints must never have their tenant determined
 			// by cookies/JWT: they are resolved by the route-local public site
 			// resolver from the site registry, or need no tenant store at all.
-			// With the resolver feature enabled, POST /api/comments is equally
+			// In cloud mode POST /api/comments is equally
 			// body-resolved and must bypass JWT tenant injection too, as must
 			// the query-resolved comment mutation routes (delete/vote/flag).
-			if isPublicEmbedRoute(r) || isPublicCommentPostRoute(cfg, r) || isPublicCommentMutationRoute(cfg, r) {
+			if isPublicEmbedRoute(r) || isEmbedAuthRoute(r) || isPublicCommentPostRoute(cfg, r) || isPublicCommentMutationRoute(cfg, r) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -550,6 +545,7 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 				strings.HasPrefix(r.URL.Path, "/approve/") ||
 				r.URL.Path == "/favicon.svg" ||
 				r.URL.Path == "/embed.js" ||
+				strings.HasPrefix(r.URL.Path, "/embed/") ||
 				r.URL.Path == "/embed-preview" ||
 				r.URL.Path == "/login" ||
 				r.URL.Path == "/signup" ||
@@ -561,20 +557,14 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 			}
 
 			// Claims may already be in context (set by RequireAuth/RequireAdmin),
-			// or need to be parsed directly from the cookie — InjectTenantStore
-			// runs as a global middleware before the auth group middleware.
+			// or need to be parsed directly from the dashboard cookie —
+			// InjectTenantStore runs as a global middleware before the auth
+			// group middleware. Embed bearer tokens never select a tenant here:
+			// embed routes are resolved from the site registry instead.
 			claims, _ := r.Context().Value(session.UserKey).(*session.Claims)
 			if claims == nil {
-				cookieName := session.DashboardCookieName
-				if isEmbedAuthRoute(r) || isPublicEmbedRoute(r) || isPublicCommentPostRoute(cfg, r) || isPublicCommentMutationRoute(cfg, r) {
-					cookieName = session.EmbedCookieName
-				}
-				if cookie, err := r.Cookie(cookieName); err == nil {
-					audience := session.DashboardAudience
-					if cookieName == session.EmbedCookieName {
-						audience = session.EmbedAudience
-					}
-					claims, _ = session.ParseForAudience(cfg.JWTSecret, cookie.Value, audience)
+				if cookie, err := r.Cookie(session.DashboardCookieName); err == nil {
+					claims, _ = session.ParseForAudience(cfg.JWTSecret, cookie.Value, session.DashboardAudience)
 				}
 			}
 			if claims == nil || claims.AccountID == "" {
@@ -589,10 +579,16 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 			}
 
 			acc, err := cloudStore.GetAccountByID(claims.AccountID)
-			if err != nil || acc == nil {
+			if err != nil {
 				// Do not fall through to the global store — that would expose
 				// other tenants' data to an authenticated but unresolvable account.
 				http.Error(w, `{"error":"tenant resolution failed"}`, http.StatusInternalServerError)
+				return
+			}
+			if acc == nil {
+				// The account was deleted; its remaining sessions are void.
+				session.ClearDashboardCookie(w, session.IsHTTPS(r, cfg.BaseURL))
+				writeError(w, http.StatusUnauthorized, "account_deleted")
 				return
 			}
 
@@ -613,8 +609,12 @@ func InjectTenantStore(cloudStore cloud.Store, cache *StoreCache, cfg *config.Co
 	}
 }
 
+// isEmbedAuthRoute reports whether the request targets an embed
+// authentication endpoint. These resolve their tenant from the site registry
+// via the requested site, never from session cookies.
 func isEmbedAuthRoute(r *http.Request) bool {
-	return r.URL.Path == "/api/auth/embed/me" || r.URL.Path == "/auth/embed/logout"
+	return (r.Method == http.MethodGet && r.URL.Path == "/api/auth/embed/me") ||
+		(r.Method == http.MethodPost && r.URL.Path == "/api/auth/sso")
 }
 
 // publicResolveFailure is a terminal, caller-safe resolution failure: an HTTP
@@ -632,25 +632,32 @@ type publicResolveFailure struct {
 // held until downstream handling completes. Failures are stable JSON codes;
 // there is no global-store fallback path.
 func resolvePublicTenant(cloudStore cloud.Store, cache *StoreCache, cfg *config.Config, siteID string) (db.PublicTenant, *StoreLease, *publicResolveFailure) {
+	pt, _, lease, failure := resolvePublicSite(cloudStore, cache, cfg, siteID)
+	return pt, lease, failure
+}
+
+// resolvePublicSite is resolvePublicTenant that also returns the verified
+// tenant site row, for callers that need its configuration (domain, SSO).
+func resolvePublicSite(cloudStore cloud.Store, cache *StoreCache, cfg *config.Config, siteID string) (db.PublicTenant, *models.Site, *StoreLease, *publicResolveFailure) {
 	entry, err := cloudStore.GetActiveSiteRegistration(siteID)
 	if err != nil {
-		return db.PublicTenant{}, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
+		return db.PublicTenant{}, nil, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
 	}
 	if entry == nil {
 		// Unknown or not-active (reserved/inactive) registration —
 		// indistinguishable to the caller on purpose.
-		return db.PublicTenant{}, nil, &publicResolveFailure{http.StatusNotFound, "site_not_found"}
+		return db.PublicTenant{}, nil, nil, &publicResolveFailure{http.StatusNotFound, "site_not_found"}
 	}
 
 	acc, err := cloudStore.GetAccountByID(entry.AccountID)
 	if err != nil || acc == nil {
-		return db.PublicTenant{}, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
+		return db.PublicTenant{}, nil, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
 	}
 	lease, err := cache.GetOrOpen(entry.AccountID, StorageFingerprint(acc.DBType, acc.DBURL), func() (db.Store, error) {
 		return openTenantStore(acc, cfg)
 	})
 	if err != nil {
-		return db.PublicTenant{}, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
+		return db.PublicTenant{}, nil, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
 	}
 	s := lease.Store()
 
@@ -660,24 +667,24 @@ func resolvePublicTenant(cloudStore cloud.Store, cache *StoreCache, cfg *config.
 	site, err := s.GetSite(siteID)
 	if err != nil {
 		lease.Release()
-		return db.PublicTenant{}, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
+		return db.PublicTenant{}, nil, nil, &publicResolveFailure{http.StatusServiceUnavailable, "service_unavailable"}
 	}
 	if site == nil {
 		lease.Release()
-		return db.PublicTenant{}, nil, &publicResolveFailure{http.StatusNotFound, "site_not_found"}
+		return db.PublicTenant{}, nil, nil, &publicResolveFailure{http.StatusNotFound, "site_not_found"}
 	}
 
 	return db.PublicTenant{
 		Store:     s,
 		SiteID:    siteID,
 		AccountID: entry.AccountID,
-	}, lease, nil
+	}, site, lease, nil
 }
 
 // PublicSiteResolver resolves the tenant for public embed traffic (GET
 // /api/config, GET /api/comments) from the site registry instead of session
 // cookies. It is route-local middleware: install it only around those two
-// exact GET routes, and only when CloudMode && PublicSiteResolverEnabled &&
+// exact GET routes, and only when CloudMode &&
 // cloudStore != nil. The required siteId query parameter selects an active
 // site registration; the owning account's tenant store is opened via the
 // shared cache/open path and injected as an explicit public-tenant context.
@@ -686,7 +693,7 @@ func resolvePublicTenant(cloudStore cloud.Store, cache *StoreCache, cfg *config.
 func PublicSiteResolver(cloudStore cloud.Store, cache *StoreCache, cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cfg.CloudMode || !cfg.PublicSiteResolverEnabled || cloudStore == nil {
+			if !cfg.CloudMode || cloudStore == nil {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -741,12 +748,12 @@ func extractSiteID(raw []byte) (string, bool) {
 // pre-existing tenant context are ignored; every failure responds with stable
 // JSON and there is no fallback to the global store. Install it only on the
 // exact POST /api/comments route, only when CloudMode &&
-// PublicSiteResolverEnabled && cloudStore != nil. When inactive it passes
+// cloudStore != nil. When inactive it passes
 // through untouched without consuming the body.
 func PublicSiteResolverPOST(cloudStore cloud.Store, cache *StoreCache, cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cfg.CloudMode || !cfg.PublicSiteResolverEnabled || cloudStore == nil {
+			if !cfg.CloudMode || cloudStore == nil {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -972,7 +979,7 @@ func isJSONContentType(ct string) bool {
 // middleware or the handler run. When cloud mode or the resolver flag is off
 // it passes through untouched, preserving self-hosted behavior.
 func enforcePublicSiteOrigin(cfg *config.Config, requireJSON bool) func(http.Handler) http.Handler {
-	active := cfg.CloudMode && cfg.PublicSiteResolverEnabled
+	active := cfg.CloudMode
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1045,12 +1052,12 @@ func EnforcePublicMutationOrigin(cfg *config.Config) func(http.Handler) http.Han
 // exclusively from the explicit PublicTenant context — never from JWT-selected
 // storage or the constructor/global store — so plan checks can neither be
 // driven by cookies nor poison other tenants' cached subscriptions. A missing
-// context fails closed. When cloud mode or the resolver feature is off it
-// passes through untouched.
+// context fails closed. Outside cloud mode it passes through
+// untouched.
 func RequirePlanPublic(cfg *config.Config, minPlan string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cfg.CloudMode || !cfg.PublicSiteResolverEnabled {
+			if !cfg.CloudMode {
 				next.ServeHTTP(w, r)
 				return
 			}

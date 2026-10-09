@@ -6,6 +6,9 @@ function getOAuthError(): string | null {
   const code = params.get('error')
   if (code === 'session_expired') return 'Your login session expired — please try again.'
   if (code === 'oauth_denied') return 'Sign-in was cancelled.'
+  if (code === 'account_deleted') return 'Your account has been deleted.'
+  if (code === 'oauth_email_unverified')
+    return 'That account has no verified email address. Verify your email with the provider, or sign in another way.'
   return null
 }
 

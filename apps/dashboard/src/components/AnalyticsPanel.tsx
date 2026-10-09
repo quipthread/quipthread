@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/preact-query'
 import { useEffect, useState } from 'preact/hooks'
 import * as _recharts from 'recharts'
 import { api } from '../api'
+import { meetsPlan } from '../lib/plan'
 import { queryKeys } from '../lib/queryKeys'
 import type { AnalyticsData } from '../types'
 import QueryProvider from './QueryProvider'
@@ -28,8 +29,6 @@ const {
   XAxis,
   YAxis,
 } = rc
-
-const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
 type Range = '7d' | '30d' | 'all'
 const RANGES: { label: string; value: Range }[] = [
@@ -295,9 +294,9 @@ function AnalyticsPanelInner() {
   const plan = billing?.plan ?? null
   const sites = sitesData?.sites ?? []
 
-  const isPro = plan ? PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('pro') : false
+  const isPro = meetsPlan(plan, 'pro')
   const isBusiness = plan === 'business'
-  const hasAccess = plan ? PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('starter') : false
+  const hasAccess = meetsPlan(plan, 'starter')
 
   // Initialize siteId when sites first load
   useEffect(() => {

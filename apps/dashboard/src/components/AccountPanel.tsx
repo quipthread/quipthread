@@ -3,6 +3,7 @@ import type { ComponentChildren, JSX } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
+import { meetsPlan } from '../lib/plan'
 import { queryKeys } from '../lib/queryKeys'
 import type { AccountInfo, BillingStatus, SecuritySettings, TeamMember } from '../types'
 import QueryProvider from './QueryProvider'
@@ -10,8 +11,6 @@ import InlineMsg from './shared/InlineMsg'
 import InputField from './shared/InputField'
 import PageHeader from './shared/PageHeader'
 import UpgradeGate from './UpgradeGate'
-
-const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
 // ---- SVG icons --------------------------------------------------------------
 
@@ -438,8 +437,8 @@ function SecuritySection({ billing }: { billing: BillingStatus | null }) {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const queryClient = useQueryClient()
 
-  const planIndex = billing ? PLAN_ORDER.indexOf(billing.plan) : PLAN_ORDER.indexOf('business')
-  const canAccess = IS_SELF_HOSTED || planIndex >= PLAN_ORDER.indexOf('starter')
+  // Until billing loads, assume access so the section does not flash a gate.
+  const canAccess = IS_SELF_HOSTED || !billing || meetsPlan(billing.plan, 'starter')
 
   const { data: security } = useQuery<SecuritySettings>({
     queryKey: queryKeys.security(),
@@ -552,8 +551,7 @@ function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const queryClient = useQueryClient()
 
-  const planIndex = billing ? PLAN_ORDER.indexOf(billing.plan) : PLAN_ORDER.indexOf('business')
-  const canAccess = IS_SELF_HOSTED || planIndex >= PLAN_ORDER.indexOf('business')
+  const canAccess = IS_SELF_HOSTED || !billing || meetsPlan(billing.plan, 'business')
 
   const { data: invitationsData } = useQuery({
     queryKey: queryKeys.invitations(),
@@ -704,6 +702,102 @@ function InvitationsSection({ billing }: { billing: BillingStatus | null }) {
   )
 }
 
+// ---- Delete account section -------------------------------------------------
+
+const DELETE_ERRORS: Record<string, string> = {
+  confirm_email_mismatch: "That email doesn't match this account.",
+  billing_cancel_failed:
+    "We couldn't cancel your subscription, so nothing was deleted. Try again, or cancel it under Billing first.",
+  storage_delete_failed:
+    "Your data couldn't be deleted, so nothing was changed. Try again shortly.",
+}
+
+function DeleteAccountSection({
+  account,
+  billing,
+}: {
+  account: AccountInfo
+  billing: BillingStatus | null
+}) {
+  const [confirm, setConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const matches = confirm.trim().toLowerCase() === account.email.toLowerCase()
+
+  async function deleteAccount() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await api.account.delete(confirm.trim())
+      try {
+        localStorage.removeItem('qt-plan')
+      } catch {
+        // Storage may be unavailable; nothing to clean up then.
+      }
+      window.location.href = '/login?error=account_deleted'
+    } catch (e) {
+      const code = (e as Error).message
+      setError(DELETE_ERRORS[code] ?? 'Your account could not be deleted. Try again shortly.')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--red-border)',
+        borderRadius: 10,
+        padding: '1.375rem 1.5rem',
+        marginBottom: '1.5rem',
+      }}
+    >
+      <SectionHeading>Delete account</SectionHeading>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 480 }}>
+        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text)', lineHeight: 1.6 }}>
+          Permanently deletes your account, every site, all comments and readers, and your team.
+          Embedded comment widgets stop working. This cannot be undone.
+        </p>
+        {billing?.has_subscription && (
+          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--red-text)', lineHeight: 1.6 }}>
+            Your subscription is cancelled immediately, with no refund for the rest of the billing
+            period.
+          </p>
+        )}
+        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+          To keep your comments, export them first from <a href="/dashboard/sites">Sites</a>.
+        </p>
+        <InputField label={`Type ${account.email} to confirm`} htmlFor="account-delete-confirm">
+          <input
+            id="account-delete-confirm"
+            type="email"
+            autoComplete="off"
+            value={confirm}
+            onInput={(e) => setConfirm((e.target as HTMLInputElement).value)}
+            style={{ width: '100%' }}
+            disabled={deleting}
+          />
+        </InputField>
+        <div>
+          <button
+            type="button"
+            class="btn"
+            onClick={deleteAccount}
+            disabled={!matches || deleting}
+            style={{
+              background: matches ? 'var(--red-text)' : undefined,
+              borderColor: 'var(--red-border)',
+              color: matches ? 'white' : 'var(--red-text)',
+            }}
+          >
+            {deleting ? 'Deleting…' : 'Delete account'}
+          </button>
+        </div>
+        {error && <InlineMsg type="error">{error}</InlineMsg>}
+      </div>
+    </div>
+  )
+}
+
 // ---- Root component ---------------------------------------------------------
 
 function AccountPanelInner() {
@@ -718,6 +812,13 @@ function AccountPanelInner() {
   const { data: billing } = useQuery<BillingStatus>({
     queryKey: queryKeys.billingStatus(),
     queryFn: () => api.billing.status(),
+    enabled: !IS_SELF_HOSTED,
+    staleTime: 60_000,
+  })
+
+  const { data: me } = useQuery({
+    queryKey: queryKeys.me(),
+    queryFn: () => api.me(),
     enabled: !IS_SELF_HOSTED,
     staleTime: 60_000,
   })
@@ -765,6 +866,10 @@ function AccountPanelInner() {
       <SecuritySection billing={billing ?? null} />
 
       {!IS_SELF_HOSTED && <InvitationsSection billing={billing ?? null} />}
+
+      {!IS_SELF_HOSTED && me && !me.is_team_member && (
+        <DeleteAccountSection account={account} billing={billing ?? null} />
+      )}
     </div>
   )
 }

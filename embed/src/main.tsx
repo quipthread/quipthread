@@ -1,75 +1,27 @@
-import { createRoot } from 'react-dom/client'
 import { initApi } from './api'
-import { CommentWidget } from './CommentWidget'
+import { mount, scan } from './mount'
+import type { StartContext } from './public-api'
 import { injectStyles } from './styles'
 
-export const EMBED_MOUNT_ID = 'comments'
+declare const __QT_VERSION__: string
 
-// Capture the script's origin synchronously during IIFE evaluation.
-// document.currentScript is only set while the script tag is being parsed.
-const scriptEl = document.currentScript as HTMLScriptElement | null
-const apiBase = scriptEl?.src ? new URL(scriptEl.src).origin : ''
-
-// CSS custom property overrides readable from data-qt-* attributes on the container.
-// data-qt-accent → --qt-accent, data-qt-bg → --qt-bg, etc.
-const CSS_VAR_ATTRS: [string, string][] = [
-  ['qtAccent', '--qt-accent'],
-  ['qtAccentHover', '--qt-accent-hover'],
-  ['qtBg', '--qt-bg'],
-  ['qtBgAlt', '--qt-bg-alt'],
-  ['qtText', '--qt-text'],
-  ['qtTextMuted', '--qt-text-muted'],
-  ['qtBorder', '--qt-border'],
-  ['qtRadius', '--qt-radius'],
-  ['qtRadiusSm', '--qt-radius-sm'],
-  ['qtRadiusLg', '--qt-radius-lg'],
-  ['qtFont', '--qt-font'],
-]
-
-function mount() {
+/**
+ * Entry point of the widget module, called by embed.js once it has loaded.
+ * Installs the real API, mounts what the page queued before the module
+ * arrived, then mounts the page's auto-mount containers.
+ */
+export function start({ apiBase, queued }: StartContext): void {
   injectStyles()
   initApi(apiBase)
+  window.Quipthread = { version: __QT_VERSION__, mount, scan }
 
-  const container = document.getElementById(EMBED_MOUNT_ID)
-  if (!container) return
-
-  const {
-    siteId = '',
-    pageId = '',
-    pageUrl,
-    pageTitle,
-    lang = 'en',
-    theme,
-    sso,
-  } = container.dataset
-
-  if (!siteId || !pageId) {
-    console.error(`[quipthread] data-site-id and data-page-id are required on #${EMBED_MOUNT_ID}`)
-    return
+  for (const { target, options, attach } of queued) {
+    attach(mount(target, options))
   }
 
-  const customVars: Record<string, string> = {}
-  for (const [dataKey, cssVar] of CSS_VAR_ATTRS) {
-    const val = container.dataset[dataKey]
-    if (val) customVars[cssVar] = val
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scan, { once: true })
+  } else {
+    scan()
   }
-
-  createRoot(container).render(
-    <CommentWidget
-      siteId={siteId}
-      pageId={pageId}
-      pageUrl={pageUrl}
-      pageTitle={pageTitle}
-      lang={lang}
-      theme={theme}
-      customVars={customVars}
-      ssoToken={sso}
-    />,
-  )
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mount)
-} else {
-  mount()
 }

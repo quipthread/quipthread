@@ -149,6 +149,9 @@ export const api = {
       }),
     disconnectIdentity: (provider: string) =>
       req(`/api/admin/account/identity/${provider}`, { method: 'DELETE' }),
+    // Permanently deletes the cloud account; confirmEmail must match it.
+    delete: (confirmEmail: string) =>
+      json('DELETE', '/api/admin/account', { confirm_email: confirmEmail }),
     getSecurity: () => parse(SecuritySettingsSchema, '/api/admin/account/security'),
     updateSecurity: (turnstileSiteKey: string, turnstileSecretKey?: string) =>
       json('PATCH', '/api/admin/account/security', {

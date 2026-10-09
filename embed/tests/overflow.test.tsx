@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
-import { act, type ReactElement } from 'react'
+import { act } from 'preact/test-utils'
+import type { ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { Editor } from '../src/Editor'
 
@@ -64,6 +65,17 @@ async function resize(width: number) {
       }
     }
   })
+}
+
+// Base UI keeps focus guards beside the trigger until a closing popover's exit
+// transition finishes on a later frame, outside the act() that closed it.
+async function closePopover(trigger: HTMLElement) {
+  await act(async () => trigger.click())
+  for (let frame = 0; frame < 20 && document.querySelector('[data-base-ui-focus-guard]'); frame++) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 16))
+    })
+  }
 }
 
 function formattingLabels(container: Element) {
@@ -148,7 +160,7 @@ test('keeps every format reachable while the mounted toolbar shrinks and expands
     expect(more.getAttribute('aria-expanded')).toBe('true')
     expect(container.querySelector('.qt-overflow-popover')).not.toBeNull()
     expect(formattingLabels(container)).toEqual(labels)
-    await act(async () => more.click())
+    await closePopover(more)
   }
   await resize(758)
   expect(toolbar.querySelector('.qt-overflow-trigger')).toBeNull()

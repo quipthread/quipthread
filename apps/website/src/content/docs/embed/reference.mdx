@@ -5,13 +5,13 @@ description: All data attributes and configuration options for the Quipthread em
 
 import { Aside } from '@astrojs/starlight/components';
 
-The Quipthread embed widget is a self-contained JavaScript bundle. It reads configuration from `data-*` attributes on a `<div id="comments">` container element.
+The Quipthread embed widget is a small script that loads the comment widget from your Quipthread instance. It reads configuration from `data-*` attributes on a container element marked with `data-quipthread`.
 
 ## Basic usage
 
 ```html
 <div
-  id="comments"
+  data-quipthread
   data-site-id="YOUR_SITE_ID"
   data-page-id="YOUR_PAGE_ID"
 ></div>
@@ -25,7 +25,11 @@ The script discovers your Quipthread instance automatically from the `src` URL �
 
 ## Container element
 
-The widget mounts into a `<div id="comments">`. Place the element before the script in your HTML. All configuration is placed as `data-*` attributes on this element.
+The widget mounts into every element with the `data-quipthread` attribute when the page loads. All configuration is placed as `data-*` attributes on this element. The element can come before or after the script.
+
+<Aside>
+  Earlier versions used `<div id="comments">`. That markup still works when the element has `data-site-id`. A `#comments` element without it, such as a WordPress theme's native comment section, is left alone.
+</Aside>
 
 ## Attributes
 
@@ -42,8 +46,9 @@ The widget mounts into a `<div id="comments">`. Place the element before the scr
 |---|---|---|
 | `data-page-url` | — | The canonical URL of the page. Stored with comments for reference in the dashboard. |
 | `data-page-title` | — | The title of the page. Stored with comments for display in the dashboard. |
-| `data-lang` | `en` | UI language for the widget. |
+| `data-lang` | `en` | UI language for the widget. English (`en`) is currently the only language; other values fall back to it. |
 | `data-theme` | — | Theme preset name. If omitted or set to `auto`, follows the theme configured in the dashboard for this site, falling back to system preference. See [Theming](/docs/embed/theming/). |
+| `data-qt-*` | — | Overrides for individual colors, corner radii, and the font. See [Theming](/docs/embed/theming/#custom-colors-and-fonts). |
 
 ## Theme override
 
@@ -59,9 +64,46 @@ The `async` attribute is recommended. The script defers mounting until `DOMConte
 <script src="https://your-instance.com/embed.js" async></script>
 ```
 
+`embed.js` is a few hundred bytes. It loads the widget from the same origin, and the comment editor only loads when a reader starts writing.
+
 <Aside>
-  The `src` origin is captured synchronously during script evaluation. If you load the script via a bundler or inject it dynamically after page load, the API base URL detection may not work correctly. Use a standard `<script>` tag in HTML.
+  The script finds your instance from its own `src` URL, so load it with a `<script>` element: in your HTML, or created with `document.createElement('script')`. Bundling `embed.js` into your own JavaScript does not work.
 </Aside>
+
+If your site sends a Content Security Policy, allow your Quipthread origin in `script-src` (for `embed.js` and the modules it loads) and `connect-src` (for the API).
+
+## Single-page apps
+
+In apps that change pages without a full reload (Next.js, Vue, Nuxt, SvelteKit, and similar), mount the widget from JavaScript so it follows navigation. `embed.js` defines `window.Quipthread` as soon as it runs:
+
+```js
+const widget = window.Quipthread.mount(element, {
+  siteId: 'YOUR_SITE_ID',
+  pageId: location.pathname,
+})
+
+// After client-side navigation:
+widget.update({ pageId: location.pathname })
+
+// When the component that holds the element is removed:
+widget.unmount()
+```
+
+`mount(target, options)` takes an element or a CSS selector. Options override the element's `data-*` attributes:
+
+| Option | Attribute |
+|---|---|
+| `siteId` | `data-site-id` |
+| `pageId` | `data-page-id` |
+| `pageUrl` | `data-page-url` |
+| `pageTitle` | `data-page-title` |
+| `lang` | `data-lang` |
+| `theme` | `data-theme` |
+| `vars` | `data-qt-*` (for example `{ accent: '#c06020' }` for `data-qt-accent`) |
+
+Mounting an element that already has a widget updates it instead of adding a second one. Changing `siteId` or `pageId` shows that page's thread. `window.Quipthread.scan()` mounts any new `data-quipthread` elements on the page.
+
+The dashboard's **Embed code** shows ready-made components for Next.js, Vue, Nuxt, and Astro.
 
 ## Voting
 

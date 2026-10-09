@@ -11,8 +11,7 @@ import (
 type ConfigHandler struct {
 	turnstileSiteKey string
 	store            db.Store
-	// publicResolver is true when cloud mode + PUBLIC_SITE_RESOLVER_ENABLED
-	// are active. In that mode PublicConfig requires an explicit public-tenant
+	// publicResolver is true in cloud mode, where PublicConfig requires an explicit public-tenant
 	// context and never touches the handler/global store.
 	publicResolver bool
 }
@@ -21,7 +20,7 @@ func NewConfigHandler(cfg *config.Config, store db.Store) *ConfigHandler {
 	return &ConfigHandler{
 		turnstileSiteKey: cfg.TurnstileSiteKey,
 		store:            store,
-		publicResolver:   cfg.CloudMode && cfg.PublicSiteResolverEnabled,
+		publicResolver:   cfg.CloudMode,
 	}
 }
 

@@ -10,32 +10,6 @@ import (
 
 type LibSQLStore struct{ sqlStore }
 
-// NewLibSQLStore is the legacy DSN-compatible constructor. New Cloud callers
-// must use NewLibSQLStoreWithAuthToken so credentials are supplied separately.
-func NewLibSQLStore(dsn string) (*LibSQLStore, error) {
-	return NewLegacyLibSQLStore(dsn)
-}
-
-// NewLegacyLibSQLStore preserves the historical authToken-in-DSN API.
-// It is retained only for compatibility; Cloud production paths do not use it.
-func NewLegacyLibSQLStore(dsn string) (*LibSQLStore, error) {
-	return NewLegacyLibSQLStoreContext(context.Background(), dsn)
-}
-
-// NewLibSQLStoreContext is the legacy DSN-compatible constructor. New Cloud
-// callers must use NewLibSQLStoreWithAuthTokenContext so target URLs cannot
-// carry credentials. Its context is checked before native work begins, but
-// already-started native connects and SQL operations are non-interruptible;
-// direct callers may remain blocked until they return.
-func NewLibSQLStoreContext(ctx context.Context, dsn string) (*LibSQLStore, error) {
-	return NewLegacyLibSQLStoreContext(ctx, dsn)
-}
-
-// NewLegacyLibSQLStoreContext is the context-aware legacy compatibility path.
-func NewLegacyLibSQLStoreContext(ctx context.Context, dsn string) (*LibSQLStore, error) {
-	return newLibSQLStoreContext(ctx, dsn, "", false)
-}
-
 // NewLibSQLStoreWithAuthToken opens a remote-only Turso store while keeping
 // the token out of the persisted/configured URL.
 func NewLibSQLStoreWithAuthToken(dsn, authToken string) (*LibSQLStore, error) {
@@ -48,23 +22,13 @@ func NewLibSQLStoreWithAuthToken(dsn, authToken string) (*LibSQLStore, error) {
 // operations are non-interruptible; direct callers may remain blocked until
 // they return. A late-completing open is closed rather than retained.
 func NewLibSQLStoreWithAuthTokenContext(ctx context.Context, dsn, authToken string) (*LibSQLStore, error) {
-	return newLibSQLStoreContext(ctx, dsn, authToken, true)
-}
-
-func newLibSQLStoreContext(ctx context.Context, dsn, authToken string, strictQuery bool) (*LibSQLStore, error) {
 	if ctx == nil {
 		return nil, context.Canceled
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	var normalizedDSN string
-	var err error
-	if strictQuery {
-		normalizedDSN, err = libSQLDriverDSNStrict(dsn, authToken)
-	} else {
-		normalizedDSN, err = libSQLDriverDSN(dsn, authToken)
-	}
+	normalizedDSN, err := libSQLDriverDSNStrict(dsn, authToken)
 	if err != nil {
 		return nil, err
 	}

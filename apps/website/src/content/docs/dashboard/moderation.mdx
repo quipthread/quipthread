@@ -7,7 +7,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 ## The approval queue
 
-All comments start in one of three states: `pending`, `approved`, or `rejected`. The **Moderation** tab in the dashboard shows the pending queue by default.
+Every comment is `pending`, `approved`, or `rejected`. The **Comments** page in the dashboard opens on the pending queue; switch to **Approved** or **Rejected** to review the rest.
 
 From the queue you can:
 - **Approve** — the comment becomes visible to all readers
@@ -32,11 +32,17 @@ Select multiple comments using the checkboxes in the queue, then use the bulk ac
 
 ## Site filter
 
-Use the site selector at the top of the Moderation tab to filter the queue to a single site. By default the queue shows comments from all sites.
+Use the site selector at the top of the queue to filter it to a single site. By default the queue shows comments from all sites.
+
+## Flagged comments
+
+Signed-in readers can flag other people's comments as inappropriate; selecting the flag again removes it. A flagged comment stays visible. Open the **Flagged** tab in the queue to see flagged comments with their flag counts, then approve, reject, or delete them.
+
+Reader flagging is available on the Starter plan and above on Quipthread Cloud, and always when self-hosted.
 
 ## Moderation rules
 
-The **Mod Rules** tab (Pro plan and above on cloud; always available when self-hosted) lets you maintain a list of blocked terms.
+The **Mod Rules** page (Pro plan and above on Quipthread Cloud; always available when self-hosted) lets you maintain a list of blocked terms.
 
 - Any comment containing a blocked term is auto-rejected on submission.
 - The author sees "awaiting approval" rather than an error, so the rejection is not obvious.

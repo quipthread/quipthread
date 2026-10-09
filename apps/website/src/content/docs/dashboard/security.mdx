@@ -27,15 +27,17 @@ Auto-rejected comments are saved with `rejected` status so you have an audit tra
 
 ### Blocked terms
 
-The **Mod Rules** tab lets you maintain a list of blocked terms. Any comment containing a blocked term is auto-rejected on submission. See [Moderation](/docs/dashboard/moderation/) for details.
+The **Mod Rules** page lets you maintain a list of blocked terms. Any comment containing a blocked term is auto-rejected on submission. See [Moderation](/docs/dashboard/moderation/) for details.
 
 ### Cloudflare Turnstile
 
-Turnstile adds a bot challenge before the comment form is submitted. Configure your site key and secret key in the dashboard under **Account → Security**. The widget obtains a challenge token in the browser, and the backend verifies it before accepting the comment.
+Turnstile adds a bot challenge before the comment form is submitted. Create a Turnstile widget in your Cloudflare dashboard, then enter its site key and secret key on the **Account** page under **Cloudflare Turnstile**. The widget obtains a challenge token in the browser, and the backend verifies it before accepting the comment.
+
+Turnstile is available on the Starter plan and above on Quipthread Cloud, and always when self-hosted.
 
 ### User banning and shadow banning
 
-Individual users can be banned (hard block) or shadow banned (they see their own comments, other users do not) from the **Users** tab. Shadow banning is effective against persistent bad actors who would simply create a new account after a hard ban.
+Individual users can be banned (hard block) or shadow banned (they see their own comments, other users do not) from the **Users** page. Shadow banning is effective against persistent bad actors who would simply create a new account after a hard ban.
 
 ## IP-level blocking
 

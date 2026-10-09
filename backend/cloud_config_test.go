@@ -54,3 +54,33 @@ func TestValidateCloudConfigApprovalTokenKey(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateBillingConfigRequiresStripeCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name, key, webhook string
+		ok                 bool
+	}{
+		{"secret and webhook secret", "sk_live_abc", "whsec_abc", true},
+		{"restricted key", "rk_live_abc", "whsec_abc", true},
+		{"missing secret key", "", "whsec_abc", false},
+		{"publishable key instead of secret", "pk_live_abc", "whsec_abc", false},
+		{"missing webhook secret", "sk_live_abc", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{CloudMode: true, StripeSecretKey: tc.key, StripeWebhookSecret: tc.webhook}
+			err := validateBillingConfig(cfg)
+			if (err == nil) != tc.ok {
+				t.Fatalf("err = %v, want ok=%v", err, tc.ok)
+			}
+			if err != nil && (strings.Contains(err.Error(), "abc")) {
+				t.Fatalf("error leaks key material: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateBillingConfigIgnoresSelfHosted(t *testing.T) {
+	if err := validateBillingConfig(&config.Config{}); err != nil {
+		t.Fatalf("self-hosted startup rejected without Stripe: %v", err)
+	}
+}

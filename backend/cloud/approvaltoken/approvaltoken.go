@@ -38,14 +38,3 @@ func Hash(key, token string) string {
 	mac.Write([]byte(token))
 	return hex.EncodeToString(mac.Sum(nil))
 }
-
-// HashesEqual compares two hex-encoded hashes in constant time. It is safe to
-// use on attacker-influenced input; timing does not depend on where the
-// strings differ. Empty hashes never compare equal so a missing/unparsed
-// hash can never match a stored locator.
-func HashesEqual(a, b string) bool {
-	if a == "" || b == "" {
-		return false
-	}
-	return hmac.Equal([]byte(a), []byte(b))
-}

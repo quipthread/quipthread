@@ -1,6 +1,7 @@
 import { AllSelection, TextSelection } from '@tiptap/pm/state'
 import type { ChainedCommands, Editor } from '@tiptap/react'
 import { useEditorState } from '@tiptap/react'
+import { forwardRef } from 'react'
 import type { RichTextEditorIcons } from '../icons'
 import type { RichTextEditorLabels } from '../labels'
 import { useRichTextEditorContext } from '../rte-context'
@@ -14,29 +15,29 @@ type CreateControlProps = {
   readonly operation: (chain: ChainedCommands) => ChainedCommands
 }
 
-export const RichTextEditorControl = ({
-  active,
-  interactive = true,
-  className = '',
-  children,
-  onMouseDown,
-  disabled,
-  ...props
-}: RichTextEditorControlProps) => (
-  <button
-    {...props}
-    type="button"
-    aria-pressed={active}
-    data-state={active ? 'on' : 'off'}
-    disabled={disabled || !interactive}
-    className={`rte-control-button ${className}`}
-    onMouseDown={(event) => {
-      event.preventDefault()
-      onMouseDown?.(event)
-    }}
-  >
-    {children}
-  </button>
+// forwardRef rather than a ref prop: the widget runs on Preact, which only
+// passes refs to function components through forwardRef.
+export const RichTextEditorControl = forwardRef<HTMLButtonElement, RichTextEditorControlProps>(
+  (
+    { active, interactive = true, className = '', children, onMouseDown, disabled, ...props },
+    ref,
+  ) => (
+    <button
+      {...props}
+      ref={ref}
+      type="button"
+      aria-pressed={active}
+      data-state={active ? 'on' : 'off'}
+      disabled={disabled || !interactive}
+      className={`rte-control-button ${className}`}
+      onMouseDown={(event) => {
+        event.preventDefault()
+        onMouseDown?.(event)
+      }}
+    >
+      {children}
+    </button>
+  ),
 )
 
 export const createControl = ({

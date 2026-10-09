@@ -25,6 +25,13 @@ function CommentsPanelInner() {
     enabled: status !== 'pending',
   })
 
+  // Shares the cached sites query with ModerationQueue.
+  const { data: sitesData } = useQuery({
+    queryKey: queryKeys.sites(),
+    queryFn: () => api.sites.list(),
+  })
+  const hasNoSites = sitesData !== undefined && sitesData.sites.length === 0
+
   const comments = data?.comments ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -78,6 +85,41 @@ function CommentsPanelInner() {
           status !== 'pending' ? <span className="page-count">{total} total</span> : undefined
         }
       />
+
+      {hasNoSites && (
+        <div
+          style={{
+            background: 'var(--amber-bg)',
+            border: '1px solid var(--amber-border)',
+            borderRadius: 8,
+            padding: '0.75rem 1rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '0.5rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--amber)' }}>
+            You haven't added a site yet.
+          </span>
+          <span style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>
+            Add one to get your embed code. Comments appear here once it's on your pages.
+          </span>
+          <a
+            href="/dashboard/onboarding"
+            style={{
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              color: 'var(--amber)',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Add a site &rarr;
+          </a>
+        </div>
+      )}
 
       <div className="status-tabs">
         {STATUSES.map((s) => (

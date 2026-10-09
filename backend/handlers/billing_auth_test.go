@@ -26,7 +26,7 @@ func TestSelfHostedBillingRejectsRevokedDashboardToken(t *testing.T) {
 	}
 	cfg := &config.Config{JWTSecret: "billing-auth-secret"}
 	r := chi.NewRouter()
-	RegisterBillingRoutes(r, store, cfg, nil, nil)
+	RegisterBillingRoutes(t.Context(), r, store, cfg, nil, nil)
 	token, err := session.IssueWithAudience(cfg.JWTSecret, session.DashboardAudience, "billing-admin", "Admin", "email", "admin", "", 0)
 	if err != nil {
 		t.Fatal(err)

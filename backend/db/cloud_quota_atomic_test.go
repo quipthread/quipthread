@@ -98,7 +98,7 @@ func TestCloudQuotaUpgradeAndDowngradeUseCurrentSubscription(t *testing.T) {
 	for _, tc := range []struct {
 		plan, status string
 		allowed      bool
-	}{{"starter", "active", true}, {"pro", "trialing", true}, {"business", "canceled", false}, {"unknown", "active", false}, {"hobby", "active", false}} {
+	}{{"starter", "active", true}, {"pro", "trialing", true}, {"pro", "past_due", true}, {"pro", "incomplete", false}, {"business", "canceled", false}, {"unknown", "active", false}, {"hobby", "active", false}} {
 		if err := s.UpsertSubscription(&models.Subscription{Plan: tc.plan, Status: tc.status}); err != nil {
 			t.Fatal(err)
 		}

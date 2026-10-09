@@ -7,24 +7,27 @@ import { Aside } from '@astrojs/starlight/components';
 
 ## Import
 
-The **Import** tab in the dashboard lets you migrate comment data from other systems into Quipthread.
+The **Import** page in the dashboard lets you migrate comment data from other systems into Quipthread.
 
 ### Supported import formats
 
-| Format | Description |
+| Source | File |
 |---|---|
-| Disqus XML | Export file from Disqus (`disqus-export.xml`) |
-| WordPress WXR | WordPress export file containing comments |
-| Remark42 JSON | Remark42 backup JSON |
-| Native JSON | Quipthread comment export format |
-| SQLite file | Attach a Quipthread SQLite database file directly |
+| Disqus | XML export from the Disqus admin (**Moderation → Export**) |
+| WordPress WXR | WXR file from WordPress (**Tools → Export**) |
+| Remark42 | JSON export from the Remark42 admin panel |
+| Quipthread JSON | A Quipthread native JSON export |
+| Quipthread SQLite | A Quipthread SQLite database file |
+| Generic SQLite | Any SQLite file. After upload, choose a table and map its columns to comment fields such as content, page URL, author, and date. |
 
 ### How to import
 
-1. Open the **Import** tab in the dashboard.
-2. Select the source format.
-3. Choose the destination site and upload the file.
+1. Open the **Import** page in the dashboard.
+2. Select the source.
+3. Choose the destination site and upload the file. For Generic SQLite, map the columns.
 4. Run the import and review the result.
+
+Re-importing the same file skips comments that were already imported. For Generic SQLite, this requires mapping the source ID column.
 
 <Aside>
   On Quipthread Cloud, imported comments count toward your monthly comment allowance. Check **Billing** before a large import.
@@ -32,14 +35,14 @@ The **Import** tab in the dashboard lets you migrate comment data from other sys
 
 ## Export
 
-Export your comment data from the **Sites** tab. Select **Export** on a site row to reveal the export controls.
+Export your comment data from the **Sites** page. Select **Export** on a site row to reveal the export controls.
 
 ### Supported export formats
 
 | Format | Availability |
 |---|---|
 | Native JSON | All plans |
-| CSV | Starter plan and above (cloud only) |
+| CSV | Starter plan and above on Quipthread Cloud; always when self-hosted |
 
 Use native JSON to move comments between Quipthread instances. An export is not a complete instance backup: it does not replace the database, account, and configuration backups described in [Backups and restore](/docs/guides/backups/).
 
@@ -55,6 +58,6 @@ Before exporting you can narrow the data:
 
 ### How to export
 
-1. Open the **Sites** tab and select **Export** for your site.
+1. Open the **Sites** page and select **Export** for your site.
 2. Choose the format and set any filters.
 3. Click **Export** — the browser will download the file directly.

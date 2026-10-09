@@ -40,12 +40,24 @@ func TestEnforceDashboardOriginUsesRefererOnlyAsFallback(t *testing.T) {
 	}
 }
 
+func TestEnforceEmbedOriginIgnoresRequestsWithoutBearer(t *testing.T) {
+	h := EnforceEmbedOrigin([]string{"https://publisher.example"})(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	r := httptest.NewRequest(http.MethodPost, "/api/comments", nil)
+	r.Header.Set("Origin", "https://evil.example")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, r)
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want pass-through to auth", rr.Code)
+	}
+}
+
 func TestEnforceEmbedOriginRequiresConfiguredPublisher(t *testing.T) {
 	h := EnforceEmbedOrigin([]string{"https://publisher.example"})(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
 	for _, origin := range []string{"https://publisher.example", "https://evil.example", ""} {
 		r := httptest.NewRequest(http.MethodPost, "/api/comments", nil)
-		r.AddCookie(&http.Cookie{Name: session.EmbedCookieName, Value: "session"})
+		r.Header.Set("Authorization", "Bearer session")
 		if origin != "" {
 			r.Header.Set("Origin", origin)
 		}

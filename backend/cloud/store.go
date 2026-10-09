@@ -159,6 +159,16 @@ type Store interface {
 	GetAccountByStripeCustomerID(stripeCustomerID string) (*Account, error)
 	UpdateAccountEmailVerified(id string) error
 	UpdateAccountPassword(id string, passwordHash string) error
+	// ClaimUnverifiedAccount hands an account whose email was never verified
+	// to an OAuth identity that proved the same email: it marks the email
+	// verified and removes the password and pending email tokens, which were
+	// created by someone who never proved ownership.
+	ClaimUnverifiedAccount(id string) error
+	// DeleteAccount removes the account and everything the control plane
+	// holds for it: sign-in links, email tokens, its team, site registrations,
+	// approval tokens, and the account's own memberships in other teams.
+	// The tenant database is deleted separately, before this.
+	DeleteAccount(id string) error
 	UpdateAccountPlan(id string, plan, dbType, dbURL string) error
 	UpdateAccountStripeCustomer(id, stripeCustomerID string) error
 

@@ -15,8 +15,8 @@
     "build:embed": "bun run --cwd embed build",
     "build:website": "bun run --cwd apps/website build",
     "build": "bun run build:embed && bun run build:dashboard && bun run build:website",
-    "build:assets": "bun run build:embed && bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
-    "build:assets:selfhosted": "bun run build:embed && PUBLIC_BUILD_TARGET=selfhosted bun run build:dashboard && mkdir -p backend/static/dashboard && cp embed/dist/embed.iife.js backend/static/embed.js && cp -r apps/dashboard/dist/. backend/static/dashboard/",
+    "build:assets": "bun run build:embed && bun run build:dashboard && mkdir -p backend/static/dashboard && rm -rf backend/static/widget && cp -r embed/dist backend/static/widget && cp -r apps/dashboard/dist/. backend/static/dashboard/",
+    "build:assets:selfhosted": "bun run build:embed && PUBLIC_BUILD_TARGET=selfhosted bun run build:dashboard && mkdir -p backend/static/dashboard && rm -rf backend/static/widget && cp -r embed/dist backend/static/widget && cp -r apps/dashboard/dist/. backend/static/dashboard/",
     "build:cli": "bun run --cwd packages/create-quipthread build",
     "dev:cli": "bun run --cwd packages/create-quipthread dev",
     "test:backend": "cd backend && go test ./...",
@@ -27,17 +27,16 @@
   "overrides": {
     "h3": "^1.15.10",
     "smol-toml": "^1.6.1",
-    "prosemirror-model": "1.25.11",
+    "prosemirror-model": "1.25.12",
     "fflate": "0.7.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13"
+    "@biomejs/biome": "^2.5.15"
   },
   "dependencies": {
-    "@astrojs/preact": "^6.0.5",
-    "@astrojs/starlight": "0.41.11",
-    "@vitejs/plugin-react": "^6.1.1",
-    "astro": "^7.3.2",
-    "vite": "^8.3.0"
+    "@astrojs/preact": "^6.0.6",
+    "@astrojs/starlight": "0.42.6",
+    "astro": "^7.3.8",
+    "vite": "^8.3.4"
   }
 }

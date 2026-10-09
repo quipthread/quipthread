@@ -33,7 +33,7 @@ func newSanitizeTestHandler(t *testing.T) (*AdminHandler, db.Store) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
-	h := NewAdminHandler(store, &config.Config{JWTSecret: "test-secret"})
+	h := NewAdminHandlerWithCloud(store, &config.Config{JWTSecret: "test-secret"}, nil)
 	return h, store
 }
 

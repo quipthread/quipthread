@@ -10,12 +10,6 @@ import (
 	"github.com/quipthread/quipthread/session"
 )
 
-// RequireAuth is the dashboard compatibility wrapper. New routes should name
-// their trust domain explicitly with RequireAuthForAudience.
-func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
-	return RequireAuthForAudience(jwtSecret, session.DashboardAudience, nil)
-}
-
 func RequireAuthForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,11 +20,6 @@ func RequireAuthForAudience(jwtSecret, audience string, fallback db.Store) func(
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), session.UserKey, claims)))
 		})
 	}
-}
-
-// RequireAdmin runs after RequireAuth and validates a dashboard session.
-func RequireAdmin(jwtSecret string) func(http.Handler) http.Handler {
-	return RequireAdminForAudience(jwtSecret, session.DashboardAudience, nil)
 }
 
 func RequireAdminForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
@@ -73,11 +62,6 @@ func RequireOwnerForAudience(jwtSecret, audience string, fallback db.Store) func
 	}
 }
 
-// InjectAuth is the dashboard compatibility wrapper.
-func InjectAuth(jwtSecret string) func(http.Handler) http.Handler {
-	return InjectAuthForAudience(jwtSecret, session.DashboardAudience, nil)
-}
-
 func InjectAuthForAudience(jwtSecret, audience string, fallback db.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,19 +74,31 @@ func InjectAuthForAudience(jwtSecret, audience string, fallback db.Store) func(h
 }
 
 func authenticate(w http.ResponseWriter, r *http.Request, jwtSecret, audience string, fallback db.Store) (*session.Claims, bool) {
-	cookie, err := r.Cookie(session.CookieNameForAudience(audience))
-	if err != nil {
+	fail := func(msg string) (*session.Claims, bool) {
 		if w != nil {
-			writeError(w, http.StatusUnauthorized, "authentication required")
+			writeError(w, http.StatusUnauthorized, msg)
 		}
 		return nil, false
 	}
-	claims, err := session.ParseForAudience(jwtSecret, cookie.Value, audience)
+
+	// Dashboard sessions live in an HttpOnly cookie on the application origin.
+	// Embed sessions are site-bound bearer tokens held by the publisher's page
+	// and are never read from cookies.
+	var raw string
+	if audience == session.EmbedAudience {
+		raw = session.BearerToken(r)
+	} else if cookie, err := r.Cookie(session.DashboardCookieName); err == nil {
+		raw = cookie.Value
+	}
+	if raw == "" {
+		return fail("authentication required")
+	}
+	claims, err := session.ParseForAudience(jwtSecret, raw, audience)
 	if err != nil {
-		if w != nil {
-			writeError(w, http.StatusUnauthorized, "invalid or expired session")
-		}
-		return nil, false
+		return fail("invalid or expired session")
+	}
+	if audience == session.EmbedAudience && !embedClaimsMatchRequest(r, claims) {
+		return fail("session not valid for this site")
 	}
 
 	store := fallback
@@ -112,13 +108,24 @@ func authenticate(w http.ResponseWriter, r *http.Request, jwtSecret, audience st
 	if store != nil {
 		user, err := store.GetUser(claims.Sub)
 		if err != nil || user == nil || user.Banned || generationForAudience(user, audience) != claims.SessionGeneration {
-			if w != nil {
-				writeError(w, http.StatusUnauthorized, "invalid or revoked session")
-			}
-			return nil, false
+			return fail("invalid or revoked session")
 		}
 	}
 	return claims, true
+}
+
+// embedClaimsMatchRequest binds an embed token to the site the request is
+// for. When a public tenant has been resolved, both its site and owning
+// account must match the token; otherwise the required siteId query
+// parameter must match.
+func embedClaimsMatchRequest(r *http.Request, claims *session.Claims) bool {
+	if claims.SiteID == "" {
+		return false
+	}
+	if pt, ok := db.PublicTenantFromContext(r.Context()); ok {
+		return pt.SiteID == claims.SiteID && pt.AccountID == claims.AccountID
+	}
+	return r.URL.Query().Get("siteId") == claims.SiteID
 }
 
 func generationForAudience(user *models.User, audience string) int64 {

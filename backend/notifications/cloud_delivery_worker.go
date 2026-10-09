@@ -90,15 +90,10 @@ type CloudTenantDeliveryWorker struct {
 	wg     sync.WaitGroup
 }
 
-// StartCloudTenantDeliveryWorker starts the fixed one-minute cloud delivery
-// loop. The pass function must honor its context so shutdown can release
-// tenant-cache leases promptly.
-func StartCloudTenantDeliveryWorker(ctx context.Context, run func(context.Context) error) *CloudTenantDeliveryWorker {
-	return startCloudTenantDeliveryWorker(ctx, run, CloudTenantDeliveryCadence, nil, nil)
-}
-
-// StartCloudTenantDeliveryWorkerWithSummary is the operationally observable
-// variant used by startup wiring. The sink receives no raw pass/provider error.
+// StartCloudTenantDeliveryWorkerWithSummary starts the fixed one-minute cloud
+// delivery loop. The pass function must honor its context so shutdown can
+// release tenant-cache leases promptly. The sink receives no raw pass/provider
+// error.
 func StartCloudTenantDeliveryWorkerWithSummary(ctx context.Context, run CloudTenantDeliveryPassRunner, sink CloudTenantDeliverySummarySink) *CloudTenantDeliveryWorker {
 	if run == nil {
 		return nil

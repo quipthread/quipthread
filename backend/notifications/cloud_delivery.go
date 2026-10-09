@@ -17,6 +17,26 @@ import (
 	"github.com/quipthread/quipthread/models"
 )
 
+// Bounds for a cloud tenant delivery pass.
+const (
+	DefaultCloudTenantPageSize    = 50
+	MaxCloudTenantPageSize        = 100
+	DefaultCloudTenantConcurrency = 4
+	MaxCloudTenantConcurrency     = 32
+	DefaultCloudTenantTimeout     = 30 * time.Second
+	MaxCloudTenantTimeout         = 5 * time.Minute
+	DefaultCloudTenantClaimLimit  = 100
+	MaxCloudTenantClaimLimit      = 100
+	DefaultCloudTenantLease       = 5 * time.Minute
+	MaxCloudTenantLease           = time.Hour
+)
+
+// CloudAccountLocatorSource is intentionally narrower than cloud.Store. A
+// cloud.Store satisfies it, while a tenant-content db.Store cannot.
+type CloudAccountLocatorSource interface {
+	ListAccountLocators(ctx context.Context, cursor string, limit int) (locators []*cloud.AccountLocator, nextCursor string, err error)
+}
+
 const (
 	DefaultCloudTenantDeliveryRetryDelay = time.Minute
 	DefaultCloudTenantDeliveryTokenTTL   = 24 * time.Hour
@@ -117,32 +137,19 @@ type normalizedCloudTenantDeliveryOptions struct {
 	senderFactory     func(CloudTenantDeliveryLease) ChannelSender
 }
 
-// CloudEligibleChannelNames returns the cloud provider channels eligible for
-// a new digest. SMTP and SES are deliberately excluded.
+// CloudEligibleChannelNames returns the channels eligible for a new cloud
+// digest: email to each site's owner, through an HTTP provider. SMTP and SES
+// are excluded. Slack, Discord, Telegram, and webhook settings are
+// server-wide, so in cloud they would deliver every customer's comments to
+// one destination; they stay off until customers can configure their own.
 func CloudEligibleChannelNames(cfg *config.Config) []string {
 	if cfg == nil {
 		return nil
 	}
-	channels := make([]string, 0, 5)
-	// HTTP providers are eligible for cloud digests. SES stays excluded
-	// because it is delivered over SMTP, and plain SMTP is never a cloud
-	// digest channel.
 	if provider := strings.ToLower(strings.TrimSpace(cfg.EmailProvider)); provider != "ses" && emailAPIProviderReady(cfg) {
-		channels = append(channels, ChannelEmail)
+		return []string{ChannelEmail}
 	}
-	if cfg.SlackWebhookURL != "" {
-		channels = append(channels, ChannelSlack)
-	}
-	if cfg.DiscordWebhookURL != "" {
-		channels = append(channels, ChannelDiscord)
-	}
-	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
-		channels = append(channels, ChannelTelegram)
-	}
-	if cfg.WebhookURL != "" {
-		channels = append(channels, ChannelWebhook)
-	}
-	return channels
+	return nil
 }
 
 // NewCloudTenantChannelSenderFactory builds providers after the tenant lease
@@ -174,21 +181,8 @@ func NewCloudTenantChannelSenderFactory(cfg *config.Config) func(CloudTenantDeli
 			return user.Email, nil
 		}
 		notifiers := make(map[string]Notifier)
-		if cfg != nil {
-			for _, channel := range CloudEligibleChannelNames(cfg) {
-				switch channel {
-				case ChannelEmail:
-					notifiers[channel] = NewContextEmailAPINotifier(cfg, ownerEmailContext, ownerEmail)
-				case ChannelSlack:
-					notifiers[channel] = NewSlackNotifier(cfg)
-				case ChannelDiscord:
-					notifiers[channel] = NewDiscordNotifier(cfg)
-				case ChannelTelegram:
-					notifiers[channel] = NewTelegramNotifier(cfg)
-				case ChannelWebhook:
-					notifiers[channel] = NewWebhookNotifier(cfg)
-				}
-			}
+		if len(CloudEligibleChannelNames(cfg)) > 0 {
+			notifiers[ChannelEmail] = NewContextEmailAPINotifier(cfg, ownerEmailContext, ownerEmail)
 		}
 		return NewNamedChannelSender(notifiers)
 	}

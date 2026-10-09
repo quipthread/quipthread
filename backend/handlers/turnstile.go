@@ -7,7 +7,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+// turnstileClient bounds siteverify calls so a slow Cloudflare response
+// cannot hold comment submissions open indefinitely.
+var turnstileClient = &http.Client{Timeout: 10 * time.Second}
 
 type turnstileResponse struct {
 	Success bool     `json:"success"`
@@ -38,7 +43,7 @@ func verifyTurnstile(ctx context.Context, secret, token, remoteIP string) (bool,
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := turnstileClient.Do(req)
 	if err != nil {
 		return false, err
 	}

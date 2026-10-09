@@ -7,10 +7,11 @@ import "time"
 type Subscription struct {
 	StripeCustomerID string
 	StripeSubID      string
-	Plan             string // hobby | starter | pro | business
-	Status           string // active | trialing | past_due | canceled
+	Plan             string // hobby | starter | pro | business | enterprise
+	Status           string // active | trialing | past_due | incomplete | paused | canceled
 	Interval         string // month | year (empty for hobby)
 	TrialEndsAt      *time.Time
 	CurrentPeriodEnd *time.Time
+	CancelAt         *time.Time // set while the subscription is scheduled to end
 	UpdatedAt        time.Time
 }

@@ -1,12 +1,17 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/quipthread/quipthread/config"
 	"github.com/quipthread/quipthread/db"
+	"github.com/quipthread/quipthread/middleware"
 	"github.com/quipthread/quipthread/models"
 	"github.com/quipthread/quipthread/session"
 )
@@ -65,20 +70,139 @@ func TestInterruptedEmbedFlowCannotRedirectLaterDashboardFlow(t *testing.T) {
 	}
 }
 
-func TestResolveOAuthFlowAudienceAndRedirectPolicy(t *testing.T) {
-	h := &Handler{config: &config.Config{
-		BaseURL:        "https://app.example.test",
-		AllowedOrigins: []string{"https://publisher.example.test"},
-	}}
-	legacy := httptest.NewRequest(http.MethodGet, "/auth/github/login?returnTo=https://publisher.example.test/article", nil)
-	binding, err := h.resolveOAuthFlow(legacy)
-	if err != nil || binding.Audience != session.EmbedAudience || binding.Redirect != "https://publisher.example.test/article" {
-		t.Fatalf("legacy flow = %#v, err=%v", binding, err)
+// newEmbedOAuthHandler returns a self-hosted handler whose store holds one
+// site on publisher.example.test, wired for embed sign-in.
+func newEmbedOAuthHandler(t *testing.T, allowed ...string) (*Handler, db.Store) {
+	t.Helper()
+	store, err := db.NewSQLiteStoreForTest(":memory:")
+	if err != nil {
+		t.Fatal(err)
 	}
-	explicitDashboard := httptest.NewRequest(http.MethodGet, "/auth/github/login?audience=dashboard&returnTo=https://publisher.example.test/article", nil)
-	binding, err = h.resolveOAuthFlow(explicitDashboard)
-	if err != nil || binding.Audience != session.DashboardAudience || binding.Redirect != h.config.BaseURL {
-		t.Fatalf("explicit dashboard flow = %#v, err=%v", binding, err)
+	t.Cleanup(func() { store.Close() }) //nolint:errcheck
+	if err := store.CreateSite(&models.Site{ID: "site-1", OwnerID: "owner", Domain: "publisher.example.test", Theme: "auto"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{BaseURL: "https://app.example.test", JWTSecret: "embed-oauth-secret", AllowedOrigins: allowed}
+	h := &Handler{store: store, config: cfg}
+	h.SetEmbedSites(middleware.NewEmbedSites(store, nil, nil, cfg))
+	return h, store
+}
+
+func TestResolveOAuthFlowAudienceAndRedirectPolicy(t *testing.T) {
+	h, _ := newEmbedOAuthHandler(t, "https://allowed.example.test")
+	for _, tc := range []struct {
+		name         string
+		query        string
+		wantErr      bool
+		wantAudience string
+		wantRedirect string
+	}{
+		{"no audience is dashboard, even with an external returnTo", "returnTo=https://publisher.example.test/article", false, session.DashboardAudience, "https://app.example.test"},
+		{"explicit dashboard", "audience=dashboard&returnTo=https://publisher.example.test/article", false, session.DashboardAudience, "https://app.example.test"},
+		{"embed on the site's domain", "audience=embed&siteId=site-1&returnTo=https://publisher.example.test/article?p=1%23old", false, session.EmbedAudience, "https://publisher.example.test/article?p=1"},
+		{"embed on a self-hosted allowed origin", "audience=embed&siteId=site-1&returnTo=https://allowed.example.test/a", false, session.EmbedAudience, "https://allowed.example.test/a"},
+		{"embed on another domain", "audience=embed&siteId=site-1&returnTo=https://evil.example.test/a", true, "", ""},
+		{"embed on a subdomain", "audience=embed&siteId=site-1&returnTo=https://www.publisher.example.test/a", true, "", ""},
+		{"embed with a non-http scheme", "audience=embed&siteId=site-1&returnTo=javascript:alert(1)", true, "", ""},
+		{"embed without a site", "audience=embed&returnTo=https://publisher.example.test/a", true, "", ""},
+		{"embed for an unknown site", "audience=embed&siteId=nope&returnTo=https://publisher.example.test/a", true, "", ""},
+		{"unknown audience", "audience=admin", true, "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			binding, err := h.resolveOAuthFlow(httptest.NewRequest(http.MethodGet, "/auth/github/login?"+tc.query, nil))
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("binding = %#v, want error", binding)
+				}
+				return
+			}
+			if err != nil || binding.Audience != tc.wantAudience || binding.Redirect != tc.wantRedirect {
+				t.Fatalf("binding = %#v, err = %v", binding, err)
+			}
+			if tc.wantAudience == session.EmbedAudience && binding.SiteID != "site-1" {
+				t.Fatalf("embed binding site = %q", binding.SiteID)
+			}
+		})
+	}
+}
+
+// embedCallback runs the shared OAuth callback for an embed binding with a
+// fake provider exchange and returns the redirect Location.
+func embedCallback(t *testing.T, h *Handler, query string, exchange func(context.Context, *http.Request) (*UserInfo, error)) string {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	setStateCookie(rr, oauthStateBinding{State: "s1", Audience: session.EmbedAudience, Redirect: "https://publisher.example.test/article", SiteID: "site-1"}, false)
+	r := httptest.NewRequest(http.MethodGet, "/auth/github/callback?state=s1"+query, nil)
+	for _, cookie := range rr.Result().Cookies() {
+		r.AddCookie(cookie)
+	}
+	out := httptest.NewRecorder()
+	h.oauthCallback(out, r, exchange)
+	if out.Code != http.StatusFound {
+		t.Fatalf("status = %d, body = %s", out.Code, out.Body.String())
+	}
+	for _, cookie := range out.Result().Cookies() {
+		if cookie.Name == session.DashboardCookieName && cookie.MaxAge >= 0 {
+			t.Fatal("embed sign-in set a dashboard session cookie")
+		}
+	}
+	return out.Header().Get("Location")
+}
+
+func TestEmbedOAuthCallbackReturnsSiteBoundTokenInFragment(t *testing.T) {
+	h, store := newEmbedOAuthHandler(t)
+	reader := &UserInfo{Provider: "github", ProviderID: "gh-1", DisplayName: "Reader", Email: "reader@example.test"}
+	loc := embedCallback(t, h, "", func(context.Context, *http.Request) (*UserInfo, error) { return reader, nil })
+
+	const prefix = "https://publisher.example.test/article#qt_auth="
+	if !strings.HasPrefix(loc, prefix) {
+		t.Fatalf("Location = %q", loc)
+	}
+	raw, err := url.QueryUnescape(strings.TrimPrefix(loc, prefix))
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := session.ParseForAudience(h.config.JWTSecret, raw, session.EmbedAudience)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.SiteID != "site-1" || claims.Role != "commenter" {
+		t.Fatalf("claims = %#v", claims)
+	}
+	// The first user in an empty store must not become an admin via the embed.
+	user, err := store.GetUser(claims.Sub)
+	if err != nil || user == nil || user.Role != "commenter" {
+		t.Fatalf("user = %#v, err = %v", user, err)
+	}
+}
+
+func TestEmbedOAuthCallbackFailuresReturnErrorFragment(t *testing.T) {
+	h, store := newEmbedOAuthHandler(t)
+	banned := &models.User{ID: "banned-user", DisplayName: "Banned", Role: "commenter", Banned: true}
+	if err := store.UpsertUser(banned); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateIdentity(&models.UserIdentity{UserID: banned.ID, Provider: "github", ProviderID: "gh-banned"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name     string
+		query    string
+		exchange func(context.Context, *http.Request) (*UserInfo, error)
+		code     string
+	}{
+		{"provider denied", "&error=access_denied", nil, "denied"},
+		{"exchange failed", "", func(context.Context, *http.Request) (*UserInfo, error) { return nil, errors.New("boom") }, "provider_error"},
+		{"banned reader", "", func(context.Context, *http.Request) (*UserInfo, error) {
+			return &UserInfo{Provider: "github", ProviderID: "gh-banned", DisplayName: "Banned"}, nil
+		}, "banned"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			loc := embedCallback(t, h, tc.query, tc.exchange)
+			if want := "https://publisher.example.test/article#qt_auth_error=" + tc.code; loc != want {
+				t.Fatalf("Location = %q, want %q", loc, want)
+			}
+		})
 	}
 }
 

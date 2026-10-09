@@ -85,7 +85,6 @@ type Config struct {
 	CloudMode           bool   // CLOUD_MODE — enables Stripe, plan enforcement, Turso provisioning
 	StripeSecretKey     string // STRIPE_SECRET_KEY
 	StripeWebhookSecret string // STRIPE_WEBHOOK_SECRET
-	StripePrices        StripePrices
 
 	// Cloud multi-tenant
 	MasterDatabaseURL                string // MASTER_DATABASE_URL — local cloud master DB path; remote libsql:// and https:// are rejected. Empty = data/cloud.db
@@ -97,11 +96,6 @@ type Config struct {
 	// the defaults enforced by middleware.NewStoreCacheWithLimits.
 	TenantStoreCacheCapacity int           // TENANT_STORE_CACHE_CAPACITY — max cached tenant stores (LRU-bounded)
 	TenantStoreCacheTTL      time.Duration // TENANT_STORE_CACHE_TTL — idle eviction window, e.g. "20m"
-
-	// Public site resolver (cloud-only, disabled by default). When enabled,
-	// GET /api/config and GET /api/comments resolve their tenant from the site
-	// registry (siteId query param) instead of session cookies.
-	PublicSiteResolverEnabled bool // PUBLIC_SITE_RESOLVER_ENABLED
 
 	// Approval-token HMAC key (cloud mode). Dedicated secret used to derive
 	// HMAC-SHA-256 hashes of comment-approval bearer tokens for the cloud
@@ -118,17 +112,6 @@ type Config struct {
 	CookieDomain string // COOKIE_DOMAIN — e.g. ".quipthread.com" in production; empty in self-hosted
 }
 
-type StripePrices struct {
-	StarterMonthly    string // STRIPE_PRICE_STARTER_MONTHLY
-	StarterYearly     string // STRIPE_PRICE_STARTER_YEARLY
-	ProMonthly        string // STRIPE_PRICE_PRO_MONTHLY
-	ProYearly         string // STRIPE_PRICE_PRO_YEARLY
-	BusinessMonthly   string // STRIPE_PRICE_BUSINESS_MONTHLY
-	BusinessYearly    string // STRIPE_PRICE_BUSINESS_YEARLY
-	EnterpriseMonthly string // STRIPE_PRICE_ENTERPRISE_MONTHLY
-	EnterpriseYearly  string // STRIPE_PRICE_ENTERPRISE_YEARLY
-}
-
 func Load() *Config {
 	_ = godotenv.Load("../.env", ".env")
 
@@ -141,7 +124,7 @@ func Load() *Config {
 		}
 	}
 
-	return &Config{
+	cfg := &Config{
 		Port:             getEnv("PORT", "8080"),
 		GitHubClientID:   os.Getenv("GITHUB_CLIENT_ID"),
 		GitHubSecret:     os.Getenv("GITHUB_CLIENT_SECRET"),
@@ -188,16 +171,6 @@ func Load() *Config {
 		CloudMode:           os.Getenv("CLOUD_MODE") == "true",
 		StripeSecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
 		StripeWebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
-		StripePrices: StripePrices{
-			StarterMonthly:    os.Getenv("STRIPE_PRICE_STARTER_MONTHLY"),
-			StarterYearly:     os.Getenv("STRIPE_PRICE_STARTER_YEARLY"),
-			ProMonthly:        os.Getenv("STRIPE_PRICE_PRO_MONTHLY"),
-			ProYearly:         os.Getenv("STRIPE_PRICE_PRO_YEARLY"),
-			BusinessMonthly:   os.Getenv("STRIPE_PRICE_BUSINESS_MONTHLY"),
-			BusinessYearly:    os.Getenv("STRIPE_PRICE_BUSINESS_YEARLY"),
-			EnterpriseMonthly: os.Getenv("STRIPE_PRICE_ENTERPRISE_MONTHLY"),
-			EnterpriseYearly:  os.Getenv("STRIPE_PRICE_ENTERPRISE_YEARLY"),
-		},
 
 		MasterDatabaseURL:                os.Getenv("MASTER_DATABASE_URL"),
 		TenantDataDir:                    getEnv("TENANT_DATA_DIR", "data/tenants"),
@@ -205,8 +178,6 @@ func Load() *Config {
 
 		TenantStoreCacheCapacity: getEnvPositiveInt("TENANT_STORE_CACHE_CAPACITY"),
 		TenantStoreCacheTTL:      getEnvPositiveDuration("TENANT_STORE_CACHE_TTL"),
-
-		PublicSiteResolverEnabled: os.Getenv("PUBLIC_SITE_RESOLVER_ENABLED") == "true",
 
 		ApprovalTokenHMACKey: os.Getenv("APPROVAL_TOKEN_HMAC_KEY"),
 
@@ -216,6 +187,7 @@ func Load() *Config {
 
 		CookieDomain: os.Getenv("COOKIE_DOMAIN"),
 	}
+	return cfg
 }
 
 // ValidateProductionConfig validates values that must never be guessed or

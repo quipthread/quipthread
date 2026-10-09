@@ -1,7 +1,8 @@
 import { afterEach, expect, test } from 'bun:test'
 import { Editor as TiptapEditor } from '@tiptap/core'
 import { AllSelection } from '@tiptap/pm/state'
-import { act, createRef, type ReactElement } from 'react'
+import { act } from 'preact/test-utils'
+import { createRef, type ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { CommentForm } from '../src/CommentForm'
 import { Editor, type EditorRef } from '../src/Editor'
@@ -18,6 +19,16 @@ async function mount(component: ReactElement) {
   const root = createRoot(container)
   roots.push(root)
   await act(async () => root.render(component))
+  return container
+}
+
+// CommentForm loads the editor chunk asynchronously (LazyEditor).
+async function waitForEditor(container: Element) {
+  for (let tick = 0; tick < 50 && !container.querySelector('[role="textbox"]'); tick++) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+  }
   return container
 }
 
@@ -102,7 +113,7 @@ test('restores edited reply HTML when a comment form closes and reopens', async 
       onSuccess={() => {}}
     />
   )
-  const container = await mount(form)
+  const container = await waitForEditor(await mount(form))
   const textbox = requireElement(container.querySelector<HTMLElement>('[role="textbox"]'))
   const bold = requireElement(
     container.querySelector<HTMLButtonElement>('button[aria-label="Bold"]'),
@@ -125,7 +136,7 @@ test('restores edited reply HTML when a comment form closes and reopens', async 
   await act(async () => {
     for (const root of roots.splice(0)) root.unmount()
   })
-  const reopened = await mount(form)
+  const reopened = await waitForEditor(await mount(form))
 
   // Then: the remounted editor preserves the latest formatting, not the original draft.
   expect(reopened.querySelector('[role="textbox"] strong')?.textContent).toBe('Reply draft')

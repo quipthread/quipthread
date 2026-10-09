@@ -1,14 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/preact-query'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { API, api } from '../api'
+import { meetsPlan } from '../lib/plan'
 import { queryKeys } from '../lib/queryKeys'
 import type { AnalyticsData, Site } from '../types'
 import EmbedCodeGenerator from './EmbedCodeGenerator'
 import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 import ThemeSwatches from './ThemeSwatches'
-
-const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
 function sectionStyle() {
   return {
@@ -69,7 +68,7 @@ function PreviewPanelInner() {
 
   const plan = billing?.plan ?? null
   const sites = sitesData?.sites ?? []
-  const hasAnalytics = plan !== null && PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf('starter')
+  const hasAnalytics = meetsPlan(plan, 'starter')
   const activeSite = sites.find((s) => s.id === activeSiteId)
   const apiBase = typeof window !== 'undefined' ? API || window.location.origin : ''
 

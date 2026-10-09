@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/preact-query'
 import { useEffect } from 'preact/hooks'
 import { api } from '../api'
-import { queryClient } from '../lib/queryClient'
 import { queryKeys } from '../lib/queryKeys'
 import QueryProvider from './QueryProvider'
 
@@ -28,7 +27,3 @@ export default function NavPlanSync() {
     </QueryProvider>
   )
 }
-
-// Exported so CheckoutSuccessModal can bust the billing cache after a successful
-// checkout without needing to mount its own provider.
-export { queryClient }

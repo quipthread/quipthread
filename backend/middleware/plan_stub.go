@@ -11,25 +11,6 @@ import (
 	"github.com/quipthread/quipthread/session"
 )
 
-// PlanLimits maps plan → [commentsPerMonth, sitesLimit] (-1 = unlimited).
-// Kept in the !cloud stub so shared code (e.g. billing status) can reference it.
-var PlanLimits = map[string][2]int{
-	"selfhosted": {-1, 1},
-	"hobby":      {1_000, 1},
-	"starter":    {10_000, 5},
-	"pro":        {50_000, 20},
-	"business":   {250_000, -1},
-	"enterprise": {-1, -1},
-}
-
-// PlanRank maps plan name → ordinal for comparison.
-var PlanRank = map[string]int{
-	"selfhosted": 0, "hobby": 0, "starter": 1, "pro": 2, "business": 3, "enterprise": 4,
-}
-
-// InvalidateSubCache is a no-op in dev builds.
-func InvalidateSubCache() {}
-
 // GetCachedSubscription returns a synthetic "business" subscription in
 // dev builds — all features unlocked, no Stripe interaction.
 func GetCachedSubscription(_ string, _ db.Store) (*models.Subscription, error) {

@@ -8,21 +8,28 @@ type Limits struct {
 	Rank     int
 }
 
+//go:generate go run ./internal/gencatalog
+
+// Catalog returns every plan's limits and rank, keyed by plan id. The data is
+// generated from packages/plans/catalog.json, which the website, dashboard,
+// and Stripe setup also read. -1 means unlimited.
 func Catalog() map[string]Limits {
-	return map[string]Limits{
-		"hobby":      {1000, 1, 0},
-		"starter":    {10000, 5, 1},
-		"pro":        {50000, 20, 2},
-		"business":   {250000, -1, 3},
-		"enterprise": {-1, -1, 4},
+	out := make(map[string]Limits, len(catalog))
+	for id, limits := range catalog {
+		out[id] = limits
 	}
+	return out
 }
 
 func Effective(sub *models.Subscription) string {
 	if sub == nil {
 		return "hobby"
 	}
-	if sub.Status != "active" && sub.Status != "trialing" {
+	// past_due keeps the plan while Stripe retries the payment; the plan
+	// drops only once Stripe ends the subscription.
+	switch sub.Status {
+	case "active", "trialing", "past_due":
+	default:
 		return "hobby"
 	}
 	if _, ok := Catalog()[sub.Plan]; !ok {

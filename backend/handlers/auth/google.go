@@ -58,21 +58,23 @@ func (p *GoogleProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by Decode
 
 	var userInfo struct {
-		Sub     string `json:"sub"`
-		Name    string `json:"name"`
-		Email   string `json:"email"`
-		Picture string `json:"picture"`
+		Sub           string `json:"sub"`
+		Name          string `json:"name"`
+		Email         string `json:"email"`
+		EmailVerified bool   `json:"email_verified"`
+		Picture       string `json:"picture"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return nil, fmt.Errorf("decode google userinfo: %w", err)
 	}
 
 	return &UserInfo{
-		ProviderID:  userInfo.Sub,
-		Provider:    "google",
-		Email:       userInfo.Email,
-		DisplayName: userInfo.Name,
-		AvatarURL:   userInfo.Picture,
+		ProviderID:    userInfo.Sub,
+		Provider:      "google",
+		Email:         userInfo.Email,
+		EmailVerified: userInfo.EmailVerified,
+		DisplayName:   userInfo.Name,
+		AvatarURL:     userInfo.Picture,
 	}, nil
 }
 
@@ -141,62 +143,5 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "Google auth not configured")
 		return
 	}
-
-	state := r.URL.Query().Get("state")
-	if !validateStateCookie(r, state) {
-		clearStateCookie(w, session.IsHTTPS(r, h.config.BaseURL))
-		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
-		return
-	}
-	binding, bound := consumeStateBinding(w, r, state, session.IsHTTPS(r, h.config.BaseURL))
-	clearStateCookie(w, session.IsHTTPS(r, h.config.BaseURL))
-	if !bound {
-		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
-		return
-	}
-	audience := binding.Audience
-	if !h.validRedirectForAudience(binding.Redirect, audience) {
-		if audience == session.EmbedAudience {
-			writeError(w, r, http.StatusBadRequest, "invalid OAuth redirect")
-			return
-		}
-		binding.Redirect = h.config.BaseURL
-	}
-
-	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		http.Redirect(w, r, h.config.BaseURL+"/login?error=oauth_denied", http.StatusSeeOther)
-		return
-	}
-
-	info, err := h.google.ExchangeUser(r.Context(), r)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if accountID := consumeLinkIntentCookie(w, r, session.IsHTTPS(r, h.config.BaseURL)); accountID != "" {
-		if !h.validateDashboardUser(r, accountID) {
-			http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
-			return
-		}
-		h.handleLinkCallback(w, r, info, accountID)
-		return
-	}
-
-	if h.config.CloudMode && h.cloudUpsertAndIssueToken(w, r, info, audience, binding.Redirect) {
-		return
-	}
-
-	tokenStr, err := h.upsertAndIssueToken(info, audience)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	session.SetCookieForAudience(w, tokenStr, audience, session.IsHTTPS(r, h.config.BaseURL))
-
-	if !h.validRedirectForAudience(binding.Redirect, audience) {
-		binding.Redirect = h.config.BaseURL
-	}
-	http.Redirect(w, r, binding.Redirect, http.StatusFound)
+	h.oauthCallback(w, r, h.google.ExchangeUser)
 }

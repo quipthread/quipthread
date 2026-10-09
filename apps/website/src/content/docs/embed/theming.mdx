@@ -9,11 +9,11 @@ The widget ships with a set of built-in theme presets. The active theme can be s
 
 ## Setting a theme
 
-**Via the container element** — set `data-theme` on the `<div id="comments">` element:
+**Via the container element** — set `data-theme` on the widget's container element:
 
 ```html
 <div
-  id="comments"
+  data-quipthread
   data-site-id="YOUR_SITE_ID"
   data-page-id="YOUR_PAGE_ID"
   data-theme="dark"
@@ -37,11 +37,41 @@ The widget watches the container element for `data-theme` attribute changes usin
 
 ```js
 // Toggle theme from your own page code
-const container = document.getElementById('comments')
+const container = document.querySelector('[data-quipthread]')
 container.dataset.theme = 'dark'
 ```
 
 Setting `data-theme` back to `auto` (or removing it) causes the widget to fall back to the dashboard-configured theme.
+
+## Custom colors and fonts
+
+To adjust a preset rather than replace it, add `data-qt-*` attributes to the container. Each one sets a single CSS variable on top of the active theme:
+
+| Attribute | Sets |
+|---|---|
+| `data-qt-accent` | Accent color for buttons and links |
+| `data-qt-accent-hover` | Accent color on hover |
+| `data-qt-bg` | Background |
+| `data-qt-bg-alt` | Secondary background, used for hover states, code blocks, and avatar placeholders |
+| `data-qt-text` | Main text color |
+| `data-qt-text-muted` | Secondary text color |
+| `data-qt-border` | Border color |
+| `data-qt-radius` | Default corner radius |
+| `data-qt-radius-sm` | Small corner radius |
+| `data-qt-radius-lg` | Large corner radius |
+| `data-qt-font` | Font family |
+
+```html
+<div
+  data-quipthread
+  data-site-id="YOUR_SITE_ID"
+  data-page-id="YOUR_PAGE_ID"
+  data-qt-accent="#c06020"
+  data-qt-font="Georgia, serif"
+></div>
+```
+
+When mounting from JavaScript, pass the same values as `vars`, for example `{ accent: '#c06020', font: 'Georgia, serif' }`.
 
 ## Available presets
 

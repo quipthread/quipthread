@@ -5,6 +5,8 @@ COPY package.json bun.lock ./
 COPY apps/dashboard/package.json apps/dashboard/
 COPY apps/website/package.json apps/website/
 COPY embed/package.json embed/
+# Shared plan catalog: a source-only workspace package the dashboard imports.
+COPY packages/plans packages/plans/
 RUN bun install
 
 # ── Stage 2: Build dashboard ──────────────────────────────────────────────────
@@ -42,14 +44,14 @@ RUN set -eu; \
     cp atlas /out/atlas
 
 # ── Stage 5: Build Go binary ──────────────────────────────────────────────────
-FROM golang:1.26-alpine AS go-build
+FROM golang:1.27-alpine AS go-build
 WORKDIR /app
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 # Copy built assets into static/ so //go:embed picks them up.
 COPY --from=dashboard-build /app/apps/dashboard/dist ./static/dashboard/
-COPY --from=embed-build /app/embed/dist/embed.iife.js ./static/embed.js
+COPY --from=embed-build /app/embed/dist/ ./static/widget/
 RUN CGO_ENABLED=0 GOOS=linux go build -tags=selfhosted,production -ldflags="-s -w" -o /quipthread .
 
 # ── Stage 6: Runtime ──────────────────────────────────────────────────────────

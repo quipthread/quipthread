@@ -1,6 +1,6 @@
 {
   "name": "@quipthread/create-quipthread",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Set up Quipthread: add comments to your site, scaffold a self-hosted project, or deploy to a platform",
   "type": "module",
   "bin": {
@@ -34,7 +34,7 @@
     "@clack/prompts": "^0.9.1"
   },
   "devDependencies": {
-    "@types/node": "^22.20.2",
+    "@types/node": "^22.20.5",
     "typescript": "^5.9.3"
   },
   "engines": {

@@ -239,6 +239,12 @@ export default function OnboardingWizard() {
               {creating ? 'Creating…' : 'Continue'}
             </button>
           </form>
+
+          <p style={{ margin: '1.25rem 0 0', textAlign: 'center', fontSize: '0.875rem' }}>
+            <a href="/dashboard/comments" style={{ color: 'var(--muted)' }}>
+              Skip for now
+            </a>
+          </p>
         </div>
       )}
 

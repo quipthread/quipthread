@@ -1,0 +1,64 @@
+{
+  "currency": "usd",
+  "trialDays": 14,
+  "plans": [
+    {
+      "id": "hobby",
+      "name": "Hobby",
+      "rank": 0,
+      "limits": { "comments": 1000, "sites": 1 },
+      "description": "Personal blogs and portfolio sites.",
+      "features": [
+        "GitHub, Google, and email sign-in",
+        "Moderation queue, approve from email",
+        "Import from Disqus, WordPress, Remark42",
+        "JSON export"
+      ]
+    },
+    {
+      "id": "starter",
+      "name": "Starter",
+      "rank": 1,
+      "limits": { "comments": 10000, "sites": 5 },
+      "prices": { "month": 900, "year": 9000 },
+      "description": "Indie developers and content creators.",
+      "features": [
+        "Everything in Hobby",
+        "Analytics",
+        "CSV export",
+        "Reader flagging",
+        "Spam protection (Turnstile)"
+      ]
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "rank": 2,
+      "limits": { "comments": 50000, "sites": 20 },
+      "prices": { "month": 2400, "year": 22800 },
+      "description": "Professional developers and small teams.",
+      "features": [
+        "Everything in Starter",
+        "Moderation rules engine",
+        "Notification digest scheduling"
+      ]
+    },
+    {
+      "id": "business",
+      "name": "Business",
+      "rank": 3,
+      "limits": { "comments": 250000, "sites": -1 },
+      "prices": { "month": 7900, "year": 75000 },
+      "description": "Agencies and platforms embedding comments into products.",
+      "features": ["Everything in Pro", "Team members"]
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "rank": 4,
+      "limits": { "comments": -1, "sites": -1 },
+      "description": "Custom limits and terms for large deployments.",
+      "features": ["Everything in Business", "Unlimited comments and sites"]
+    }
+  ]
+}

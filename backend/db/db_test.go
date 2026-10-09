@@ -23,12 +23,12 @@ func TestGetUserContextHonorsCancellation(t *testing.T) {
 	}
 }
 
-func TestNewLibSQLStoreContextHonorsCancellation(t *testing.T) {
+func TestNewLibSQLStoreWithAuthTokenContextHonorsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := NewLibSQLStoreContext(ctx, "libsql://cancelled.example.test")
+	_, err := NewLibSQLStoreWithAuthTokenContext(ctx, "libsql://cancelled.example.test", "token")
 	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("NewLibSQLStoreContext error = %v, want context cancellation", err)
+		t.Fatalf("NewLibSQLStoreWithAuthTokenContext error = %v, want context cancellation", err)
 	}
 }
 

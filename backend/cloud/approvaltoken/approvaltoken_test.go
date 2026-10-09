@@ -27,27 +27,6 @@ func TestHashDeterministic(t *testing.T) {
 	}
 }
 
-func TestHashesEqual(t *testing.T) {
-	const key = "0123456789abcdef0123456789abcdef"
-	h := Hash(key, "bearer-token-1")
-
-	if !HashesEqual(h, h) {
-		t.Error("identical hashes compared unequal")
-	}
-	if !HashesEqual(h, Hash(key, "bearer-token-1")) {
-		t.Error("same token+key hashes compared unequal")
-	}
-	if HashesEqual(h, Hash(key, "bearer-token-2")) {
-		t.Error("different tokens compared equal")
-	}
-	if HashesEqual(h, strings.ToUpper(h)) {
-		t.Error("case-mutated hash compared equal")
-	}
-	if HashesEqual("", "") {
-		t.Error("two empty hashes compared equal")
-	}
-}
-
 func TestValidateKey(t *testing.T) {
 	t.Run("accepts key at minimum length", func(t *testing.T) {
 		if err := ValidateKey(strings.Repeat("k", MinKeyBytes)); err != nil {

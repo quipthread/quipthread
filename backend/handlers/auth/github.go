@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -68,10 +69,12 @@ func (p *GithubProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 		return nil, fmt.Errorf("decode github user: %w", err)
 	}
 
-	if ghUser.Email == "" {
-		if email, err := fetchGithubPrimaryEmail(ctx, token.AccessToken); err == nil {
-			ghUser.Email = email
-		}
+	// The profile email is whatever the user made public; the email list says
+	// which addresses GitHub has verified. Without the list, the email is
+	// kept but treated as unverified.
+	emailVerified := false
+	if emails, err := fetchGithubEmails(ctx, token.AccessToken); err == nil {
+		ghUser.Email, emailVerified = pickGithubEmail(ghUser.Email, emails)
 	}
 
 	displayName := ghUser.Name
@@ -80,41 +83,61 @@ func (p *GithubProvider) ExchangeUser(ctx context.Context, r *http.Request) (*Us
 	}
 
 	return &UserInfo{
-		ProviderID:  fmt.Sprintf("%d", ghUser.ID),
-		Provider:    "github",
-		Email:       ghUser.Email,
-		DisplayName: displayName,
-		AvatarURL:   ghUser.AvatarURL,
-		Username:    ghUser.Login,
+		ProviderID:    fmt.Sprintf("%d", ghUser.ID),
+		Provider:      "github",
+		Email:         ghUser.Email,
+		EmailVerified: emailVerified,
+		DisplayName:   displayName,
+		AvatarURL:     ghUser.AvatarURL,
+		Username:      ghUser.Login,
 	}, nil
 }
 
-func fetchGithubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
+type githubEmail struct {
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
+}
+
+func fetchGithubEmails(ctx context.Context, accessToken string) ([]githubEmail, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.Header.Set("Authorization", "token "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close() //nolint:errcheck // deferred close; body already drained by Decode
-	var emails []struct {
-		Email    string `json:"email"`
-		Primary  bool   `json:"primary"`
-		Verified bool   `json:"verified"`
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("github emails: status %d", resp.StatusCode)
 	}
+	var emails []githubEmail
 	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
-		return "", err
+		return nil, err
+	}
+	return emails, nil
+}
+
+// pickGithubEmail returns the profile email and whether GitHub verified it,
+// or the primary verified email when the profile has none.
+func pickGithubEmail(profileEmail string, emails []githubEmail) (string, bool) {
+	if profileEmail != "" {
+		for _, e := range emails {
+			if e.Verified && strings.EqualFold(e.Email, profileEmail) {
+				return profileEmail, true
+			}
+		}
+		return profileEmail, false
 	}
 	for _, e := range emails {
 		if e.Primary && e.Verified {
-			return e.Email, nil
+			return e.Email, true
 		}
 	}
-	return "", fmt.Errorf("no primary verified email")
+	return "", false
 }
 
 // --- HTTP handlers ----------------------------------------------------------
@@ -182,62 +205,5 @@ func (h *Handler) GithubCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "GitHub auth not configured")
 		return
 	}
-
-	state := r.URL.Query().Get("state")
-	if !validateStateCookie(r, state) {
-		clearStateCookie(w, session.IsHTTPS(r, h.config.BaseURL))
-		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
-		return
-	}
-	binding, bound := consumeStateBinding(w, r, state, session.IsHTTPS(r, h.config.BaseURL))
-	clearStateCookie(w, session.IsHTTPS(r, h.config.BaseURL))
-	if !bound {
-		http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
-		return
-	}
-	audience := binding.Audience
-	if !h.validRedirectForAudience(binding.Redirect, audience) {
-		if audience == session.EmbedAudience {
-			writeError(w, r, http.StatusBadRequest, "invalid OAuth redirect")
-			return
-		}
-		binding.Redirect = h.config.BaseURL
-	}
-
-	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		http.Redirect(w, r, h.config.BaseURL+"/login?error=oauth_denied", http.StatusSeeOther)
-		return
-	}
-
-	info, err := h.github.ExchangeUser(r.Context(), r)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if accountID := consumeLinkIntentCookie(w, r, session.IsHTTPS(r, h.config.BaseURL)); accountID != "" {
-		if !h.validateDashboardUser(r, accountID) {
-			http.Redirect(w, r, h.config.BaseURL+"/login?error=session_expired", http.StatusSeeOther)
-			return
-		}
-		h.handleLinkCallback(w, r, info, accountID)
-		return
-	}
-
-	if h.config.CloudMode && h.cloudUpsertAndIssueToken(w, r, info, audience, binding.Redirect) {
-		return
-	}
-
-	tokenStr, err := h.upsertAndIssueToken(info, audience)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	session.SetCookieForAudience(w, tokenStr, audience, session.IsHTTPS(r, h.config.BaseURL))
-
-	if !h.validRedirectForAudience(binding.Redirect, audience) {
-		binding.Redirect = h.config.BaseURL
-	}
-	http.Redirect(w, r, binding.Redirect, http.StatusFound)
+	h.oauthCallback(w, r, h.github.ExchangeUser)
 }

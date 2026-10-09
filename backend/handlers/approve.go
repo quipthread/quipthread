@@ -470,6 +470,8 @@ const approvalPageHTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap">
 <title>Quipthread — Comment Approval</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -525,11 +527,10 @@ const approvalPageHTML = `<!DOCTYPE html>
     gap: 0.5rem;
   }
   .card-header .logo {
-    font-size: 0.875rem;
+    font-family: 'Syne', system-ui, sans-serif;
+    font-size: 1rem;
     font-weight: 700;
-    color: var(--amber);
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    color: var(--fg, var(--p-text));
   }
   .card-header .sep { color: var(--faded, var(--p-muted)); }
   .card-header .domain { font-size: 0.875rem; color: var(--faded, var(--p-muted)); }

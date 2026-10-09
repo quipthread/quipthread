@@ -16,6 +16,30 @@ const TABS: { id: Framework; label: string }[] = [
   { id: 'vanilla', label: 'HTML' },
 ]
 
+// Single-page apps mount through window.Quipthread so the widget follows
+// client-side navigation; static pages use the auto-mounted markup.
+const QUIPTHREAD_TYPES = `declare global {
+  interface Window {
+    Quipthread: {
+      mount(el: Element, options: { siteId: string; pageId: string }): { unmount(): void }
+    }
+  }
+}`
+
+function loadScript(apiBase: string): string {
+  return `// Loads embed.js once; it defines window.Quipthread as soon as it runs.
+function loadQuipthread() {
+  if (window.Quipthread) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = '${apiBase}/embed.js'
+    script.onload = () => resolve()
+    script.onerror = reject
+    document.head.appendChild(script)
+  })
+}`
+}
+
 function getSnippet(framework: Framework, siteId: string, apiBase: string): string {
   switch (framework) {
     case 'next-app':
@@ -23,45 +47,55 @@ function getSnippet(framework: Framework, siteId: string, apiBase: string): stri
 
 import Script from 'next/script'
 import { usePathname } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+
+${QUIPTHREAD_TYPES}
 
 export function Comments() {
   const pathname = usePathname()
+  const ref = useRef<HTMLDivElement>(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    if (!ready || !ref.current) return
+    const widget = window.Quipthread.mount(ref.current, {
+      siteId: '${siteId}',
+      pageId: pathname,
+    })
+    return () => widget.unmount()
+  }, [ready, pathname])
+
   return (
     <>
-      <div
-        id="comments"
-        data-site-id="${siteId}"
-        data-page-id={pathname}
-      />
-      <Script
-        src="${apiBase}/embed.js"
-        strategy="afterInteractive"
-      />
+      <div ref={ref} />
+      <Script src="${apiBase}/embed.js" onReady={() => setReady(true)} />
     </>
   )
 }`
 
     case 'next-pages':
-      return `import { useEffect } from 'react'
+      return `import Script from 'next/script'
 import { useRouter } from 'next/router'
+import { useEffect, useRef, useState } from 'react'
 
-// Wrap with: dynamic(() => import('./Comments'), { ssr: false })
+${QUIPTHREAD_TYPES}
+
 export function Comments() {
-  const { asPath } = useRouter()
+  const pageId = useRouter().asPath.split(/[?#]/)[0]
+  const ref = useRef<HTMLDivElement>(null)
+  const [ready, setReady] = useState(false)
+
   useEffect(() => {
-    const s = document.createElement('script')
-    s.src = '${apiBase}/embed.js'
-    s.async = true
-    document.body.appendChild(s)
-    return () => s.remove()
-  }, [])
+    if (!ready || !ref.current) return
+    const widget = window.Quipthread.mount(ref.current, { siteId: '${siteId}', pageId })
+    return () => widget.unmount()
+  }, [ready, pageId])
 
   return (
-    <div
-      id="comments"
-      data-site-id="${siteId}"
-      data-page-id={asPath}
-    />
+    <>
+      <div ref={ref} />
+      <Script src="${apiBase}/embed.js" onReady={() => setReady(true)} />
+    </>
   )
 }`
 
@@ -70,60 +104,71 @@ export function Comments() {
 const pageId = Astro.url.pathname
 ---
 
-<div
-  id="comments"
-  data-site-id="${siteId}"
-  data-page-id={pageId}
-/>
+<div data-quipthread data-site-id="${siteId}" data-page-id={pageId}></div>
 
-<script define:vars={{ apiBase: '${apiBase}' }} is:inline>
-  const s = document.createElement('script')
-  s.src = apiBase + '/embed.js'
-  s.async = true
-  document.head.appendChild(s)
+<script is:inline src="${apiBase}/embed.js" async></script>
+<!-- With view transitions, mount the widget on each new page. -->
+<script is:inline>
+  document.addEventListener('astro:page-load', () => window.Quipthread?.scan())
 </script>`
 
     case 'vue':
-      return `<template>
-  <div
-    id="comments"
-    data-site-id="${siteId}"
-    :data-page-id="$route.path"
-  />
-</template>
+      return `<script setup>
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
-<script setup>
-import { onMounted } from 'vue'
+${loadScript(apiBase)}
 
-onMounted(() => {
-  const s = document.createElement('script')
-  s.src = '${apiBase}/embed.js'
-  s.async = true
-  document.body.appendChild(s)
+const el = ref(null)
+const route = useRoute()
+let widget
+let unmounted = false
+
+onMounted(async () => {
+  await loadQuipthread()
+  if (unmounted) return
+  widget = window.Quipthread.mount(el.value, { siteId: '${siteId}', pageId: route.path })
 })
-</script>`
+watch(() => route.path, (pageId) => widget?.update({ pageId }))
+onBeforeUnmount(() => {
+  unmounted = true
+  widget?.unmount()
+})
+</script>
+
+<template>
+  <div ref="el" />
+</template>`
 
     case 'nuxt':
-      return `// plugins/quipthread.client.ts
-export default defineNuxtPlugin(() => {
-  const s = document.createElement('script')
-  s.src = '${apiBase}/embed.js'
-  s.async = true
-  document.body.appendChild(s)
-})
+      return `<!-- components/QuipthreadComments.client.vue -->
+<script setup>
+${loadScript(apiBase)}
 
-// components/QuipthreadComments.vue
-// <template>
-//   <div
-//     id="comments"
-//     data-site-id="${siteId}"
-//     :data-page-id="useRoute().path"
-//   />
-// </template>`
+const el = ref(null)
+const route = useRoute()
+let widget
+let unmounted = false
+
+onMounted(async () => {
+  await loadQuipthread()
+  if (unmounted) return
+  widget = window.Quipthread.mount(el.value, { siteId: '${siteId}', pageId: route.path })
+})
+watch(() => route.path, (pageId) => widget?.update({ pageId }))
+onBeforeUnmount(() => {
+  unmounted = true
+  widget?.unmount()
+})
+</script>
+
+<template>
+  <div ref="el" />
+</template>`
 
     case 'vanilla':
       return `<div
-  id="comments"
+  data-quipthread
   data-site-id="${siteId}"
   data-page-id="/your-page-path"
 ></div>
@@ -287,7 +332,7 @@ export default function EmbedCodeGenerator({ siteId, apiBase }: Props) {
             color: 'var(--text)',
           }}
         >
-          bunx create-quipthread
+          bunx @quipthread/create-quipthread
         </code>{' '}
         in your project directory to scaffold the integration automatically.
       </p>

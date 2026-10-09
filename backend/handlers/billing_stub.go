@@ -3,6 +3,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,7 +17,7 @@ import (
 
 // RegisterBillingRoutes registers a minimal billing/status endpoint for
 // non-cloud builds. Stripe checkout/portal/webhook are not available.
-func RegisterBillingRoutes(r chi.Router, store db.Store, cfg *config.Config, _ cloudpkg.Store, _ *middleware.StoreCache) {
+func RegisterBillingRoutes(_ context.Context, r chi.Router, store db.Store, cfg *config.Config, _ cloudpkg.Store, _ *middleware.StoreCache) {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAdminForAudience(cfg.JWTSecret, session.DashboardAudience, store))
 		r.Get("/api/billing/status", nonCloudBillingStatus(store))
@@ -49,6 +50,7 @@ func nonCloudBillingStatus(store db.Store) http.HandlerFunc {
 			"status":              "active",
 			"trial_ends_at":       nil,
 			"current_period_end":  nil,
+			"cancel_at":           nil,
 			"interval":            "",
 			"comments_this_month": commentsThisMonth,
 			"comments_limit":      limits[0],

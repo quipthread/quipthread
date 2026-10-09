@@ -11,7 +11,7 @@ Use this guide when you need to build Quipthread from source. For most self-host
 
 - A Linux server or VPS
 - A domain or subdomain pointing to it
-- Go 1.26.4 or newer and [Bun](https://bun.sh) installed (for building from source)
+- Go 1.27.1 or newer and [Bun](https://bun.sh) installed (for building from source)
 - Linux AMD64 or ARM64 for the pinned [Atlas migration CLI](https://atlasgo.io/docs#installation)
 - `curl`, `sha256sum`, and permission to install Atlas at `/usr/local/bin/atlas`
 
@@ -109,7 +109,7 @@ comments.example.com {
 
 Navigate to `https://comments.example.com/login` and sign in with GitHub, Google, or email (if enabled). The first user to sign in is automatically promoted to admin.
 
-Once signed in you will be redirected to the dashboard at `/dashboard/`. Create a site record — you will receive a **Site ID**.
+Once signed in you will be redirected to the dashboard at `/dashboard/`. Create a site to receive its **Site ID**. A self-hosted instance serves one site.
 
 ## 5. Embed the widget
 
@@ -117,7 +117,7 @@ Add the snippet to any page where you want comments. Place the `<div>` where the
 
 ```html
 <div
-  id="comments"
+  data-quipthread
   data-site-id="YOUR_SITE_ID"
   data-page-id="YOUR_PAGE_ID"
 ></div>
@@ -131,9 +131,7 @@ Replace `YOUR_SITE_ID` with the ID from the dashboard, and set `data-page-id` to
 
 ## 6. Verify
 
-Open a page with the embed and you should see the comment widget. Post a test comment and check it under **Moderation** in the dashboard. A new commenter’s first comment waits for moderator approval.
-
-You can also visit `https://comments.example.com/dev` to test the widget in isolation against the built-in dev test page.
+Open a page with the embed and you should see the comment widget. Post a test comment and check it on the **Comments** page in the dashboard. A new commenter’s first comment waits for moderator approval.
 
 ## Build a Docker image from source
 

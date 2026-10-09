@@ -13,15 +13,17 @@ Go to [app.quipthread.com/signup](https://app.quipthread.com/signup). The Hobby 
 
 ## 2. Create your first site
 
-After signing in you'll be taken through the onboarding wizard. Enter a name and the URL of your website, then click **Create site**. You'll receive a **Site ID** — keep this, you need it for the embed snippet.
+After you sign in, the onboarding wizard asks for your website's domain, such as `myblog.com`. Enter it and select **Continue**. The next step shows your **Site ID** and an embed snippet for your framework.
+
+You can select **Skip for now** and add a site later from the **Sites** page.
 
 ## 3. Add the embed snippet
 
-Copy the snippet from the dashboard (Sites tab) and paste it into any page where you want comments. Place the `<div>` where the widget should appear, then add the `<script>` tag:
+Copy the snippet from the onboarding wizard, or later from the **Preview** page in the dashboard, and paste it into any page where you want comments. Place the `<div>` where the widget should appear, then add the `<script>` tag:
 
 ```html
 <div
-  id="comments"
+  data-quipthread
   data-site-id="YOUR_SITE_ID"
   data-page-id="YOUR_PAGE_ID"
 ></div>
@@ -35,10 +37,10 @@ Replace `YOUR_SITE_ID` with the ID from the dashboard, and set `data-page-id` to
 
 ## 4. Moderate comments
 
-Comments from new users land in the moderation queue. Open the **Moderation** tab in the dashboard to approve, reject, or reply.
+A commenter's first comment on your site waits in the moderation queue. Open the **Comments** page in the dashboard to approve, reject, or reply. After you approve someone once, their later comments on that site go live immediately.
 
 <Aside>
-  To upgrade your plan, open the **Billing** tab in the dashboard.
+  To upgrade your plan, open the **Billing** page in the dashboard.
 </Aside>
 
 ## Plan limits
@@ -49,5 +51,8 @@ Comments from new users land in the moderation queue. Open the **Moderation** ta
 | Starter | 10,000 | 5 |
 | Pro | 50,000 | 20 |
 | Business | 250,000 | Unlimited |
+| Enterprise | Unlimited | Unlimited |
+
+Paid plans include a 14-day free trial. For Enterprise, email [hello@quipthread.com](mailto:hello@quipthread.com).
 
 Monthly posting and site limits are enforced for each plan. When you reach a limit, upgrade from **Billing** or wait for the monthly posting allowance to reset. Existing comments remain available. New comments, replies, and imports use this allowance; deleting comments does not restore it. Limits reset on the first day of each month at 00:00 UTC. The Billing page shows your current usage and allowance.

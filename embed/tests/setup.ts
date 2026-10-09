@@ -1,4 +1,22 @@
+import { plugin } from 'bun'
 import { GlobalWindow } from 'happy-dom'
+import { preactAliases } from '../preact-aliases'
+
+// Run the tests on Preact, as the bundle does (see preact-aliases.ts). Bun's
+// runtime plugins cannot redirect resolution, so each React specifier is a
+// virtual module that re-exports its Preact counterpart; that also covers
+// imports from inside dependencies.
+const aliasModules = await Promise.all(
+  preactAliases.map(async ([specifier, target]) => [specifier, await import(target)] as const),
+)
+plugin({
+  name: 'preact-aliases',
+  setup(build) {
+    for (const [specifier, mod] of aliasModules) {
+      build.module(specifier, () => ({ exports: { ...mod }, loader: 'object' }))
+    }
+  },
+})
 
 const window = new GlobalWindow({ url: 'https://comments.example.test' })
 Object.defineProperty(window.navigator, 'platform', {

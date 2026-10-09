@@ -7,7 +7,7 @@
   </head>
   <body>
     <div
-      id="comments"
+      data-quipthread
       data-site-id="dev-site"
       data-page-id="/dev/test-page"
       data-page-url="http://localhost:5173/dev/test-page"
@@ -15,6 +15,12 @@
       data-lang="en"
       data-theme="auto"
     ></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Production pages load /embed.js, which imports the widget module and
+         calls start(); in dev the module is started directly. -->
+    <script type="module">
+      import { start } from '/src/main.tsx'
+
+      start({ apiBase: 'http://localhost:8080', queued: [] })
+    </script>
   </body>
 </html>

@@ -21,23 +21,20 @@ import (
 const dedupWindow = 5 * time.Minute
 
 type CommentsHandler struct {
-	store               db.Store
-	config              *config.Config
-	spamChecker         *middleware.SpamChecker
-	blockedTermsChecker *middleware.BlockedTermsChecker
-	// publicResolver is true when cloud mode + PUBLIC_SITE_RESOLVER_ENABLED
-	// are active. In that mode List requires an explicit public-tenant context
+	store       db.Store
+	config      *config.Config
+	spamChecker *middleware.SpamChecker
+	// publicResolver is true in cloud mode, where List requires an explicit public-tenant context
 	// and never touches the handler/global store.
 	publicResolver bool
 }
 
 func NewCommentsHandler(store db.Store, cfg *config.Config) *CommentsHandler {
 	return &CommentsHandler{
-		store:               store,
-		config:              cfg,
-		spamChecker:         middleware.NewSpamChecker(cfg),
-		blockedTermsChecker: middleware.NewBlockedTermsChecker(store),
-		publicResolver:      cfg.CloudMode && cfg.PublicSiteResolverEnabled,
+		store:          store,
+		config:         cfg,
+		spamChecker:    middleware.NewSpamChecker(cfg),
+		publicResolver: cfg.CloudMode,
 	}
 }
 
@@ -267,6 +264,13 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Embed tokens are bound to one site; a body naming another site must
+	// never post under this session.
+	if req.SiteID != claims.SiteID {
+		writeError(w, r, http.StatusForbidden, "session not valid for this site")
+		return
+	}
+
 	if h.publicResolver && req.SiteID != resolvedSiteID {
 		// The decoded site_id disagrees with the verified resolution context:
 		// an invariant break we must not serve from any store.
@@ -294,7 +298,12 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		turnstileSecret = accountSecret
 	}
 	if turnstileSecret != "" {
-		ip := middleware.RealIP(r)
+		// Forwarded headers are client-controlled unless a trusted proxy
+		// sets them.
+		ip := middleware.RemoteAddrIP(r)
+		if h.config.TrustProxy {
+			ip = middleware.RealIP(r)
+		}
 		ok, err := verifyTurnstile(r.Context(), turnstileSecret, req.TurnstileToken, ip)
 		if err != nil || !ok {
 			writeError(w, r, http.StatusForbidden, "bot check failed")
@@ -318,7 +327,7 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		blockScope = claims.AccountID
 	}
 	isHeuristicSpam, _ := h.spamChecker.IsSpam(req.Content)
-	isBlocked, _ := h.blockedTermsChecker.Check(blockScope, store, req.Content)
+	isBlocked, _ := middleware.CheckBlockedTerms(blockScope, store, req.Content)
 	if isHeuristicSpam || isBlocked {
 		comment := &models.Comment{
 			SiteID:    req.SiteID,

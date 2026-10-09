@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -88,6 +89,9 @@ func main() {
 		if err := validateCloudConfig(cfg); err != nil {
 			log.Fatalf("cloud mode startup: %v", err)
 		}
+		if err := validateBillingConfig(cfg); err != nil {
+			log.Fatalf("cloud mode startup: %v", err)
+		}
 		cs, err := validateCloudStore(openCloudStore(cfg))
 		if err != nil {
 			log.Fatalf("cloud mode startup: %v", err)
@@ -130,8 +134,12 @@ func main() {
 		go notifications.StartDispatcher(ctx, store, notifier, cfg)
 	}
 	deliveryWorker := startCloudNotificationDelivery(ctx, cfg, cloudStore, tenantCache)
+	if cfg.CloudMode && cloudStore != nil {
+		auditSiteRegistry(ctx, cfg, cloudStore)
+	}
 
 	authHandler := authhandlers.NewHandlerWithCloud(store, cfg, cloudStore)
+	authHandler.SetEmbedSites(middleware.NewEmbedSites(store, cloudStore, tenantCache, cfg))
 	commentsHandler := handlers.NewCommentsHandler(store, cfg)
 	adminHandler := handlers.NewAdminHandlerWithCloud(store, cfg, cloudStore)
 	configHandler := handlers.NewConfigHandler(cfg, store)
@@ -186,28 +194,31 @@ func main() {
 	// Cloud email auth routes (no-op in non-cloud builds).
 	authhandlers.RegisterCloudAuthRoutes(r, authHandler, authRL, ipFn)
 
-	// Dashboard and embed sessions are separate trust domains. The old routes
-	// remain dashboard-only compatibility aliases; they do not accept the
-	// legacy cookie.
-	r.Post("/auth/logout", authHandler.Logout)
+	// Dashboard and embed sessions are separate trust domains. Dashboard
+	// sessions are cookies; embed sessions are site-bound bearer tokens that
+	// the widget discards on sign-out, so there is no embed logout route.
 	r.Post("/auth/dashboard/logout", authHandler.DashboardLogout)
-	r.Post("/auth/embed/logout", authHandler.EmbedLogout)
-	r.Post("/api/auth/dashboard/logout", authHandler.DashboardLogout)
-	r.Post("/api/auth/embed/logout", authHandler.EmbedLogout)
-	r.Get("/api/auth/me", authHandler.Me)
 	r.Get("/api/auth/dashboard/me", middleware.RequireAuthForAudience(cfg.JWTSecret, session.DashboardAudience, store)(http.HandlerFunc(authHandler.DashboardMe)).ServeHTTP)
-	r.Get("/api/auth/embed/me", middleware.RequireAuthForAudience(cfg.JWTSecret, session.EmbedAudience, store)(http.HandlerFunc(authHandler.EmbedMe)).ServeHTTP)
+	if cfg.CloudMode && cloudStore != nil {
+		r.With(middleware.PublicSiteResolver(cloudStore, tenantCache, cfg), middleware.RequireAuthForAudience(cfg.JWTSecret, session.EmbedAudience, nil)).
+			Get("/api/auth/embed/me", authHandler.EmbedMe)
+	} else {
+		r.With(middleware.RequireAuthForAudience(cfg.JWTSecret, session.EmbedAudience, store)).Get("/api/auth/embed/me", authHandler.EmbedMe)
+	}
 	r.Post("/api/auth/dashboard/logout-all", middleware.RequireAuthForAudience(cfg.JWTSecret, session.DashboardAudience, store)(http.HandlerFunc(accountHandler.LogoutAll)).ServeHTTP)
 	r.Post("/auth/logout-all", middleware.RequireAuthForAudience(cfg.JWTSecret, session.DashboardAudience, store)(http.HandlerFunc(accountHandler.LogoutAll)).ServeHTTP)
 
 	// Billing routes (public webhook + admin-protected status/checkout/portal).
-	handlers.RegisterBillingRoutes(r, store, cfg, cloudStore, tenantCache)
+	handlers.RegisterBillingRoutes(ctx, r, store, cfg, cloudStore, tenantCache)
 
 	// Invitation routes (cloud-only; no-op stub in non-cloud builds).
 	handlers.RegisterInvitationRoutes(r, cfg, store, cloudStore)
+	handlers.RegisterAccountDeletionRoutes(r, cfg, cloudStore, tenantCache)
 
 	// SSO auth route (cloud-only; no-op stub in non-cloud builds).
-	authhandlers.RegisterSSORoutes(r, authHandler, middleware.EnforceExactOrigin(cfg.BaseURL))
+	// The handler resolves the site from the body and requires the request to
+	// come from that site's own origin.
+	authhandlers.RegisterSSORoutes(r, authHandler)
 
 	// Embed preview page — public, no auth, safe to iframe from the dashboard.
 	r.Get("/embed-preview", handlers.HandleEmbedPreview)
@@ -234,17 +245,9 @@ func main() {
 
 	registerApprovalRoutes(r, cfg, store, cloudStore, tenantCache)
 
-	// embed.js — embedded in production builds (go:build production), served
-	// from disk in dev builds.
-	r.Get("/embed.js", func(w http.ResponseWriter, r *http.Request) {
-		if len(embedJSBytes) > 0 {
-			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			_, _ = w.Write(embedJSBytes)
-			return
-		}
-		http.ServeFile(w, r, "../embed/dist/embed.iife.js")
-	})
+	// The comment widget sites embed: embedded in production builds, read
+	// from embed/dist in dev builds.
+	registerWidgetRoutes(r, widgetSubFS())
 
 	// Admin dashboard — in dev with DEV_DASHBOARD_URL set, proxy to the Astro
 	// dev server so HMR works. In production (or dev without the env var),
@@ -365,11 +368,13 @@ func main() {
 		http.Redirect(w, r, "/dashboard/", http.StatusFound)
 	})
 
-	// Dev test page — available at /dev for testing the embed widget.
-	r.Get("/dev", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, devTestPage) //nolint:errcheck // ResponseWriter.Write errors are not actionable
-	})
+	// Dev test page for exercising the embed widget. Development builds only.
+	if !productionBuild {
+		r.Get("/dev", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(w, devTestPage) //nolint:errcheck // ResponseWriter.Write errors are not actionable
+		})
+	}
 
 	// --- Admin routes -------------------------------------------------------
 	r.Group(func(r chi.Router) {
@@ -392,8 +397,8 @@ func main() {
 		// SSO secret management (cloud Enterprise only; no-op stub in non-cloud builds).
 		handlers.RegisterSSOAdminRoutes(r, adminHandler)
 
-		// Analytics route
-		r.Get("/api/admin/analytics", analyticsHandler.Get)
+		// Analytics is a Starter feature, as the dashboard and pricing say.
+		r.With(middleware.RequirePlan(store, cfg, "starter")).Get("/api/admin/analytics", analyticsHandler.Get)
 
 		// Moderation rules routes
 		r.Get("/api/admin/modrules/blocklist", modRulesHandler.List)
@@ -573,10 +578,10 @@ type publicRoutes struct {
 // When the cloud-only public site resolver is enabled, every one of them
 // resolves its tenant from the site registry via route-local middleware; the
 // global InjectTenantStore middleware bypasses these exact routes so
-// cookies/JWT never determine the tenant store here. With the flag disabled or
-// in self-hosted mode, legacy behavior is preserved.
+// cookies/JWT never determine the tenant store here. Self-hosted mode reads
+// its single store.
 func (d publicRoutes) register(r chi.Router) {
-	enabled := d.cfg.CloudMode && d.cfg.PublicSiteResolverEnabled && d.cloudStore != nil
+	enabled := d.cfg.CloudMode && d.cloudStore != nil
 
 	if enabled {
 		resolvePublic := middleware.PublicSiteResolver(d.cloudStore, d.tenantCache, d.cfg)
@@ -590,23 +595,17 @@ func (d publicRoutes) register(r chi.Router) {
 
 	// --- Authenticated commenter routes -------------------------------------
 	r.Group(func(g chi.Router) {
-		// In cloud public-resolver mode the route-local resolver runs after this
-		// middleware, so there is no tenant store available yet. This middleware
-		// authenticates the audience first; the resolved tenant's session state
-		// is checked below. Other routes validate against their store here.
-		fallback := d.store
 		if enabled {
-			fallback = nil
-		}
-		g.Use(middleware.RequireAuthForAudience(d.jwtSecret, session.EmbedAudience, fallback))
-
-		if enabled {
+			// Embed tokens are bound to a site and its owning account, so
+			// authentication runs after the route-local resolver and checks
+			// the token against the resolved tenant (site, account, and the
+			// user's session state in that tenant's store).
 			requireTenantAuth := middleware.RequireAuthForAudience(d.jwtSecret, session.EmbedAudience, nil)
 			// Public-resolver mode: POST /api/comments resolves its tenant from
 			// the body's site_id via the route-local body resolver (the
 			// global InjectTenantStore bypasses this exact route so a session
-			// cookie can never select its tenant store). Chain order is
-			// RequireAuth → RateLimit → body resolver → tenant auth → origin/CSRF check →
+			// can never select its tenant store). Chain order is
+			// RateLimit → body resolver → tenant auth → origin/CSRF check →
 			// request-scoped quota → handler; the origin check is bound to the
 			// resolved verified site's Domain, and quota reads only the
 			// resolved public tenant and fails closed without it.
@@ -618,10 +617,10 @@ func (d publicRoutes) register(r chi.Router) {
 			// Comment mutations (delete/vote/flag) resolve their tenant from
 			// the required siteId query parameter via the same query resolver
 			// as the public GET routes; the global InjectTenantStore bypasses
-			// these exact routes so a session cookie can never select their
-			// tenant store. Chain order: RequireAuth → RateLimit → query
-			// resolver → tenant auth → site-bound origin check → (flag only) request-scoped
-			// plan gate → handler. The origin check requires an exact match
+			// these exact routes so a session can never select their tenant
+			// store. Chain order: RateLimit → query resolver → tenant auth →
+			// site-bound origin check → (flag only) request-scoped plan gate →
+			// handler. The origin check requires an exact match
 			// against the resolved site's Domain but no JSON media type —
 			// these requests are bodyless.
 			resolvePublic := middleware.PublicSiteResolver(d.cloudStore, d.tenantCache, d.cfg)
@@ -633,7 +632,9 @@ func (d publicRoutes) register(r chi.Router) {
 			g.With(middleware.RateLimit(d.commentsRL, d.ipFn), resolvePublic, requireTenantAuth, enforceMutationOrigin,
 				middleware.RequirePlanPublic(d.cfg, "starter")).Post("/api/comments/{id}/flag", d.commentsHandler.Flag)
 		} else {
-			// Legacy ordering preserved when disabled or self-hosted.
+			// Self-hosted: one store, so the token's site binding is checked
+			// against the siteId query parameter before anything else.
+			g.Use(middleware.RequireAuthForAudience(d.jwtSecret, session.EmbedAudience, d.store))
 			if !d.cfg.CloudMode {
 				g.Use(middleware.EnforceEmbedOrigin(d.cfg.AllowedOrigins))
 			}
@@ -724,6 +725,24 @@ func validateCloudConfig(cfg *config.Config) error {
 		return nil
 	}
 	return approvaltoken.ValidateKey(cfg.ApprovalTokenHMACKey)
+}
+
+// validateBillingConfig fails closed when CLOUD_MODE=true is set without both
+// Stripe credentials: checkout and the portal need the API key, and every
+// webhook is rejected without the signing secret. It is checked at startup
+// only; features that do not bill are not gated on it. Errors name the
+// variable, never its value.
+func validateBillingConfig(cfg *config.Config) error {
+	if !cfg.CloudMode {
+		return nil
+	}
+	if !strings.HasPrefix(cfg.StripeSecretKey, "sk_") && !strings.HasPrefix(cfg.StripeSecretKey, "rk_") {
+		return errors.New("STRIPE_SECRET_KEY must be set to a Stripe secret or restricted key (sk_ or rk_)")
+	}
+	if !strings.HasPrefix(cfg.StripeWebhookSecret, "whsec_") {
+		return errors.New("STRIPE_WEBHOOK_SECRET must be set to the endpoint signing secret (whsec_)")
+	}
+	return nil
 }
 
 // validateCloudStore fails closed when CLOUD_MODE=true cannot be honored:
@@ -868,7 +887,8 @@ const devTestPage = `<!DOCTYPE html>
     <p class="meta">This page is only served in local development.</p>
 
     <div
-      id="comments"
+      id="qt-dev"
+      data-quipthread
       data-site-id="dev-site"
       data-page-id="/dev-test"
       data-page-url="http://localhost:8080/"
@@ -878,7 +898,7 @@ const devTestPage = `<!DOCTYPE html>
 
   <script>
     function setTheme(theme) {
-      const comments = document.getElementById('comments')
+      const comments = document.getElementById('qt-dev')
       const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
       document.body.className = isDark ? 'dark' : 'light'
       document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'))

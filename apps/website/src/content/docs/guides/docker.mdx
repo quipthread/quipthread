@@ -41,7 +41,7 @@ Save this as `compose.yml` beside `.env`:
 ```yaml
 services:
   app:
-    image: ghcr.io/quipthread/quipthread:0.1.2
+    image: ghcr.io/quipthread/quipthread:0.2.0
     restart: unless-stopped
     env_file: .env
     ports:
@@ -70,7 +70,7 @@ docker run -d \
   --env-file .env \
   -p 127.0.0.1:8080:8080 \
   -v quipthread-data:/data \
-  ghcr.io/quipthread/quipthread:0.1.2
+  ghcr.io/quipthread/quipthread:0.2.0
 ```
 
 Both examples keep the database in a persistent volume and bind port 8080 to the server's loopback interface. Open `http://localhost:8080/login` on that machine. On a remote server, configure HTTPS before opening it in your browser.

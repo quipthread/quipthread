@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { AuthModal } from './AuthModal'
-import { fetchConfig, getApiBase, getMe, ssoLogin } from './api'
+import { clearToken, consumeAuthFragment, fetchConfig, getMe, setToken, ssoLogin } from './api'
 import { CommentForm } from './CommentForm'
 import { CommentList } from './CommentList'
 import { useTranslations } from './i18n'
@@ -32,6 +32,7 @@ export function CommentWidget({
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('')
   const [turnstileReady, setTurnstileReady] = useState(false)
@@ -42,7 +43,19 @@ export function CommentWidget({
   const dbTheme = useRef<string>('auto')
 
   useEffect(() => {
-    getMe().then(async (u) => {
+    // Returning from OAuth: the server appended the result to this page's URL
+    // fragment. Store the token and bring the reader back to the widget.
+    const authResult = consumeAuthFragment()
+    if (authResult) {
+      if ('token' in authResult) {
+        setToken(siteId, authResult.token)
+      } else {
+        setAuthError(authResult.error === 'banned' ? t.authBanned : t.authFailed)
+      }
+      rootRef.current?.scrollIntoView({ block: 'start' })
+    }
+
+    getMe(siteId).then(async (u) => {
       if (u) {
         setUser(u)
         setAuthLoading(false)
@@ -71,7 +84,7 @@ export function CommentWidget({
         setActiveTheme(dbTheme.current)
       }
     })
-  }, [siteId, theme, ssoToken])
+  }, [siteId, theme, ssoToken, t])
 
   // Watch the host page's container for data-theme changes (e.g. page-level theme toggles).
   // Updates activeTheme state so React stays in sync rather than fighting DOM mutations.
@@ -113,12 +126,11 @@ export function CommentWidget({
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await fetch(`${getApiBase()}/auth/embed/logout`, { method: 'POST', credentials: 'include' })
-    } finally {
-      setUser(null)
-    }
+  // Embed sessions are bearer tokens held only by this page, so signing out
+  // is discarding the token.
+  const handleLogout = () => {
+    clearToken(siteId)
+    setUser(null)
   }
 
   return (
@@ -161,10 +173,15 @@ export function CommentWidget({
             pageTitle={pageTitle}
             t={t}
             onSuccess={handleCommentSuccess}
+            onSessionExpired={() => {
+              setUser(null)
+              setAuthError(t.sessionExpired)
+            }}
             turnstileSiteKey={turnstileReady ? turnstileSiteKey : ''}
           />
         ) : (
           <div className="qt-login-prompt">
+            {authError && <p className="qt-error">{authError}</p>}
             <p>{t.loginToComment}</p>
             <button
               type="button"
@@ -177,7 +194,7 @@ export function CommentWidget({
         )}
       </div>
 
-      {showAuthModal && <AuthModal t={t} onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && <AuthModal siteId={siteId} t={t} onClose={() => setShowAuthModal(false)} />}
     </div>
   )
 }

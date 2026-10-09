@@ -260,7 +260,7 @@ func (h *Handler) EmailPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session.SetCookieForAudience(w, tokenStr, session.DashboardAudience, session.IsHTTPS(r, h.config.BaseURL))
+	session.SetCookie(w, tokenStr, session.IsHTTPS(r, h.config.BaseURL))
 	writeJSON(w, http.StatusOK, map[string]bool{"verified": true})
 }
 
@@ -323,7 +323,7 @@ func (h *Handler) EmailLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session.SetCookieForAudience(w, tokenStr, session.DashboardAudience, session.IsHTTPS(r, h.config.BaseURL))
+	session.SetCookie(w, tokenStr, session.IsHTTPS(r, h.config.BaseURL))
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged in"})
 }
 
@@ -507,6 +507,8 @@ const emailResultPageHTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap">
 <title>Quipthread — %s</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -544,8 +546,9 @@ const emailResultPageHTML = `<!DOCTYPE html>
     border-bottom: 1px solid var(--bord, var(--p-bord));
   }
   .logo {
-    font-size: 0.875rem; font-weight: 700;
-    color: var(--amber); letter-spacing: 0.02em; text-transform: uppercase;
+    font-family: 'Syne', system-ui, sans-serif;
+    font-size: 1rem; font-weight: 700;
+    color: var(--fg, var(--p-text));
   }
   .body {
     padding: 2rem 1.5rem;
@@ -572,6 +575,8 @@ const resetFormHTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap">
 <title>Quipthread — Reset Password</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -609,7 +614,7 @@ const resetFormHTML = `<!DOCTYPE html>
     border-bottom: 1px solid var(--bord, var(--p-bord));
     display: flex; align-items: center; gap: 0.5rem;
   }
-  .logo { font-size: 0.875rem; font-weight: 700; color: var(--amber); letter-spacing: 0.02em; text-transform: uppercase; }
+  .logo { font-family: 'Syne', system-ui, sans-serif; font-size: 1rem; font-weight: 700; color: var(--fg, var(--p-text)); }
   .sep { color: var(--faded, var(--p-muted)); }
   .card-title { font-size: 0.875rem; color: var(--faded, var(--p-muted)); }
   .body { padding: 2rem 1.5rem; }

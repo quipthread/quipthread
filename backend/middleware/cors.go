@@ -6,15 +6,10 @@ import (
 	"strings"
 )
 
-// CORS returns a middleware that sets appropriate CORS headers for the embed
-// widget and dashboard. allowedOrigins must list exact, canonical origins
-// (e.g. "https://yoursite.com"). An empty or malformed allowlist fails closed.
-func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
-	return CORSWithBaseURL("", allowedOrigins)
-}
-
-// CORSWithBaseURL permits the dashboard's canonical application origin in
-// addition to the publisher-only allowlist used by the embed widget.
+// CORSWithBaseURL sets CORS headers for the embed widget and dashboard. It
+// permits the dashboard's canonical application origin (baseURL) in addition
+// to allowedOrigins, which must list exact, canonical origins (e.g.
+// "https://yoursite.com"). An empty or malformed allowlist fails closed.
 func CORSWithBaseURL(baseURL string, allowedOrigins []string) func(http.Handler) http.Handler {
 	allOrigins := make([]string, 0, len(allowedOrigins)+1)
 	allOrigins = append(allOrigins, allowedOrigins...)
@@ -35,6 +30,11 @@ func CORSWithBaseURL(baseURL string, allowedOrigins []string) func(http.Handler)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if IsEmbedAPIRoute(r.URL.Path) {
+				embedCORS(w, r, next)
+				return
+			}
+
 			origin := r.Header.Get("Origin")
 			w.Header().Add("Vary", "Origin")
 
@@ -69,6 +69,34 @@ func CORSWithBaseURL(baseURL string, allowedOrigins []string) func(http.Handler)
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// IsEmbedAPIRoute reports whether path is part of the embed widget's API.
+// The widget runs on publishers' origins and authenticates with site-bound
+// bearer tokens, never cookies, so these routes are served to any origin
+// without credentials. Site binding and per-site origin checks on mutations
+// are enforced by the routes themselves.
+func IsEmbedAPIRoute(path string) bool {
+	switch path {
+	case "/api/config", "/api/comments", "/api/auth/embed/me", "/api/auth/sso":
+		return true
+	}
+	return strings.HasPrefix(path, "/api/comments/")
+}
+
+func embedCORS(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	h := w.Header()
+	if r.Header.Get("Origin") != "" {
+		h.Set("Access-Control-Allow-Origin", "*")
+		h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		h.Set("Access-Control-Max-Age", "86400")
+	}
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	next.ServeHTTP(w, r)
 }
 
 // canonicalOrigin validates an origin and normalizes case and default ports.

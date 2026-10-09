@@ -5,20 +5,13 @@ export type {
   AnalyticsData,
   BillingStatus,
   BlockedTerm,
-  ColumnInfo,
   Comment,
-  CommenterStat,
   ImportResult,
-  PageStat,
-  PeakDayStat,
-  PeakHourStat,
   SecuritySettings,
   Site,
-  StatusStat,
   TableInfo,
   TeamMember,
   User,
-  VolumePoint,
 } from './schemas'
 
 // ColumnMapping is a request body type (constructed in the UI, never parsed

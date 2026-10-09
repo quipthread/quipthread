@@ -111,13 +111,9 @@ function usageInstructions(framework: Framework): string {
 
     case 'nextjs-pages':
       return [
-        'Import with ssr: false to disable server-side rendering:',
+        'Import the component in your page:',
         '',
-        "  import dynamic from 'next/dynamic'",
-        '  const QuipthreadComments = dynamic(',
-        "    () => import('@/components/QuipthreadComments'),",
-        '    { ssr: false }',
-        '  )',
+        "  import QuipthreadComments from '@/components/QuipthreadComments'",
         '',
         '  export default function Page() {',
         '    return <QuipthreadComments />',
@@ -150,8 +146,8 @@ function usageInstructions(framework: Framework): string {
 
     case 'nuxt':
       return [
-        'The plugin loads the embed script automatically.',
-        'Nuxt auto-imports components, so just use it directly:',
+        'Nuxt auto-imports components, so just use it directly',
+        '(the .client suffix keeps it to the browser):',
         '',
         '  <template>',
         '    <QuipthreadComments />',

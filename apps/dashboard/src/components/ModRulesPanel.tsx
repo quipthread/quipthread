@@ -2,13 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/preact-query'
 import { useRef, useState } from 'preact/hooks'
 import { api } from '../api'
 import { IS_SELF_HOSTED } from '../lib/env'
+import { meetsPlan } from '../lib/plan'
 import { queryKeys } from '../lib/queryKeys'
 import type { BlockedTerm } from '../types'
 import QueryProvider from './QueryProvider'
 import PageHeader from './shared/PageHeader'
 import UpgradeGate from './UpgradeGate'
-
-const PLAN_ORDER = ['hobby', 'starter', 'pro', 'business']
 
 const BORDER = 'var(--border)'
 const MUTED = 'var(--muted)'
@@ -56,7 +55,7 @@ function ModRulesPanelInner() {
     ? true
     : billing === undefined
       ? null
-      : PLAN_ORDER.indexOf(billing.plan) >= PLAN_ORDER.indexOf('pro')
+      : meetsPlan(billing.plan, 'pro')
 
   const {
     data: modrules,

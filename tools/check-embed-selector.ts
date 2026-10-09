@@ -1,6 +1,12 @@
 import { resolve } from 'node:path'
 
-const EXPECTED_SELECTOR = 'comments'
+// The widget mounts into [data-quipthread] elements (or through
+// window.Quipthread.mount). The original id="comments" markup is only claimed
+// when it carries data-site-id, so new snippets and docs must not use it: a
+// theme's own #comments (WordPress) would collide with it.
+const MOUNT_ATTRIBUTE = 'data-quipthread'
+const MOUNT_API = 'Quipthread.mount('
+const RUNTIME_SELECTOR = `'[data-quipthread], [id="comments"][data-site-id]'`
 const FORBIDDEN_SELECTOR = 'quipthread-comments'
 const ROOT = resolve(import.meta.dir, '..')
 
@@ -15,7 +21,7 @@ function violation(path: string, message: string): void {
   violations.push({ path, message })
 }
 
-async function readSource(path: string): Promise<string | undefined> {
+async function readSource(path: string, allowLegacy = false): Promise<string | undefined> {
   const absolutePath = resolve(ROOT, path)
   const file = Bun.file(absolutePath)
 
@@ -28,6 +34,12 @@ async function readSource(path: string): Promise<string | undefined> {
   if (source.includes(FORBIDDEN_SELECTOR)) {
     violation(path, `contains forbidden selector "${FORBIDDEN_SELECTOR}"`)
   }
+  // Prose may mention the legacy markup in `code`; markup must not use it.
+  for (const [index, line] of allowLegacy ? [] : source.split('\n').entries()) {
+    if (line.includes('id="comments"') && !line.includes('`')) {
+      violation(path, `line ${index + 1} uses the legacy id="comments" mount point`)
+    }
+  }
   return source
 }
 
@@ -37,8 +49,13 @@ function requireText(path: string, source: string, expected: string, description
   }
 }
 
-function checkSelectorMarkup(path: string, source: string): void {
-  requireText(path, source, `id="${EXPECTED_SELECTOR}"`, 'canonical mount id')
+function requireMount(path: string, source: string, description: string): void {
+  if (!source.includes(MOUNT_ATTRIBUTE) && !source.includes(MOUNT_API)) {
+    violation(
+      path,
+      `${description} neither marks a ${MOUNT_ATTRIBUTE} container nor calls ${MOUNT_API}`,
+    )
+  }
 }
 
 function checkDashboardBranches(path: string, source: string): void {
@@ -54,77 +71,40 @@ function checkDashboardBranches(path: string, source: string): void {
 
     const nextMarker = frameworks[index + 1] ? `\n    case '${frameworks[index + 1]}':` : undefined
     const end = nextMarker ? source.indexOf(nextMarker, start + marker.length) : -1
-    const branch = source.slice(start, end === -1 ? source.length : end)
-    requireText(path, branch, `id="${EXPECTED_SELECTOR}"`, `${framework} canonical mount id`)
-  }
-}
-
-function checkTemplateFunctions(path: string, source: string): void {
-  const functions = [
-    'generateVanillaSnippet',
-    'nextjsAppTemplate',
-    'nextjsPagesTemplate',
-    'astroTemplate',
-    'vueTemplate',
-    'nuxtTemplates',
-  ]
-
-  for (const [index, name] of functions.entries()) {
-    const marker = `function ${name}(`
-    const start = source.indexOf(marker)
-    if (start === -1) {
-      violation(path, `missing template function: ${name}`)
-      continue
-    }
-
-    const nextStart = functions
-      .slice(index + 1)
-      .map((nextName) => source.indexOf(`function ${nextName}(`, start + marker.length))
-      .filter((position) => position !== -1)
-      .sort((a, b) => a - b)[0]
-    const template = source.slice(start, nextStart ?? source.length)
-    requireText(path, template, `id="${EXPECTED_SELECTOR}"`, `${name} canonical mount id`)
+    requireMount(
+      path,
+      source.slice(start, end === -1 ? source.length : end),
+      `${framework} snippet`,
+    )
   }
 }
 
 async function main(): Promise<void> {
-  const runtimePath = 'embed/src/main.tsx'
-  const runtime = await readSource(runtimePath)
+  const runtimePath = 'embed/src/mount.tsx'
+  // The runtime is the one place that still claims the legacy markup.
+  const runtime = await readSource(runtimePath, true)
   if (runtime) {
     requireText(
       runtimePath,
       runtime,
-      `export const EMBED_MOUNT_ID = '${EXPECTED_SELECTOR}'`,
-      'exported mount id',
-    )
-    requireText(
-      runtimePath,
-      runtime,
-      'document.getElementById(EMBED_MOUNT_ID)',
-      'runtime mount lookup',
-    )
-    requireText(
-      runtimePath,
-      runtime,
-      ['#', '$', '{EMBED_MOUNT_ID}'].join(''),
-      'runtime mount id in error',
+      `export const AUTO_MOUNT_SELECTOR = ${RUNTIME_SELECTOR}`,
+      'auto-mount selector',
     )
   }
 
   const harnessPath = 'embed/index.html'
   const harness = await readSource(harnessPath)
-  if (harness) checkSelectorMarkup(harnessPath, harness)
+  if (harness) requireText(harnessPath, harness, MOUNT_ATTRIBUTE, 'mount attribute')
 
   const dashboardPath = 'apps/dashboard/src/components/EmbedCodeGenerator.tsx'
   const dashboard = await readSource(dashboardPath)
   if (dashboard) checkDashboardBranches(dashboardPath, dashboard)
 
-  for (const path of [
-    'packages/create-quipthread/src/templates.ts',
-    'packages/create-quipthread/src/templates/widget.ts',
-  ]) {
-    const source = await readSource(path)
-    if (source) checkTemplateFunctions(path, source)
+  const templatesPath = 'packages/create-quipthread/src/templates/widget.ts'
+  const templates = await readSource(templatesPath)
+  if (templates) {
+    requireText(templatesPath, templates, MOUNT_ATTRIBUTE, 'mount attribute (vanilla, Astro)')
+    requireText(templatesPath, templates, MOUNT_API, 'mount API (Next.js, Vue, Nuxt)')
   }
 
   for (const path of [
@@ -134,7 +114,12 @@ async function main(): Promise<void> {
     'apps/website/src/content/docs/guides/self-hosting.mdx',
   ]) {
     const source = await readSource(path)
-    if (source) checkSelectorMarkup(path, source)
+    if (source) requireText(path, source, MOUNT_ATTRIBUTE, 'mount attribute')
+  }
+
+  for (const path of ['backend/handlers/embed_preview.go', 'backend/main.go']) {
+    const source = await readSource(path)
+    if (source) requireText(path, source, MOUNT_ATTRIBUTE, 'mount attribute')
   }
 
   if (violations.length > 0) {
@@ -145,7 +130,7 @@ async function main(): Promise<void> {
     return
   }
 
-  console.log(`[embed-selector] ${EXPECTED_SELECTOR} contract verified`)
+  console.log(`[embed-selector] ${MOUNT_ATTRIBUTE} contract verified`)
 }
 
 await main()

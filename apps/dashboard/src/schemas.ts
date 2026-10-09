@@ -4,7 +4,7 @@ import { z } from 'zod'
 // Core entities
 // ---------------------------------------------------------------------------
 
-export const UserSchema = z.object({
+const UserSchema = z.object({
   id: z.string(),
   display_name: z.string(),
   email: z.string().default(''),
@@ -16,7 +16,7 @@ export const UserSchema = z.object({
 })
 export type User = z.infer<typeof UserSchema>
 
-export const CommentSchema = z.object({
+const CommentSchema = z.object({
   id: z.string(),
   site_id: z.string(),
   page_id: z.string(),
@@ -86,11 +86,13 @@ export type SecuritySettings = z.infer<typeof SecuritySettingsSchema>
 // plan includes 'enterprise' and 'selfhosted' which the existing types.ts was missing.
 export const BillingStatusSchema = z.object({
   plan: z.enum(['hobby', 'starter', 'pro', 'business', 'enterprise', 'selfhosted']),
-  status: z.enum(['active', 'trialing', 'past_due', 'canceled', '']),
+  status: z.enum(['active', 'trialing', 'past_due', 'incomplete', 'paused', 'canceled', '']),
   trial_ends_at: z.string().nullable(),
   current_period_end: z.string().nullable(),
+  cancel_at: z.string().nullable().default(null),
   interval: z.string(),
   trial_eligible: z.boolean().default(false),
+  has_subscription: z.boolean().default(false),
   comments_this_month: z.number(),
   comments_limit: z.number(),
   sites_count: z.number(),
@@ -104,14 +106,13 @@ export const ImportResultSchema = z.object({
 })
 export type ImportResult = z.infer<typeof ImportResultSchema>
 
-export const ColumnInfoSchema = z.object({
+const ColumnInfoSchema = z.object({
   name: z.string(),
   type: z.string(),
   samples: z.array(z.string()),
 })
-export type ColumnInfo = z.infer<typeof ColumnInfoSchema>
 
-export const TableInfoSchema = z.object({
+const TableInfoSchema = z.object({
   name: z.string(),
   columns: z.array(ColumnInfoSchema),
 })
@@ -121,27 +122,21 @@ export type TableInfo = z.infer<typeof TableInfoSchema>
 // Analytics
 // ---------------------------------------------------------------------------
 
-export const VolumePointSchema = z.object({ date: z.string(), count: z.number() })
-export type VolumePoint = z.infer<typeof VolumePointSchema>
+const VolumePointSchema = z.object({ date: z.string(), count: z.number() })
 
-export const PageStatSchema = z.object({
+const PageStatSchema = z.object({
   page_id: z.string(),
   page_title: z.string(),
   count: z.number(),
 })
-export type PageStat = z.infer<typeof PageStatSchema>
 
-export const CommenterStatSchema = z.object({ display_name: z.string(), count: z.number() })
-export type CommenterStat = z.infer<typeof CommenterStatSchema>
+const CommenterStatSchema = z.object({ display_name: z.string(), count: z.number() })
 
-export const StatusStatSchema = z.object({ status: z.string(), count: z.number() })
-export type StatusStat = z.infer<typeof StatusStatSchema>
+const StatusStatSchema = z.object({ status: z.string(), count: z.number() })
 
-export const PeakHourStatSchema = z.object({ hour: z.number(), count: z.number() })
-export type PeakHourStat = z.infer<typeof PeakHourStatSchema>
+const PeakHourStatSchema = z.object({ hour: z.number(), count: z.number() })
 
-export const PeakDayStatSchema = z.object({ day: z.number(), count: z.number() })
-export type PeakDayStat = z.infer<typeof PeakDayStatSchema>
+const PeakDayStatSchema = z.object({ day: z.number(), count: z.number() })
 
 export const AnalyticsDataSchema = z.object({
   volume: z.array(VolumePointSchema),
@@ -162,6 +157,7 @@ export const MeResponseSchema = z.object({
   id: z.string(),
   display_name: z.string(),
   role: z.string(),
+  is_team_member: z.boolean().default(false),
 })
 
 export const CommentListResponseSchema = z.object({

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { createComment } from './api'
-import { Editor, type EditorRef } from './Editor'
+import { createComment, UnauthorizedError } from './api'
+import type { EditorRef } from './Editor'
 import type { useTranslations } from './i18n'
+import { LazyEditor } from './LazyEditor'
 import type { Comment, CreateCommentInput } from './types'
 
 interface CommentFormProps {
@@ -14,6 +15,7 @@ interface CommentFormProps {
   t: ReturnType<typeof useTranslations>
   onSuccess: (comment: Comment) => void
   onCancel?: () => void
+  onSessionExpired?: () => void
   turnstileSiteKey?: string
 }
 
@@ -31,6 +33,7 @@ export function CommentForm({
   t,
   onSuccess,
   onCancel,
+  onSessionExpired,
   turnstileSiteKey,
 }: CommentFormProps) {
   const editorRef = useRef<EditorRef>(null)
@@ -128,6 +131,12 @@ export function CommentForm({
         onSuccess(comment)
       }
     } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        // The draft stays in localStorage for after the reader signs in again.
+        setError(t.sessionExpired)
+        onSessionExpired?.()
+        return
+      }
       setError(err instanceof Error ? err.message : t.submitError)
     } finally {
       setSubmitting(false)
@@ -140,12 +149,15 @@ export function CommentForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <Editor
+      <LazyEditor
         ref={editorRef}
         placeholder={placeholder ?? t.leaveComment}
         initialContent={initialContent}
         onChange={handleChange}
         disabled={submitting}
+        // A reply form was opened on purpose; the main form waits for intent.
+        loadNow={Boolean(parentId)}
+        loadErrorText={t.editorLoadError}
       />
       {error && <p className="qt-error">{error}</p>}
       {turnstileSiteKey && (

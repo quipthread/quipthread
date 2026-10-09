@@ -21,6 +21,10 @@ const strings = {
     deleteComment: 'Delete',
     flag: 'Flag',
     flagged: 'Flagged',
+    sessionExpired: 'Your session expired. Please sign in again.',
+    authFailed: 'Sign-in did not complete. Please try again.',
+    authBanned: 'This account cannot comment on this site.',
+    editorLoadError: 'The editor could not load. Reload the page to try again.',
   },
 } as const
 

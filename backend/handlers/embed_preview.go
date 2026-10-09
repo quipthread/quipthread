@@ -56,14 +56,14 @@ const embedPreviewHTML = `<!DOCTYPE html>
 <body>
   <div class="preview-banner">Preview mode — commenting is disabled.</div>
   <div class="preview-content">
-    <div id="comments" data-site-id="%s" data-page-id="__preview__"></div>
+    <div id="qt-preview" data-quipthread data-site-id="%s" data-page-id="__preview__"></div>
   </div>
   <script src="/embed.js"></script>
   <script>
     window.addEventListener('message', function(e) {
       if (e.origin !== window.location.origin) return;
       if (!e.data || e.data.type !== 'qt:theme') return;
-      var c = document.getElementById('comments');
+      var c = document.getElementById('qt-preview');
       if (c) c.dataset.theme = e.data.theme;
     });
   </script>

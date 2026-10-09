@@ -1,4 +1,4 @@
-import { getApiBase } from './api'
+import { loginUrl } from './api'
 import type { useTranslations } from './i18n'
 
 const GitHubIcon = () => (
@@ -29,16 +29,16 @@ const GoogleIcon = () => (
 )
 
 interface AuthModalProps {
+  siteId: string
   t: ReturnType<typeof useTranslations>
   onClose: () => void
 }
 
-export function AuthModal({ t, onClose }: AuthModalProps) {
-  const apiBase = getApiBase()
-  const returnTo = encodeURIComponent(window.location.href)
-
-  const githubUrl = `${apiBase}/auth/github/login?audience=embed&returnTo=${returnTo}`
-  const googleUrl = `${apiBase}/auth/google/login?audience=embed&returnTo=${returnTo}`
+export function AuthModal({ siteId, t, onClose }: AuthModalProps) {
+  // Sign-in is a full-page redirect: the provider returns to this page with
+  // the session in the URL fragment. Drafts persist in localStorage.
+  const githubUrl = loginUrl('github', siteId)
+  const googleUrl = loginUrl('google', siteId)
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose()
