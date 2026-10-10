@@ -21,6 +21,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	//
 	// frame-ancestors 'self': allows the dashboard to iframe its own embed
 	// preview (/embed-preview) while blocking third-party framing.
+	//
+	// Permissions-Policy turns off browser features the app never uses, so an
+	// injected script cannot request them either.
 	const csp = "default-src 'self'; " +
 		"script-src 'self' 'unsafe-inline'; " +
 		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -31,11 +34,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		"base-uri 'self'; " +
 		"form-action 'self'"
 
+	const permissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy", csp)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Permissions-Policy", permissionsPolicy)
 		next.ServeHTTP(w, r)
 	})
 }

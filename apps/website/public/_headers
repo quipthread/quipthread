@@ -1,0 +1,11 @@
+# Cloudflare Pages response headers for quipthread.com.
+#
+# script-src: 'unsafe-inline' for the theme bootstrap and Starlight's inline
+# scripts; 'wasm-unsafe-eval' for Pagefind search (WebAssembly); Cloudflare Web
+# Analytics in case it is enabled. Cloudflare's email-obfuscation script is
+# served from /cdn-cgi/ on this origin.
+# style-src: Starlight and Expressive Code emit inline styles; Google Fonts CSS.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  X-Frame-Options: DENY
