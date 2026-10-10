@@ -23,8 +23,6 @@ on:
 jobs:
   frontend:
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    env:
-      PUBLIC_BUILD_TARGET: selfhosted
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -50,11 +48,15 @@ jobs:
         run: bun run --cwd packages/plans test
       - name: Build frontend
         run: bun run build
+        env:
+          PUBLIC_BUILD_TARGET: selfhosted
       - name: Type-check website (astro check)
         run: bun run --cwd apps/website check
       - name: Type-check dashboard (astro check)
         run: bunx astro check
         working-directory: apps/dashboard
+        env:
+          PUBLIC_BUILD_TARGET: selfhosted
 
   go:
     runs-on: blacksmith-2vcpu-ubuntu-2404
