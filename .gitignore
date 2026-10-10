@@ -28,13 +28,15 @@ output/
 # macOS
 .DS_Store
 
-# Claude
-.claude/
+# Claude: local settings and agent worktrees stay ignored; the private
+# project docs (*.md and runbooks/) are tracked. .claude/ is excluded from the
+# public sync (deploy/public-sync-excludes.txt).
+.claude/*
+!.claude/*.md
+!.claude/runbooks/
 
-# Local agent evidence and deepwork state
+# Local agent evidence
 .omo/
-.slim/deepwork/
-/PRODUCTION_ROADMAP.md
 
 # IDE
 .idea/

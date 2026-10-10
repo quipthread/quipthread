@@ -33,7 +33,7 @@ Keep a copy of your `.env`, deployment files, and the image version with the bac
 
 ## Restore a database
 
-Follow the [step-by-step restore procedure](https://github.com/quipthread/quipthread/blob/main/docs/runbooks/self-hosted-restore.md). It stops the app, restores to a separate file, checks database integrity, and preserves the previous database before switching over.
+Follow [Restore a backup](/docs/guides/restore/). It stops the app, restores to a separate file, checks database integrity, and preserves the previous database before switching over.
 
 Do not delete the live database simply to trigger automatic restore. Validate a separate restored copy first. A rollback may require both the previous image and its matching database backup.
 

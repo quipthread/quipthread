@@ -1,0 +1,169 @@
+---
+title: Restore a backup
+description: Restore a self-hosted SQLite database from its Litestream replica, safely and step by step.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This procedure restores your database from the Litestream replica set up in [Backups and restore](/docs/guides/backups/). It restores into a separate file first and checks it, so your live database is only replaced once the restored copy is known to be good.
+
+The commands use the `app` service from the [Docker Compose example](/docs/guides/docker/#2-start-quipthread), which keeps the database in the `/data` volume. If you added the HTTPS file, include both `-f` options in every `docker compose` command.
+
+## Before you start
+
+- Note the current image version and keep a copy of your `.env` and compose files.
+- Have your real `LITESTREAM_REPLICA_URL`, `LITESTREAM_ACCESS_KEY_ID`, and `LITESTREAM_SECRET_ACCESS_KEY` at hand.
+- Check that the server has free space for the restored database plus a copy of the current one.
+- Use an image that packages Litestream v0.3.14, as Quipthread images up to and including 0.2.0 do. Check with `docker compose run --rm --no-deps --entrypoint litestream app version`.
+
+Set the paths and credentials for this attempt in your shell. Use a new target name each time:
+
+```bash
+export LIVE_DB="${DATABASE_URL:-/data/db.sqlite}"
+export RESTORE_TARGET="/data/db.sqlite.restore-$(date -u +%Y%m%dT%H%M%SZ)"
+export LITESTREAM_REPLICA_URL='s3://REAL-BUCKET/quipthread/db.sqlite'
+export LITESTREAM_ACCESS_KEY_ID='REAL-ACCESS-KEY'
+export LITESTREAM_SECRET_ACCESS_KEY='REAL-SECRET-KEY'
+```
+
+<Aside type="caution">
+  Keep these credentials out of shell history and out of any file you commit. A leading space before the command keeps it out of history in most shells.
+</Aside>
+
+## 1. Stop the app and find a restore point
+
+Stop Quipthread before touching its volume. If your reverse proxy shows a maintenance page, make sure it no longer routes requests to the app.
+
+```bash
+docker compose stop app
+docker compose ps app
+```
+
+List the backups the replica holds. This step only reads the replica; it does not write anything:
+
+```bash
+test -n "${LITESTREAM_REPLICA_URL:?set the real replica URL first}"
+test -n "${LITESTREAM_ACCESS_KEY_ID:?set the real access key first}"
+test -n "${LITESTREAM_SECRET_ACCESS_KEY:?set the real secret key first}"
+case "${RESTORE_TARGET}" in
+  /data/db.sqlite.restore-*) ;;
+  *) echo 'RESTORE_TARGET must be a separate /data/db.sqlite.restore-* path' >&2; exit 1 ;;
+esac
+docker compose run --rm --no-deps --entrypoint sh \
+  --env LITESTREAM_REPLICA_URL \
+  --env LITESTREAM_ACCESS_KEY_ID \
+  --env LITESTREAM_SECRET_ACCESS_KEY \
+  --env LIVE_DB \
+  --env RESTORE_TARGET \
+  app -ec '
+    set -eu
+    case "${RESTORE_TARGET}" in
+      /data/db.sqlite.restore-*) ;;
+      *) echo "RESTORE_TARGET must be a separate /data/db.sqlite.restore-* path" >&2; exit 1 ;;
+    esac
+    test ! -e "${RESTORE_TARGET}"
+    cat > /tmp/litestream-restore.yml <<EOF
+dbs:
+  - path: ${LIVE_DB}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+EOF
+    litestream generations -config /tmp/litestream-restore.yml "${LIVE_DB}"
+    litestream snapshots -config /tmp/litestream-restore.yml "${LIVE_DB}"
+  '
+```
+
+If this fails, stop here. Fix the replica URL or credentials before going further, and do not start the app or replace its database.
+
+## 2. Restore into a separate file and check it
+
+Restore the latest backup into the separate target and check its integrity:
+
+```bash
+docker compose run --rm --no-deps --entrypoint sh \
+  --env LITESTREAM_REPLICA_URL \
+  --env LITESTREAM_ACCESS_KEY_ID \
+  --env LITESTREAM_SECRET_ACCESS_KEY \
+  --env LIVE_DB \
+  --env RESTORE_TARGET \
+  app -ec '
+    set -eu
+cat > /tmp/litestream-restore.yml <<EOF
+dbs:
+  - path: ${LIVE_DB}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+EOF
+    test ! -e "${RESTORE_TARGET}"
+    litestream restore \
+      -config /tmp/litestream-restore.yml \
+      -if-db-not-exists \
+      -if-replica-exists \
+      -o "${RESTORE_TARGET}" \
+      "${LIVE_DB}"
+    test -s "${RESTORE_TARGET}"
+    integrity_result="$(sqlite3 "${RESTORE_TARGET}" 'PRAGMA integrity_check;')"
+    test "${integrity_result}" = ok
+  '
+```
+
+The command succeeds only if the restored file exists, is not empty, and passes SQLite's integrity check. If the replica turns out to be empty, the restore writes nothing, so the empty-file check fails; that is deliberate, because an empty replica is not a restore.
+
+If the check fails, move the bad file and its `-wal`/`-shm` files aside before trying again:
+
+```bash
+docker compose run --rm --no-deps --entrypoint sh \
+  --env RESTORE_TARGET \
+  app -ec '
+    quarantine="${RESTORE_TARGET}.integrity-failed-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    if [ -e "${RESTORE_TARGET}" ]; then mv "${RESTORE_TARGET}" "${quarantine}"; fi
+    for suffix in -wal -shm; do
+      if [ -e "${RESTORE_TARGET}${suffix}" ]; then
+        mv "${RESTORE_TARGET}${suffix}" "${quarantine}${suffix}"
+      fi
+    done
+  '
+```
+
+When the check passes, look at a few comments or sites you know should be there before going on.
+
+## 3. Replace the live database
+
+Keep the app stopped. This keeps a copy of the current database and moves the restored file into its place:
+
+```bash
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP_DB="${LIVE_DB}.pre-restore-${STAMP}"
+
+docker compose run --rm --no-deps --entrypoint sh app -ec '
+  cp -p "$1" "$2"
+  for suffix in -wal -shm; do
+    if [ -e "${1}${suffix}" ]; then
+      mv "${1}${suffix}" "${2}${suffix}"
+    fi
+  done
+  mv "$3" "$1"
+' sh "${LIVE_DB}" "${BACKUP_DB}" "${RESTORE_TARGET}"
+```
+
+The old database's `-wal` and `-shm` files move with its copy. Never leave them next to the restored database, and never copy them from one database to another.
+
+Keep the `.pre-restore-` copy until you have confirmed everything works and no longer need a way back.
+
+## 4. Start and check
+
+```bash
+docker compose up -d app
+docker compose logs --since=2m app
+curl --fail --silent http://127.0.0.1:8080/health
+```
+
+Check the logs, sign in to the dashboard, and open a few pages with comments before sending traffic back to the site.
+
+<Aside>
+  If the database file is missing when the container starts, its startup script restores from the replica automatically and checks the result. A restored database that fails the check is moved aside and the app does not start. Do not delete the live database just to trigger that; use the steps above instead.
+</Aside>

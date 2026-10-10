@@ -95,6 +95,7 @@ export default defineConfig({
             { label: 'Email sign-in', slug: 'docs/guides/email-auth' },
             { label: 'Notifications', slug: 'docs/guides/notifications' },
             { label: 'Backups and restore', slug: 'docs/guides/backups' },
+            { label: 'Restore a backup', slug: 'docs/guides/restore' },
             { label: 'Build from source', slug: 'docs/guides/self-hosting' },
           ],
         },
