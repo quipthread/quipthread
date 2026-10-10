@@ -1,3 +1,5 @@
+# Public repository CI for the CLI. Maintained in the private repository and
+# copied to .github/workflows/ci-cli.yml by the public sync; edit it there.
 name: CI (CLI)
 
 on:
@@ -5,17 +7,27 @@ on:
     branches: [main]
     paths:
       - "packages/create-quipthread/**"
+      - ".github/workflows/ci-cli.yml"
   pull_request:
     paths:
       - "packages/create-quipthread/**"
+      - ".github/workflows/ci-cli.yml"
 
 jobs:
   cli:
-    runs-on: blacksmith-2vcpu-ubuntu-2404 # blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Type-check CLI
+        working-directory: packages/create-quipthread
+        run: bun run check
       - name: Build CLI
         working-directory: packages/create-quipthread
         run: bun run build

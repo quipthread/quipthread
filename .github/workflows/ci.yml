@@ -1,25 +1,69 @@
+# Public repository CI. Maintained in the private repository and copied to
+# .github/workflows/ci.yml by the public sync; edit it there, not here.
 name: CI
 
 on:
   push:
     branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/workflows/ci.yml"
   pull_request:
     paths:
       - "backend/**"
+      - "apps/**"
+      - "embed/**"
+      - "packages/**"
+      - "tools/**"
+      - "deploy/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "biome.json"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/ci.yml"
 
 jobs:
+  frontend:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    env:
+      PUBLIC_BUILD_TARGET: selfhosted
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Check embed selector contract
+        run: bun run check:embed-selector
+      - name: Lint (Biome)
+        run: bun run check
+      - name: Test dashboard
+        run: bun test tests
+        working-directory: apps/dashboard
+      - name: Type-check comment widget
+        run: bunx tsc --noEmit --project embed/tsconfig.json
+      - name: Test comment widget
+        run: bun run --cwd embed test
+      - name: Test plan catalog
+        run: bun run --cwd packages/plans test
+      - name: Build frontend
+        run: bun run build
+      - name: Type-check website (astro check)
+        run: bun run --cwd apps/website check
+      - name: Type-check dashboard (astro check)
+        run: bunx astro check
+        working-directory: apps/dashboard
+
   go:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -43,8 +87,29 @@ jobs:
           echo "ATLAS_TEST_ATLAS_PATH=$tmp" >> "$GITHUB_ENV"
       - run: go build ./...
       - run: go build -tags=selfhosted ./...
+      - run: go vet ./...
       - run: go vet -tags=selfhosted ./...
       - run: go test ./...
+      - run: CGO_ENABLED=0 go test -tags=selfhosted ./...
+      - run: |
+          mkdir -p static/dashboard static/widget
+          touch static/dashboard/index.html static/widget/embed.js
+          CGO_ENABLED=0 GOOS=linux go build -tags=selfhosted,production ./...
+      - name: Set up Blacksmith Docker builder
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: Dockerfile
+      - name: Build self-hosted image
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile
+          tags: quipthread-selfhosted-ci
+          load: true
+          push: false
+      - name: Test self-hosted image startup and database guards
+        working-directory: .
+        run: ./deploy/test-selfhosted-container.sh quipthread-selfhosted-ci
       - uses: golangci/golangci-lint-action@v9
         with:
           working-directory: backend
